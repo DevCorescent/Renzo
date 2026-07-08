@@ -1,23 +1,30 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaNeon } from "@prisma/adapter-neon";
-import { Pool, neonConfig } from "@neondatabase/serverless";
+import { neonConfig } from "@neondatabase/serverless";
+// @ts-ignore — `ws` ships no bundled types and @types/ws isn't installed
+import ws from "ws";
 
 declare global {
   // eslint-disable-next-line no-var
   var prisma: PrismaClient | undefined;
 }
 
+// Prisma 7's client engine requires a driver adapter in EVERY runtime.
+// Neon's Pool driver speaks WebSocket — the edge runtime has WebSocket as a
+// global, but Node (local dev) must be handed one.
+if (!neonConfig.webSocketConstructor) {
+  neonConfig.webSocketConstructor = ws as unknown as typeof WebSocket;
+}
+
 function createPrismaClient() {
-  if (process.env.NODE_ENV === "production") {
-    // Edge/serverless: use Neon HTTP driver
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
-    const adapter = new PrismaNeon(pool);
-    return new PrismaClient({ adapter } as any);
-  }
-  // Development: use standard TCP connection via pg
+  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
   return new PrismaClient({
-    log: ["query", "error", "warn"],
-  });
+    adapter,
+    log:
+      process.env.NODE_ENV === "production"
+        ? ["error"]
+        : ["query", "error", "warn"],
+  } as any);
 }
 
 // Prevent multiple Prisma instances in dev due to hot reloading
