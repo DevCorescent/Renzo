@@ -1,6 +1,15 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaNeon } from "@prisma/adapter-neon";
-import { Pool, neonConfig } from "@neondatabase/serverless";
+import { neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
+
+// The datasource URL lives in prisma.config.ts, not schema.prisma, so the
+// client must be constructed with a driver adapter to know how to connect.
+// Neon's serverless driver needs a WebSocket implementation when running
+// outside an edge runtime (i.e. the Node.js route handlers this file serves).
+if (typeof globalThis.WebSocket === "undefined") {
+  neonConfig.webSocketConstructor = ws;
+}
 
 declare global {
   // eslint-disable-next-line no-var
@@ -8,15 +17,10 @@ declare global {
 }
 
 function createPrismaClient() {
-  if (process.env.NODE_ENV === "production") {
-    // Edge/serverless: use Neon HTTP driver
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
-    const adapter = new PrismaNeon(pool);
-    return new PrismaClient({ adapter } as any);
-  }
-  // Development: use standard TCP connection via pg
+  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
   return new PrismaClient({
-    log: ["query", "error", "warn"],
+    adapter,
+    log: process.env.NODE_ENV === "production" ? ["error"] : ["query", "error", "warn"],
   });
 }
 
