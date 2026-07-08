@@ -1,0 +1,2144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────
+
+enum UserType {
+  SUPER_ADMIN
+  OWNER
+  BRANCH_ADMIN
+  RECEPTIONIST
+  WORKER
+  INVENTORY_MANAGER
+  MARKETING_MANAGER
+  ACCOUNTANT
+  CUSTOMER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  UNISEX
+}
+
+enum OtpPurpose {
+  LOGIN
+  SIGNUP
+  FORGOT_PASSWORD
+  PHONE_VERIFY
+  EMAIL_VERIFY
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  STARTED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum BookingSource {
+  ONLINE
+  WALK_IN
+  PHONE
+  WHATSAPP
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  ONLINE
+  WALLET
+  GIFT_CARD
+  LOYALTY_POINTS
+  MEMBERSHIP
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  REFUNDED
+  CANCELLED
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  LATE
+  ON_LEAVE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum CommissionType {
+  FIXED
+  PERCENTAGE
+  SERVICE_WISE
+}
+
+enum RescheduleStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
+}
+
+enum MembershipTier {
+  SILVER
+  GOLD
+  PLATINUM
+  CUSTOM
+}
+
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+  FROZEN
+  CANCELLED
+}
+
+enum LoyaltyTier {
+  BRONZE
+  SILVER
+  GOLD
+  DIAMOND
+}
+
+enum LoyaltyTransactionType {
+  EARNED
+  REDEEMED
+  EXPIRED
+  ADJUSTED
+  REFERRAL_BONUS
+}
+
+enum GiftCardType {
+  DIGITAL
+  PHYSICAL
+}
+
+enum GiftCardStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+  CANCELLED
+}
+
+enum CouponType {
+  FLAT
+  PERCENTAGE
+}
+
+enum CouponApplicableTo {
+  ALL
+  SPECIFIC_SERVICE
+  SPECIFIC_CATEGORY
+  SPECIFIC_BRANCH
+  FIRST_BOOKING
+}
+
+enum OfferType {
+  SEASONAL
+  FIRST_BOOKING
+  MEMBERSHIP
+  FLASH
+  REFERRAL
+}
+
+enum CampaignChannel {
+  WHATSAPP
+  SMS
+  EMAIL
+  PUSH
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum PortfolioCategory {
+  HAIR
+  MAKEUP
+  NAILS
+  SPA
+  SKIN
+  GROOMING
+  OTHER
+}
+
+enum StockMovementType {
+  PURCHASE_IN
+  SERVICE_USE
+  RETAIL_SALE
+  TRANSFER_IN
+  TRANSFER_OUT
+  DAMAGE
+  EXPIRY
+  ADJUSTMENT
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  RECEIVED
+  PARTIAL
+  CANCELLED
+}
+
+enum StockTransferStatus {
+  PENDING
+  IN_TRANSIT
+  RECEIVED
+  CANCELLED
+}
+
+enum WaitingListStatus {
+  WAITING
+  NOTIFIED
+  BOOKED
+  EXPIRED
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 1 — AUTHENTICATION
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  email        String?   @unique
+  phone        String?   @unique
+  passwordHash String?
+  userType     UserType
+  isActive     Boolean   @default(true)
+  isVerified   Boolean   @default(false)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions        Session[]
+  otpLogs         OtpLog[]
+  auditLogs       AuditLog[]
+  customerProfile Customer?
+  workerProfile   WorkerProfile?
+  staffProfile    StaffProfile?
+
+  @@index([email])
+  @@index([phone])
+  @@index([userType])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
+}
+
+model OtpLog {
+  id        String     @id @default(cuid())
+  userId    String?
+  phone     String?
+  email     String?
+  otp       String
+  purpose   OtpPurpose
+  isUsed    Boolean    @default(false)
+  attempts  Int        @default(0)
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([phone])
+  @@index([email])
+  @@map("otp_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 2 — BRANCHES
+// ─────────────────────────────────────────────────────────────
+
+model Branch {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  code        String   @unique
+  address     String
+  city        String
+  state       String
+  pincode     String
+  country     String   @default("India")
+  lat         Float?
+  lng         Float?
+  phone       String
+  email       String?
+  whatsapp    String?
+  mapUrl      String?
+  coverImage  String?
+  description String?
+  isActive    Boolean  @default(true)
+  isPublic    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  timings          BranchTiming[]
+  holidays         BranchHoliday[]
+  setting          BranchSetting?
+  workerBranches   WorkerBranch[]
+  staffProfiles    StaffProfile[]
+  appointments     Appointment[]
+  stocks           Stock[]
+  offers           Offer[]
+  reviews          Review[]
+  servicePricings  ServiceBranchPricing[]
+  purchaseOrders   PurchaseOrder[]
+  stockTransfersFrom StockTransfer[] @relation("TransferFrom")
+  stockTransfersTo   StockTransfer[] @relation("TransferTo")
+  workerShifts     WorkerShift[]
+  attendances      Attendance[]
+  payrolls         Payroll[]
+  performanceTargets PerformanceTarget[]
+  campaigns        Campaign[]
+  ratingSummaries  RatingSummary[]
+
+  @@index([slug])
+  @@index([isActive, isPublic])
+  @@map("branches")
+}
+
+model BranchTiming {
+  id           String  @id @default(cuid())
+  branchId     String
+  dayOfWeek    Int     // 0=Sunday … 6=Saturday
+  openTime     String  // "09:00"
+  closeTime    String  // "21:00"
+  isOpen       Boolean @default(true)
+  slotDuration Int     @default(30)
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, dayOfWeek])
+  @@map("branch_timings")
+}
+
+model BranchHoliday {
+  id        String   @id @default(cuid())
+  branchId  String
+  date      DateTime @db.Date
+  reason    String?
+  createdAt DateTime @default(now())
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([branchId, date])
+  @@map("branch_holidays")
+}
+
+model BranchSetting {
+  id                     String  @id @default(cuid())
+  branchId               String  @unique
+  currency               String  @default("INR")
+  currencySymbol         String  @default("₹")
+  taxPercent             Float   @default(18)
+  taxName                String  @default("GST")
+  taxNumber              String?
+  advanceBookingDays     Int     @default(30)
+  minAdvanceBookingHours Int     @default(1)
+  maxBookingsPerSlot     Int     @default(1)
+  cancellationHours      Int     @default(24)
+  cancellationChargeType String  @default("NONE") // NONE | FLAT | PERCENTAGE
+  cancellationCharge     Float   @default(0)
+  rescheduleHours        Int     @default(24)
+  autoConfirmBookings    Boolean @default(true)
+  requireDepositPercent  Float   @default(0)
+  loyaltyEnabled         Boolean @default(true)
+  membershipEnabled      Boolean @default(true)
+  onlinePaymentEnabled   Boolean @default(true)
+  offlinePaymentEnabled  Boolean @default(true)
+  invoicePrefix          String  @default("INV")
+  receiptPrefix          String  @default("RCP")
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@map("branch_settings")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 3 — SERVICES
+// ─────────────────────────────────────────────────────────────
+
+model ServiceCategory {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  image       String?
+  icon        String?
+  gender      Gender   @default(UNISEX)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subCategories ServiceSubCategory[]
+  services      Service[]
+
+  @@map("service_categories")
+}
+
+model ServiceSubCategory {
+  id          String   @id @default(cuid())
+  categoryId  String
+  name        String
+  slug        String   @unique
+  description String?
+  image       String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  category ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  services Service[]
+
+  @@index([categoryId])
+  @@map("service_sub_categories")
+}
+
+model Service {
+  id            String   @id @default(cuid())
+  categoryId    String
+  subCategoryId String?
+  name          String
+  slug          String   @unique
+  description   String?
+  image         String?
+  basePrice     Float
+  duration      Int      // minutes
+  bufferTime    Int      @default(0)
+  gender        Gender   @default(UNISEX)
+  taxPercent    Float    @default(18)
+  isActive      Boolean  @default(true)
+  isPopular     Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category        ServiceCategory     @relation(fields: [categoryId], references: [id])
+  subCategory     ServiceSubCategory? @relation(fields: [subCategoryId], references: [id])
+  variants        ServiceVariant[]
+  branchPricings  ServiceBranchPricing[]
+  workerServices  WorkerService[]
+  packageServices PackageService[]
+  serviceAddOns   ServiceAddOn[]
+  requiredProducts ServiceProduct[]
+  appointmentServices AppointmentService[]
+  ratingSummary   RatingSummary?
+
+  @@index([categoryId])
+  @@index([isActive, isPopular])
+  @@map("services")
+}
+
+model ServiceVariant {
+  id          String   @id @default(cuid())
+  serviceId   String
+  name        String   // Basic, Premium, Luxury
+  price       Float
+  duration    Int
+  description String?
+  isActive    Boolean  @default(true)
+
+  service             Service              @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  appointmentServices AppointmentService[]
+
+  @@index([serviceId])
+  @@map("service_variants")
+}
+
+model ServiceBranchPricing {
+  id        String  @id @default(cuid())
+  serviceId String
+  branchId  String
+  price     Float
+  isActive  Boolean @default(true)
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, branchId])
+  @@map("service_branch_pricings")
+}
+
+model AddOn {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  duration    Int      @default(0)
+  image       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  serviceAddOns     ServiceAddOn[]
+  appointmentAddOns AppointmentAddOn[]
+
+  @@map("add_ons")
+}
+
+model ServiceAddOn {
+  id        String @id @default(cuid())
+  serviceId String
+  addOnId   String
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  addOn   AddOn   @relation(fields: [addOnId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, addOnId])
+  @@map("service_add_ons")
+}
+
+model Package {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  description   String?
+  image         String?
+  price         Float
+  originalPrice Float?
+  validityDays  Int?
+  gender        Gender   @default(UNISEX)
+  isActive      Boolean  @default(true)
+  isPopular     Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  services     PackageService[]
+  appointments AppointmentPackage[]
+
+  @@map("packages")
+}
+
+model PackageService {
+  id        String @id @default(cuid())
+  packageId String
+  serviceId String
+  quantity  Int    @default(1)
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@unique([packageId, serviceId])
+  @@map("package_services")
+}
+
+// Maps which products get consumed when a service is performed
+model ServiceProduct {
+  id        String @id @default(cuid())
+  serviceId String
+  productId String
+  quantity  Float
+  unit      String @default("ml")
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([serviceId, productId])
+  @@map("service_products")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 4 — WORKERS
+// ─────────────────────────────────────────────────────────────
+
+model Department {
+  id       String @id @default(cuid())
+  name     String @unique
+  isActive Boolean @default(true)
+
+  workers WorkerProfile[]
+
+  @@map("departments")
+}
+
+model Designation {
+  id       String @id @default(cuid())
+  name     String @unique
+  level    Int    @default(1) // 1=Junior, 2=Senior, 3=Expert, 4=Master
+  isActive Boolean @default(true)
+
+  workers WorkerProfile[]
+
+  @@map("designations")
+}
+
+model Skill {
+  id       String @id @default(cuid())
+  name     String @unique
+  isActive Boolean @default(true)
+
+  workerSkills WorkerSkill[]
+
+  @@map("skills")
+}
+
+model WorkerProfile {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  departmentId   String?
+  designationId  String?
+  employeeCode   String    @unique
+  firstName      String
+  lastName       String
+  displayName    String?
+  bio            String?
+  profilePhoto   String?
+  phone          String?
+  email          String?
+  dateOfBirth    DateTime?
+  gender         Gender
+  experience     Int       @default(0)
+  languages      String[]  @default([])
+  certificates   String[]  @default([])
+  isPublic       Boolean   @default(false)
+  isActive       Boolean   @default(true)
+  joinDate       DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user             User             @relation(fields: [userId], references: [id])
+  department       Department?      @relation(fields: [departmentId], references: [id])
+  designation      Designation?     @relation(fields: [designationId], references: [id])
+  skills           WorkerSkill[]
+  branches         WorkerBranch[]
+  services         WorkerService[]
+  portfolios       WorkerPortfolio[]
+  shifts           WorkerShift[]
+  attendances      Attendance[]
+  leaves           Leave[]
+  leaveBalances    LeaveBalance[]
+  commissions      CommissionEntry[]
+  payrolls         Payroll[]
+  performanceTargets PerformanceTarget[]
+  appointments     Appointment[]
+  appointmentServices AppointmentService[]
+  rescheduleRequests RescheduleRequest[]
+  reviews          Review[]
+  ratingSummary    RatingSummary?
+  availability     WorkerAvailability[]
+
+  @@index([isPublic, isActive])
+  @@map("worker_profiles")
+}
+
+model WorkerSkill {
+  id          String @id @default(cuid())
+  workerId    String
+  skillId     String
+  proficiency Int    @default(3) // 1–5
+
+  worker WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  skill  Skill         @relation(fields: [skillId], references: [id])
+
+  @@unique([workerId, skillId])
+  @@map("worker_skills")
+}
+
+model WorkerBranch {
+  id        String   @id @default(cuid())
+  workerId  String
+  branchId  String
+  isPrimary Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  joinedAt  DateTime @default(now())
+
+  worker WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  branch Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([workerId, branchId])
+  @@map("worker_branches")
+}
+
+model WorkerService {
+  id        String  @id @default(cuid())
+  workerId  String
+  serviceId String
+  isActive  Boolean @default(true)
+
+  worker  WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  service Service       @relation(fields: [serviceId], references: [id])
+
+  @@unique([workerId, serviceId])
+  @@map("worker_services")
+}
+
+model WorkerPortfolio {
+  id          String            @id @default(cuid())
+  workerId    String
+  category    PortfolioCategory
+  title       String?
+  description String?
+  beforeImage String?
+  afterImage  String
+  isApproved  Boolean           @default(false)
+  approvedBy  String?
+  approvedAt  DateTime?
+  sortOrder   Int               @default(0)
+  createdAt   DateTime          @default(now())
+
+  worker WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([workerId, isApproved])
+  @@map("worker_portfolios")
+}
+
+// Blocks specific date/time ranges when worker is unavailable
+model WorkerAvailability {
+  id          String   @id @default(cuid())
+  workerId    String
+  branchId    String?
+  date        DateTime @db.Date
+  fromTime    String?  // null = full day
+  toTime      String?
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  worker WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([workerId, date])
+  @@map("worker_availability")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 5 — STAFF HR
+// ─────────────────────────────────────────────────────────────
+
+model Shift {
+  id          String   @id @default(cuid())
+  name        String
+  startTime   String   // "09:00"
+  endTime     String   // "18:00"
+  breakStart  String?
+  breakEnd    String?
+  workingDays Int[]    // [1,2,3,4,5] Mon–Fri
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  workerShifts WorkerShift[]
+
+  @@map("shifts")
+}
+
+model WorkerShift {
+  id        String    @id @default(cuid())
+  workerId  String
+  shiftId   String
+  branchId  String
+  startDate DateTime  @db.Date
+  endDate   DateTime? @db.Date
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  worker WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  shift  Shift         @relation(fields: [shiftId], references: [id])
+  branch Branch        @relation(fields: [branchId], references: [id])
+
+  @@index([workerId, isActive])
+  @@map("worker_shifts")
+}
+
+model Attendance {
+  id              String           @id @default(cuid())
+  workerId        String
+  branchId        String
+  date            DateTime         @db.Date
+  checkIn         DateTime?
+  checkOut        DateTime?
+  breakStart      DateTime?
+  breakEnd        DateTime?
+  status          AttendanceStatus @default(PRESENT)
+  lateMinutes     Int              @default(0)
+  overtimeMinutes Int              @default(0)
+  workingMinutes  Int              @default(0)
+  notes           String?
+  markedBy        String?
+
+  worker WorkerProfile @relation(fields: [workerId], references: [id])
+  branch Branch        @relation(fields: [branchId], references: [id])
+
+  @@unique([workerId, date])
+  @@index([branchId, date])
+  @@map("attendances")
+}
+
+model LeaveType {
+  id         String  @id @default(cuid())
+  name       String  // Casual, Sick, Emergency, Unpaid
+  code       String  @unique // CL, SL, EL, UL
+  isPaid     Boolean @default(true)
+  maxPerYear Int     @default(12)
+  isActive   Boolean @default(true)
+
+  leaves        Leave[]
+  leaveBalances LeaveBalance[]
+
+  @@map("leave_types")
+}
+
+model Leave {
+  id              String      @id @default(cuid())
+  workerId        String
+  leaveTypeId     String
+  startDate       DateTime    @db.Date
+  endDate         DateTime    @db.Date
+  days            Float
+  reason          String
+  status          LeaveStatus @default(PENDING)
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  worker    WorkerProfile @relation(fields: [workerId], references: [id])
+  leaveType LeaveType     @relation(fields: [leaveTypeId], references: [id])
+
+  @@index([workerId, status])
+  @@map("leaves")
+}
+
+model LeaveBalance {
+  id          String @id @default(cuid())
+  workerId    String
+  leaveTypeId String
+  year        Int
+  allocated   Float  @default(0)
+  used        Float  @default(0)
+  pending     Float  @default(0)
+  remaining   Float  @default(0)
+
+  worker    WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  leaveType LeaveType     @relation(fields: [leaveTypeId], references: [id])
+
+  @@unique([workerId, leaveTypeId, year])
+  @@map("leave_balances")
+}
+
+model CommissionRule {
+  id        String         @id @default(cuid())
+  workerId  String?        // null = global
+  serviceId String?
+  type      CommissionType
+  value     Float
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+
+  @@index([workerId])
+  @@map("commission_rules")
+}
+
+model CommissionEntry {
+  id               String         @id @default(cuid())
+  workerId         String
+  appointmentId    String?
+  invoiceId        String?
+  serviceId        String?
+  type             CommissionType
+  baseAmount       Float
+  commissionAmount Float
+  isPaid           Boolean        @default(false)
+  payrollId        String?
+  createdAt        DateTime       @default(now())
+
+  worker WorkerProfile @relation(fields: [workerId], references: [id])
+
+  @@index([workerId, isPaid])
+  @@map("commission_entries")
+}
+
+model Payroll {
+  id               String    @id @default(cuid())
+  workerId         String
+  branchId         String
+  month            Int
+  year             Int
+  presentDays      Int       @default(0)
+  absentDays       Int       @default(0)
+  halfDays         Int       @default(0)
+  lateDays         Int       @default(0)
+  overtimeHours    Float     @default(0)
+  baseSalary       Float
+  commissionAmount Float     @default(0)
+  incentiveAmount  Float     @default(0)
+  deductions       Float     @default(0)
+  netSalary        Float
+  isPaid           Boolean   @default(false)
+  paidAt           DateTime?
+  notes            String?
+  createdAt        DateTime  @default(now())
+
+  worker WorkerProfile @relation(fields: [workerId], references: [id])
+  branch Branch        @relation(fields: [branchId], references: [id])
+
+  @@unique([workerId, month, year])
+  @@map("payrolls")
+}
+
+model PerformanceTarget {
+  id               String @id @default(cuid())
+  workerId         String
+  branchId         String
+  month            Int
+  year             Int
+  revenueTarget    Float  @default(0)
+  bookingTarget    Int    @default(0)
+  achieved         Float  @default(0)
+  bookingsAchieved Int    @default(0)
+
+  worker WorkerProfile @relation(fields: [workerId], references: [id])
+  branch Branch        @relation(fields: [branchId], references: [id])
+
+  @@unique([workerId, month, year])
+  @@map("performance_targets")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 6 — CUSTOMERS
+// ─────────────────────────────────────────────────────────────
+
+model Customer {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  firstName    String
+  lastName     String?
+  phone        String?
+  email        String?
+  gender       Gender?
+  dateOfBirth  DateTime?
+  anniversary  DateTime?
+  profilePhoto String?
+  referralCode String    @unique @default(cuid())
+  referredBy   String?   // customerId
+  totalSpend   Float     @default(0)
+  totalVisits  Int       @default(0)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user           User                    @relation(fields: [userId], references: [id])
+  beautyProfile  CustomerBeautyProfile?
+  notes          CustomerNote[]
+  tagAssignments CustomerTagAssignment[]
+  appointments   Appointment[]
+  wallet         Wallet?
+  loyaltyAccount LoyaltyAccount?
+  memberships    CustomerMembership[]
+  reviews        Review[]
+  giftCards      GiftCard[]
+  referralsGiven Referral[]              @relation("Referrer")
+  couponUsages   CouponUsage[]
+  savedServices  SavedService[]
+  favoriteWorkers FavoriteWorker[]
+  documents      CustomerDocument[]
+
+  @@index([phone])
+  @@index([email])
+  @@index([referralCode])
+  @@map("customers")
+}
+
+model CustomerBeautyProfile {
+  id            String   @id @default(cuid())
+  customerId    String   @unique
+  hairType      String?  // Straight, Wavy, Curly, Coily
+  hairColor     String?
+  skinType      String?  // Oily, Dry, Combination, Normal, Sensitive
+  skinConcerns  String[] @default([])
+  nailPreferences String?
+  allergies     String?
+  medicalNotes  String?
+  preferences   String?
+  updatedAt     DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_beauty_profiles")
+}
+
+model CustomerNote {
+  id         String   @id @default(cuid())
+  customerId String
+  note       String
+  addedBy    String   // userId
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_notes")
+}
+
+model CustomerTag {
+  id    String  @id @default(cuid())
+  name  String  @unique // VIP, New, Regular, Inactive, High Spender
+  color String?
+
+  assignments CustomerTagAssignment[]
+
+  @@map("customer_tags")
+}
+
+model CustomerTagAssignment {
+  id         String   @id @default(cuid())
+  customerId String
+  tagId      String
+  assignedBy String?
+  assignedAt DateTime @default(now())
+
+  customer Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tag      CustomerTag @relation(fields: [tagId], references: [id])
+
+  @@unique([customerId, tagId])
+  @@map("customer_tag_assignments")
+}
+
+model FavoriteWorker {
+  id         String   @id @default(cuid())
+  customerId String
+  workerId   String
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, workerId])
+  @@map("favorite_workers")
+}
+
+model SavedService {
+  id         String   @id @default(cuid())
+  customerId String
+  serviceId  String
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, serviceId])
+  @@map("saved_services")
+}
+
+model CustomerDocument {
+  id         String   @id @default(cuid())
+  customerId String
+  name       String   // Consent Form, Before Photo, Medical Record
+  fileUrl    String
+  uploadedBy String
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_documents")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 7 — APPOINTMENTS
+// ─────────────────────────────────────────────────────────────
+
+model Appointment {
+  id               String            @id @default(cuid())
+  appointmentNo    String            @unique
+  customerId       String
+  branchId         String
+  workerId         String?
+  status           AppointmentStatus @default(PENDING)
+  source           BookingSource     @default(ONLINE)
+  appointmentDate  DateTime          @db.Date
+  startTime        String            // "10:00"
+  endTime          String            // "11:30"
+  totalDuration    Int               // minutes
+  chairCabinNo     String?
+  subtotal         Float             @default(0)
+  taxAmount        Float             @default(0)
+  discountAmount   Float             @default(0)
+  totalAmount      Float             @default(0)
+  paidAmount       Float             @default(0)
+  paymentStatus    PaymentStatus     @default(PENDING)
+  couponId         String?
+  notes            String?           // customer-facing notes
+  internalNotes    String?
+  checkedInAt      DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+  cancellationReason String?
+  isGroupBooking   Boolean           @default(false)
+  reminderSent     Boolean           @default(false)
+  reviewRequested  Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  customer            Customer              @relation(fields: [customerId], references: [id])
+  branch              Branch                @relation(fields: [branchId], references: [id])
+  worker              WorkerProfile?        @relation(fields: [workerId], references: [id])
+  services            AppointmentService[]
+  addOns              AppointmentAddOn[]
+  packages            AppointmentPackage[]
+  invoice             Invoice?
+  rescheduleRequests  RescheduleRequest[]
+  cancellationRecord  CancellationRecord?
+  reviews             Review[]
+  reminders           AppointmentReminder[]
+
+  @@index([customerId])
+  @@index([branchId, appointmentDate])
+  @@index([workerId, appointmentDate])
+  @@index([status])
+  @@map("appointments")
+}
+
+model AppointmentService {
+  id            String            @id @default(cuid())
+  appointmentId String
+  serviceId     String
+  variantId     String?
+  workerId      String?
+  price         Float
+  duration      Int
+  status        AppointmentStatus @default(PENDING)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  serviceNotes  String?
+  productsUsed  Json?             // [{ productId, quantity }]
+
+  appointment Appointment     @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  service     Service         @relation(fields: [serviceId], references: [id])
+  variant     ServiceVariant? @relation(fields: [variantId], references: [id])
+  worker      WorkerProfile?  @relation(fields: [workerId], references: [id])
+
+  @@index([appointmentId])
+  @@map("appointment_services")
+}
+
+model AppointmentAddOn {
+  id            String @id @default(cuid())
+  appointmentId String
+  addOnId       String
+  price         Float
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  addOn       AddOn       @relation(fields: [addOnId], references: [id])
+
+  @@map("appointment_add_ons")
+}
+
+model AppointmentPackage {
+  id            String @id @default(cuid())
+  appointmentId String
+  packageId     String
+  price         Float
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  package     Package     @relation(fields: [packageId], references: [id])
+
+  @@map("appointment_packages")
+}
+
+model AppointmentReminder {
+  id            String   @id @default(cuid())
+  appointmentId String
+  channel       CampaignChannel
+  scheduledFor  DateTime
+  sentAt        DateTime?
+  status        String   @default("PENDING") // PENDING, SENT, FAILED
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledFor, status])
+  @@map("appointment_reminders")
+}
+
+model RescheduleRequest {
+  id               String           @id @default(cuid())
+  appointmentId    String
+  requestedBy      String           // userId
+  requestedByType  String           // CUSTOMER | WORKER | ADMIN
+  workerId         String?
+  originalDate     DateTime
+  originalTime     String
+  newDate          DateTime?
+  newTime          String?
+  reason           String
+  status           RescheduleStatus @default(PENDING)
+  approvedBy       String?
+  approvedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  appointment Appointment    @relation(fields: [appointmentId], references: [id])
+  worker      WorkerProfile? @relation(fields: [workerId], references: [id])
+
+  @@index([appointmentId])
+  @@map("reschedule_requests")
+}
+
+model CancellationRecord {
+  id              String   @id @default(cuid())
+  appointmentId   String   @unique
+  cancelledBy     String
+  cancelledByType String   // CUSTOMER | WORKER | ADMIN
+  reason          String
+  refundAmount    Float    @default(0)
+  chargeAmount    Float    @default(0)
+  createdAt       DateTime @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@map("cancellation_records")
+}
+
+model WaitingList {
+  id                String            @id @default(cuid())
+  customerId        String
+  branchId          String
+  serviceId         String
+  workerId          String?
+  preferredDate     DateTime          @db.Date
+  preferredTimeFrom String?
+  preferredTimeTo   String?
+  status            WaitingListStatus @default(WAITING)
+  notifiedAt        DateTime?
+  bookedAppointmentId String?
+  createdAt         DateTime          @default(now())
+
+  @@index([branchId, preferredDate, status])
+  @@map("waiting_list")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 8 — PAYMENTS & BILLING
+// ─────────────────────────────────────────────────────────────
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNo     String        @unique
+  appointmentId String?       @unique
+  customerId    String
+  branchId      String
+  subtotal      Float
+  taxAmount     Float         @default(0)
+  discountAmount Float        @default(0)
+  totalAmount   Float
+  paidAmount    Float         @default(0)
+  balanceDue    Float         @default(0)
+  status        InvoiceStatus @default(UNPAID)
+  notes         String?
+  generatedBy   String        // userId
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  appointment Appointment?  @relation(fields: [appointmentId], references: [id])
+  items       InvoiceItem[]
+  payments    Payment[]
+  refunds     Refund[]
+
+  @@index([customerId])
+  @@index([branchId, createdAt])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id         String  @id @default(cuid())
+  invoiceId  String
+  type       String  // SERVICE, PRODUCT, PACKAGE, MEMBERSHIP, ADDON, GIFT_CARD
+  refId      String?
+  name       String
+  quantity   Int     @default(1)
+  unitPrice  Float
+  taxPercent Float   @default(0)
+  taxAmount  Float   @default(0)
+  discount   Float   @default(0)
+  total      Float
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  invoiceId         String
+  customerId        String
+  method            PaymentMethod
+  amount            Float
+  gatewayOrderId    String?
+  gatewayPaymentId  String?
+  gatewaySignature  String?
+  gatewayStatus     String?
+  reference         String?       // UPI ref, cheque no, last 4 digits
+  collectedBy       String?       // userId
+  paidAt            DateTime      @default(now())
+  notes             String?
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+  @@index([customerId])
+  @@map("payments")
+}
+
+model Refund {
+  id              String        @id @default(cuid())
+  invoiceId       String
+  paymentId       String?
+  amount          Float
+  reason          String
+  method          PaymentMethod
+  gatewayRefundId String?
+  processedBy     String
+  processedAt     DateTime      @default(now())
+  notes           String?
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("refunds")
+}
+
+model Wallet {
+  id          String   @id @default(cuid())
+  customerId  String   @unique
+  balance     Float    @default(0)
+  totalAdded  Float    @default(0)
+  totalUsed   Float    @default(0)
+  updatedAt   DateTime @updatedAt
+
+  customer     Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id            String          @id @default(cuid())
+  walletId      String
+  type          TransactionType
+  amount        Float
+  balanceBefore Float
+  balanceAfter  Float
+  source        String          // TOPUP, REFUND, PAYMENT, LOYALTY_REDEMPTION, GIFT_CARD
+  refId         String?
+  description   String?
+  createdAt     DateTime        @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+
+  @@index([walletId])
+  @@map("wallet_transactions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 9 — INVENTORY
+// ─────────────────────────────────────────────────────────────
+
+model ProductCategory {
+  id       String  @id @default(cuid())
+  name     String  @unique
+  isActive Boolean @default(true)
+
+  products Product[]
+
+  @@map("product_categories")
+}
+
+model Supplier {
+  id            String   @id @default(cuid())
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  gstin         String?
+  bankName      String?
+  bankAccount   String?
+  bankIfsc      String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  products       Product[]
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  categoryId    String?
+  supplierId    String?
+  name          String
+  sku           String   @unique
+  brand         String?
+  description   String?
+  image         String?
+  unit          String   @default("ml")
+  unitSize      Float?
+  purchasePrice Float    @default(0)
+  sellingPrice  Float    @default(0)
+  taxPercent    Float    @default(18)
+  isRetail      Boolean  @default(false)
+  isConsumable  Boolean  @default(true)
+  reorderLevel  Int      @default(10)
+  expiryTracked Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category         ProductCategory?    @relation(fields: [categoryId], references: [id])
+  supplier         Supplier?           @relation(fields: [supplierId], references: [id])
+  stocks           Stock[]
+  purchaseItems    PurchaseOrderItem[]
+  transferItems    StockTransferItem[]
+  serviceProducts  ServiceProduct[]
+  stockMovements   StockMovement[]
+
+  @@index([sku])
+  @@index([isRetail, isActive])
+  @@map("products")
+}
+
+model Stock {
+  id          String   @id @default(cuid())
+  productId   String
+  branchId    String
+  quantity    Float    @default(0)
+  reservedQty Float    @default(0)
+  updatedAt   DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id])
+
+  @@unique([productId, branchId])
+  @@map("stocks")
+}
+
+model StockMovement {
+  id            String            @id @default(cuid())
+  productId     String
+  branchId      String
+  type          StockMovementType
+  quantity      Float
+  balanceBefore Float
+  balanceAfter  Float
+  refId         String?           // purchaseOrderId, appointmentId, etc.
+  notes         String?
+  performedBy   String            // userId
+  createdAt     DateTime          @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId, branchId])
+  @@index([createdAt])
+  @@map("stock_movements")
+}
+
+model PurchaseOrder {
+  id          String              @id @default(cuid())
+  orderNo     String              @unique
+  supplierId  String
+  branchId    String
+  status      PurchaseOrderStatus @default(DRAFT)
+  totalAmount Float               @default(0)
+  notes       String?
+  orderedAt   DateTime?
+  receivedAt  DateTime?
+  createdBy   String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  supplier Supplier          @relation(fields: [supplierId], references: [id])
+  branch   Branch            @relation(fields: [branchId], references: [id])
+  items    PurchaseOrderItem[]
+
+  @@index([branchId, status])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String   @id @default(cuid())
+  purchaseOrderId String
+  productId       String
+  orderedQty      Float
+  receivedQty     Float    @default(0)
+  unitPrice       Float
+  totalPrice      Float
+  expiryDate      DateTime?
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+
+  @@map("purchase_order_items")
+}
+
+model StockTransfer {
+  id           String              @id @default(cuid())
+  transferNo   String              @unique
+  fromBranchId String
+  toBranchId   String
+  status       StockTransferStatus @default(PENDING)
+  notes        String?
+  requestedBy  String
+  approvedBy   String?
+  sentAt       DateTime?
+  receivedAt   DateTime?
+  createdAt    DateTime            @default(now())
+
+  fromBranch Branch              @relation("TransferFrom", fields: [fromBranchId], references: [id])
+  toBranch   Branch              @relation("TransferTo", fields: [toBranchId], references: [id])
+  items      StockTransferItem[]
+
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id         String @id @default(cuid())
+  transferId String
+  productId  String
+  quantity   Float
+
+  transfer StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  product  Product       @relation(fields: [productId], references: [id])
+
+  @@map("stock_transfer_items")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 10 — MEMBERSHIPS
+// ─────────────────────────────────────────────────────────────
+
+model MembershipPlan {
+  id              String         @id @default(cuid())
+  name            String
+  tier            MembershipTier
+  price           Float
+  validityDays    Int
+  description     String?
+  discountPercent Float          @default(0)
+  walletCredit    Float          @default(0)
+  freeServices    Json?          // [{ serviceId, quantity }]
+  priorityBooking Boolean        @default(false)
+  branchAccess    String         @default("ALL") // ALL | specific branchId
+  isActive        Boolean        @default(true)
+  sortOrder       Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  benefits  MembershipBenefit[]
+  customers CustomerMembership[]
+
+  @@map("membership_plans")
+}
+
+model MembershipBenefit {
+  id     String @id @default(cuid())
+  planId String
+  name   String
+  value  String
+
+  plan MembershipPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@map("membership_benefits")
+}
+
+model CustomerMembership {
+  id          String           @id @default(cuid())
+  customerId  String
+  planId      String
+  status      MembershipStatus @default(ACTIVE)
+  startDate   DateTime
+  endDate     DateTime
+  frozenAt    DateTime?
+  frozenDays  Int              @default(0)
+  autoRenew   Boolean          @default(false)
+  invoiceId   String?
+  purchasedAt DateTime         @default(now())
+
+  customer  Customer           @relation(fields: [customerId], references: [id])
+  plan      MembershipPlan     @relation(fields: [planId], references: [id])
+  usageLogs MembershipUsageLog[]
+
+  @@index([customerId, status])
+  @@map("customer_memberships")
+}
+
+model MembershipUsageLog {
+  id           String   @id @default(cuid())
+  membershipId String
+  benefitType  String   // DISCOUNT, FREE_SERVICE, PRIORITY_BOOKING
+  refId        String?  // appointmentId
+  description  String
+  usedAt       DateTime @default(now())
+
+  membership CustomerMembership @relation(fields: [membershipId], references: [id])
+
+  @@map("membership_usage_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 11 — LOYALTY & REFERRAL
+// ─────────────────────────────────────────────────────────────
+
+model LoyaltyConfig {
+  id               String   @id @default(cuid())
+  pointsPerRupee   Float    @default(1)
+  redemptionValue  Float    @default(0.25) // ₹ per point
+  minRedemption    Int      @default(100)
+  maxRedemptionPct Float    @default(50)   // max % of bill payable via points
+  pointExpireDays  Int?
+  bronzeMin        Int      @default(0)
+  silverMin        Int      @default(1000)
+  goldMin          Int      @default(5000)
+  diamondMin       Int      @default(15000)
+  isActive         Boolean  @default(true)
+  updatedAt        DateTime @updatedAt
+
+  @@map("loyalty_configs")
+}
+
+model LoyaltyAccount {
+  id               String      @id @default(cuid())
+  customerId       String      @unique
+  tier             LoyaltyTier @default(BRONZE)
+  totalPoints      Int         @default(0)
+  availablePoints  Int         @default(0)
+  lifetimeEarned   Int         @default(0)
+  lifetimeRedeemed Int         @default(0)
+  updatedAt        DateTime    @updatedAt
+
+  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  transactions LoyaltyTransaction[]
+
+  @@map("loyalty_accounts")
+}
+
+model LoyaltyTransaction {
+  id            String                 @id @default(cuid())
+  accountId     String
+  type          LoyaltyTransactionType
+  points        Int
+  balanceBefore Int
+  balanceAfter  Int
+  refId         String?
+  description   String?
+  expiresAt     DateTime?
+  createdAt     DateTime               @default(now())
+
+  account LoyaltyAccount @relation(fields: [accountId], references: [id])
+
+  @@index([accountId])
+  @@map("loyalty_transactions")
+}
+
+model Referral {
+  id            String    @id @default(cuid())
+  referrerId    String
+  refereeId     String    @unique // one customer can only be referred once
+  referralCode  String
+  pointsAwarded Int       @default(0)
+  status        String    @default("PENDING") // PENDING, COMPLETED, CANCELLED
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  referrer Customer @relation("Referrer", fields: [referrerId], references: [id])
+
+  @@map("referrals")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 12 — GIFT CARDS
+// ─────────────────────────────────────────────────────────────
+
+model GiftCard {
+  id             String         @id @default(cuid())
+  code           String         @unique
+  type           GiftCardType   @default(DIGITAL)
+  value          Float
+  balance        Float
+  status         GiftCardStatus @default(ACTIVE)
+  purchasedBy    String         // customerId
+  ownedBy        String?        // current owner (may differ after transfer)
+  recipientName  String?
+  recipientPhone String?
+  giftMessage    String?
+  expiresAt      DateTime?
+  purchasedAt    DateTime       @default(now())
+
+  owner       Customer?           @relation(fields: [ownedBy], references: [id])
+  redemptions GiftCardRedemption[]
+
+  @@index([code])
+  @@map("gift_cards")
+}
+
+model GiftCardRedemption {
+  id         String   @id @default(cuid())
+  giftCardId String
+  invoiceId  String
+  amount     Float
+  redeemedAt DateTime @default(now())
+
+  giftCard GiftCard @relation(fields: [giftCardId], references: [id])
+
+  @@map("gift_card_redemptions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 13 — REVIEWS
+// ─────────────────────────────────────────────────────────────
+
+model Review {
+  id              String       @id @default(cuid())
+  appointmentId   String?
+  customerId      String
+  branchId        String
+  workerId        String?
+  serviceId       String?
+  overallRating   Int          // 1–5
+  serviceRating   Int?
+  workerRating    Int?
+  branchRating    Int?
+  cleanliness     Int?
+  punctuality     Int?
+  comment         String?
+  images          String[]     @default([])
+  status          ReviewStatus @default(PENDING)
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  isPublic        Boolean      @default(false)
+  adminReply      String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  customer Customer      @relation(fields: [customerId], references: [id])
+  branch   Branch        @relation(fields: [branchId], references: [id])
+  worker   WorkerProfile? @relation(fields: [workerId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@index([branchId, status])
+  @@index([workerId, status])
+  @@map("reviews")
+}
+
+// Denormalized ratings cache — recomputed after each approved review
+model RatingSummary {
+  id            String  @id @default(cuid())
+  workerId      String? @unique
+  branchId      String? @unique
+  serviceId     String? @unique
+  totalReviews  Int     @default(0)
+  averageRating Float   @default(0)
+  fiveStarCount Int     @default(0)
+  fourStarCount Int     @default(0)
+  threeStarCount Int    @default(0)
+  twoStarCount  Int     @default(0)
+  oneStarCount  Int     @default(0)
+  updatedAt     DateTime @updatedAt
+
+  worker  WorkerProfile? @relation(fields: [workerId], references: [id])
+  branch  Branch?        @relation(fields: [branchId], references: [id])
+  service Service?       @relation(fields: [serviceId], references: [id])
+
+  @@map("rating_summaries")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 14 — MARKETING
+// ─────────────────────────────────────────────────────────────
+
+model Coupon {
+  id                    String             @id @default(cuid())
+  code                  String             @unique
+  description           String?
+  type                  CouponType
+  value                 Float
+  minOrderAmount        Float              @default(0)
+  maxDiscount           Float?
+  applicableTo          CouponApplicableTo @default(ALL)
+  refId                 String?
+  usageLimit            Int?
+  usageLimitPerCustomer Int                @default(1)
+  usedCount             Int                @default(0)
+  validFrom             DateTime
+  validUntil            DateTime?
+  isActive              Boolean            @default(true)
+  createdBy             String
+  createdAt             DateTime           @default(now())
+
+  usages CouponUsage[]
+
+  @@index([code, isActive])
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id            String   @id @default(cuid())
+  couponId      String
+  customerId    String
+  appointmentId String?
+  invoiceId     String?
+  discountAmount Float
+  usedAt        DateTime @default(now())
+
+  coupon   Coupon   @relation(fields: [couponId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([couponId, customerId])
+  @@map("coupon_usages")
+}
+
+model Offer {
+  id              String    @id @default(cuid())
+  branchId        String?   // null = all branches
+  title           String
+  description     String?
+  image           String?
+  type            OfferType
+  discountPercent Float?
+  discountAmount  Float?
+  validFrom       DateTime
+  validUntil      DateTime?
+  isActive        Boolean   @default(true)
+  sortOrder       Int       @default(0)
+  createdAt       DateTime  @default(now())
+
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  @@index([isActive, validFrom, validUntil])
+  @@map("offers")
+}
+
+model NotificationTemplate {
+  id        String          @id @default(cuid())
+  name      String          @unique
+  channel   CampaignChannel
+  trigger   String?         // BOOKING_CONFIRMED, BOOKING_REMINDER, etc.
+  subject   String?
+  body      String          // supports {{variables}}
+  variables String[]        @default([])
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  campaigns Campaign[]
+
+  @@map("notification_templates")
+}
+
+model Campaign {
+  id             String          @id @default(cuid())
+  name           String
+  description    String?
+  branchId       String?
+  channel        CampaignChannel
+  status         CampaignStatus  @default(DRAFT)
+  templateId     String?
+  targetSegment  Json?           // filter criteria for customer selection
+  recipientCount Int             @default(0)
+  sentCount      Int             @default(0)
+  failedCount    Int             @default(0)
+  openCount      Int             @default(0)
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  createdBy      String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  template NotificationTemplate? @relation(fields: [templateId], references: [id])
+  branch   Branch?               @relation(fields: [branchId], references: [id])
+  logs     CampaignLog[]
+
+  @@map("campaigns")
+}
+
+model CampaignLog {
+  id         String          @id @default(cuid())
+  campaignId String
+  customerId String
+  channel    CampaignChannel
+  status     String          // SENT, FAILED, DELIVERED, OPENED
+  error      String?
+  sentAt     DateTime        @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId])
+  @@map("campaign_logs")
+}
+
+model NotificationLog {
+  id         String          @id @default(cuid())
+  customerId String?
+  workerId   String?
+  channel    CampaignChannel
+  trigger    String
+  message    String
+  status     String          // SENT, FAILED, DELIVERED
+  error      String?
+  refId      String?
+  sentAt     DateTime        @default(now())
+
+  @@index([customerId])
+  @@index([trigger, sentAt])
+  @@map("notification_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 15 — STAFF PROFILES (non-worker admin staff)
+// ─────────────────────────────────────────────────────────────
+
+model StaffProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  branchId     String?
+  firstName    String
+  lastName     String
+  phone        String?
+  email        String?
+  profilePhoto String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id])
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  @@map("staff_profiles")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 16 — CMS
+// ─────────────────────────────────────────────────────────────
+
+model Banner {
+  id          String    @id @default(cuid())
+  title       String
+  subtitle    String?
+  image       String
+  mobileImage String?
+  ctaText     String?
+  ctaLink     String?
+  position    String    @default("HERO") // HERO, OFFER, POPUP, TOP_BAR
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  validFrom   DateTime?
+  validUntil  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([position, isActive])
+  @@map("banners")
+}
+
+model Blog {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  excerpt     String?
+  content     String
+  coverImage  String?
+  tags        String[]  @default([])
+  category    String?
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+  author      String?
+  metaTitle       String?
+  metaDescription String?
+  keywords        String?
+  ogImage         String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([slug, isPublished])
+  @@map("blogs")
+}
+
+model Testimonial {
+  id           String   @id @default(cuid())
+  customerName String
+  designation  String?
+  photo        String?
+  rating       Int      @default(5)
+  comment      String
+  branchId     String?
+  isApproved   Boolean  @default(false)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@map("testimonials")
+}
+
+model Gallery {
+  id        String   @id @default(cuid())
+  title     String?
+  image     String
+  category  String   @default("SALON") // SALON, BEFORE_AFTER, TEAM, INTERIOR
+  branchId  String?
+  workerId  String?
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([category, isActive])
+  @@map("gallery")
+}
+
+model SeoMeta {
+  id              String   @id @default(cuid())
+  page            String   @unique // HOME, SERVICES, BRANCHES, STYLISTS
+  metaTitle       String?
+  metaDescription String?
+  keywords        String?
+  ogImage         String?
+  canonicalUrl    String?
+  updatedAt       DateTime @updatedAt
+
+  @@map("seo_meta")
+}
+
+model Page {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String
+  isPublished Boolean  @default(false)
+  metaTitle       String?
+  metaDescription String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("pages")
+}
+
+model Faq {
+  id        String  @id @default(cuid())
+  question  String
+  answer    String
+  category  String? // BOOKING, CANCELLATION, PAYMENT, SERVICES
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  @@map("faqs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 17 — AUDIT & ACTIVITY LOGS
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  userType  String
+  action    String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, APPROVE, REJECT
+  module    String   // BRANCH, WORKER, BOOKING, SERVICE, INVENTORY, etc.
+  refId     String?
+  refType   String?
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([module, action])
+  @@map("audit_logs")
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  module      String
+  action      String
+  description String
+  refId       String?
+  refType     String?
+  createdAt   DateTime @default(now())
+
+  @@index([module, createdAt])
+  @@map("activity_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 18 — PLATFORM CONFIG
+// ─────────────────────────────────────────────────────────────
+
+// Single-row global config (id = "global")
+model PlatformConfig {
+  id                    String  @id @default("global")
+  businessName          String  @default("Renzo")
+  supportPhone          String?
+  supportEmail          String?
+  whatsappNumber        String?
+  instagramHandle       String?
+  facebookHandle        String?
+  youtubeHandle         String?
+  twitterHandle         String?
+  maintenanceMode       Boolean @default(false)
+  maintenanceMessage    String?
+  defaultBookingSlotMin Int     @default(30)
+  reviewAutoApprove     Boolean @default(false)
+  portfolioAutoApprove  Boolean @default(false)
+  updatedAt             DateTime @updatedAt
+
+  @@map("platform_config")
+}
