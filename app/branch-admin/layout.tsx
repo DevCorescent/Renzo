@@ -1,9 +1,6 @@
-// OWNER: Hemant | LAYOUT: Branch Admin Panel Layout
+// OWNER: Hemant | LAYOUT: Branch Admin Panel
+import { AppShell } from "@/components/shared/app-shell";
+
 export default function BranchAdminLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div>
-      {/* TODO: add nav/sidebar */}
-      {children}
-    </div>
-  );
+  return <AppShell role="branch-admin">{children}</AppShell>;
 }

@@ -1,9 +1,6 @@
-// OWNER: Hemant | LAYOUT: Super Admin Panel Layout (full sidebar)
+// OWNER: Hemant | LAYOUT: Super Admin Panel
+import { AppShell } from "@/components/shared/app-shell";
+
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div>
-      {/* TODO: add nav/sidebar */}
-      {children}
-    </div>
-  );
+  return <AppShell role="super-admin">{children}</AppShell>;
 }

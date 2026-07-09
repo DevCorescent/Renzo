@@ -1,9 +1,6 @@
-// OWNER: Hemant | LAYOUT: Reception Panel Layout
+// OWNER: Hemant | LAYOUT: Reception Panel
+import { AppShell } from "@/components/shared/app-shell";
+
 export default function ReceptionLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div>
-      {/* TODO: add nav/sidebar */}
-      {children}
-    </div>
-  );
+  return <AppShell role="reception">{children}</AppShell>;
 }

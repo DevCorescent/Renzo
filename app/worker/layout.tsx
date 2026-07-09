@@ -1,9 +1,6 @@
-// OWNER: Hemant | LAYOUT: Worker Panel Layout (mobile-first sidebar)
+// OWNER: Hemant | LAYOUT: Worker Panel
+import { AppShell } from "@/components/shared/app-shell";
+
 export default function WorkerLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div>
-      {/* TODO: add nav/sidebar */}
-      {children}
-    </div>
-  );
+  return <AppShell role="worker">{children}</AppShell>;
 }
