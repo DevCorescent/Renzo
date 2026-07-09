@@ -77,15 +77,23 @@ export async function GET(req: NextRequest) {
     // ------------------------------------------------------------------------
     // Search
     // ------------------------------------------------------------------------
-    // NOTE: uses customer.name — matches how Customer is selected everywhere
-    // else in this codebase (see /customer/appointments/[id]). If Customer
-    // actually has separate firstName/lastName fields instead, swap this
-    // (and the include below) accordingly — but the two need to agree.
+    // NOTE: uses customer.firstName/lastName to match how Customer is selected
+    // elsewhere in this codebase. If Customer has a unified name field, adjust
+    // this and the include below accordingly so the two match.
 
     if (search) {
       where.OR = [
         { appointmentNo: { contains: search, mode: "insensitive" } },
-        { customer: { is: { name: { contains: search, mode: "insensitive" } } } },
+        {
+          customer: {
+            is: {
+              OR: [
+                { firstName: { contains: search, mode: "insensitive" } },
+                { lastName: { contains: search, mode: "insensitive" } },
+              ],
+            },
+          },
+        },
         { customer: { is: { phone: { contains: search } } } },
       ];
     }
