@@ -1,17 +1,25 @@
 import { NextRequest } from "next/server";
-import { ok, created, err, paginated, parsePagination } from "@/lib/response";
-import { requireAuth } from "@/lib/auth-guard";
+import { ok, err } from "@/lib/response";
 import prisma from "@/lib/db";
+import { TOKEN_COOKIE, authCookieOptions } from "@/lib/jwt";
 
 // OWNER: Shalmon | MODULE: Auth — Logout
-// POST /api/v1/auth/logout — Clear session cookie and invalidate token
+// POST /api/v1/auth/logout — Revoke the current session row and clear the
+// cookie. Idempotent: succeeds even without a valid session.
 export async function POST(req: NextRequest) {
-  const { user, error } = await requireAuth(req);
-  if (error) return error;
-
   try {
-    // TODO: invalidate session/token, clear cookie
-    return ok({ message: "Logged out successfully" });
+    const token =
+      req.cookies.get(TOKEN_COOKIE)?.value ??
+      req.headers.get("authorization")?.replace("Bearer ", "");
+
+    if (token) {
+      await prisma.session.deleteMany({ where: { token } });
+    }
+
+    const res = ok(null, "Logged out successfully");
+    // Expire the cookie immediately.
+    res.cookies.set(TOKEN_COOKIE, "", authCookieOptions(0));
+    return res;
   } catch {
     return err("Internal server error", 500);
   }
