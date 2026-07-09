@@ -77,23 +77,11 @@ export async function GET(req: NextRequest) {
     // ------------------------------------------------------------------------
     // Search
     // ------------------------------------------------------------------------
-    // NOTE: uses customer.firstName/lastName to match how Customer is selected
-    // elsewhere in this codebase. If Customer has a unified name field, adjust
-    // this and the include below accordingly so the two match.
-
     if (search) {
       where.OR = [
         { appointmentNo: { contains: search, mode: "insensitive" } },
-        {
-          customer: {
-            is: {
-              OR: [
-                { firstName: { contains: search, mode: "insensitive" } },
-                { lastName: { contains: search, mode: "insensitive" } },
-              ],
-            },
-          },
-        },
+        { customer: { is: { firstName: { contains: search, mode: "insensitive" } } } },
+        { customer: { is: { lastName: { contains: search, mode: "insensitive" } } } },
         { customer: { is: { phone: { contains: search } } } },
       ];
     }
@@ -143,7 +131,7 @@ export async function GET(req: NextRequest) {
         take: limit,
         orderBy: [{ startTime: "asc" }, { createdAt: "desc" }],
         include: {
-          customer: { select: { id: true, name: true, phone: true } },
+          customer: { select: { id: true, firstName: true, lastName: true, phone: true } },
           branch: { select: { id: true, name: true } },
           worker: {
             select: { id: true, firstName: true, lastName: true, profilePhoto: true },
@@ -165,10 +153,7 @@ export async function GET(req: NextRequest) {
     return paginated(appointments, total, page, limit, "Appointments fetched successfully");
   } catch (error) {
     console.error("GET Reception Appointments Error:", error);
-    // TEMPORARY DEBUG ONLY — leaks internal error details to the client.
-    // Revert to err("Internal server error", 500) before committing.
-    const debugMessage = error instanceof Error ? error.message : String(error);
-    return err(`DEBUG: ${debugMessage}`, 500);
+    return err("Internal server error", 500);
   }
 }
 
