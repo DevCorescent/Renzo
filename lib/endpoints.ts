@@ -62,6 +62,7 @@ export const API = {
     billing:      `${BASE}/reception/billing`,
     bill:         (id: string) => `${BASE}/reception/billing/${id}`,
     payment:      (id: string) => `${BASE}/reception/billing/${id}/payment`,
+    applyCoupon:  (id: string) => `${BASE}/reception/billing/${id}/coupon`,
   },
 
   // ── Admin — Branches & Workers (Aman) ─────────────────────────────────────
@@ -104,9 +105,15 @@ export const API = {
     products:         `${BASE}/admin/inventory/products`,
     product:          (id: string) => `${BASE}/admin/inventory/products/${id}`,
     stock:            `${BASE}/admin/inventory/stock`,
+    stockAdjust:      `${BASE}/admin/inventory/stock/adjust`,
     purchases:        `${BASE}/admin/inventory/purchases`,
     purchase:         (id: string) => `${BASE}/admin/inventory/purchases/${id}`,
     transfers:        `${BASE}/admin/inventory/transfers`,
+    transfer:         (id: string) => `${BASE}/admin/inventory/transfers/${id}`,
+    suppliers:        `${BASE}/admin/inventory/suppliers`,
+    supplier:         (id: string) => `${BASE}/admin/inventory/suppliers/${id}`,
+    productCategories:`${BASE}/admin/inventory/categories`,
+    productCategory:  (id: string) => `${BASE}/admin/inventory/categories/${id}`,
 
     // Admin — Memberships (Shalmon)
     membershipPlans:  `${BASE}/admin/memberships/plans`,
