@@ -14,25 +14,21 @@ import prisma from "@/lib/db";
 // GET - Today's Appointment List
 //
 // ACCESS
-// RECEPTIONIST
-// BRANCH_ADMIN
-// SUPER_ADMIN
-// OWNER
+// RECEPTIONIST, BRANCH_ADMIN, SUPER_ADMIN, OWNER
 // ============================================================================
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Returns [startOfDayUtc, startOfNextDayUtc) for a given "YYYY-MM-DD" string,
-// or for "today" if no string is given — always computed in UTC so this
-// lines up with how appointmentDate is written elsewhere (new Date("YYYY-MM-DD")
-// parses as UTC midnight per spec), regardless of the server process's local
-// timezone.
 function utcDayRange(dateStr?: string): [Date, Date] {
   const base = dateStr ?? new Date().toISOString().slice(0, 10);
   const start = new Date(`${base}T00:00:00.000Z`);
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 1);
   return [start, end];
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 export async function GET(req: NextRequest) {
@@ -71,9 +67,6 @@ export async function GET(req: NextRequest) {
 
     if (user.userType === "RECEPTIONIST" || user.userType === "BRANCH_ADMIN") {
       if (!isNonEmptyString(user.branchId)) {
-        // Fail safe, not silently unrestricted: a receptionist/branch admin
-        // account without a branch assignment should not fall through to
-        // seeing every branch's appointments.
         return err("Your account is not assigned to a branch", 403);
       }
       where.branchId = user.branchId;
@@ -84,12 +77,15 @@ export async function GET(req: NextRequest) {
     // ------------------------------------------------------------------------
     // Search
     // ------------------------------------------------------------------------
+    // NOTE: uses customer.name — matches how Customer is selected everywhere
+    // else in this codebase (see /customer/appointments/[id]). If Customer
+    // actually has separate firstName/lastName fields instead, swap this
+    // (and the include below) accordingly — but the two need to agree.
 
     if (search) {
       where.OR = [
         { appointmentNo: { contains: search, mode: "insensitive" } },
-        { customer: { is: { firstName: { contains: search, mode: "insensitive" } } } },
-        { customer: { is: { lastName: { contains: search, mode: "insensitive" } } } },
+        { customer: { is: { name: { contains: search, mode: "insensitive" } } } },
         { customer: { is: { phone: { contains: search } } } },
       ];
     }
@@ -114,11 +110,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ------------------------------------------------------------------------
-    // Appointment Date — always a UTC day-range, default = today.
-    // A range filter (gte/lt) is used instead of exact equality so this
-    // isn't broken by any stray non-midnight timestamp in the data, and
-    // both the "explicit date" and "default to today" paths now compute
-    // midnight the same way instead of mixing local and UTC.
+    // Appointment Date
     // ------------------------------------------------------------------------
 
     if (appointmentDate) {
@@ -154,15 +146,9 @@ export async function GET(req: NextRequest) {
               variant: { select: { id: true, name: true } },
             },
           },
-          packages: {
-            include: { package: { select: { id: true, name: true } } },
-          },
-          addOns: {
-            include: { addOn: { select: { id: true, name: true } } },
-          },
-          _count: {
-            select: { services: true, packages: true, addOns: true },
-          },
+          packages: { include: { package: { select: { id: true, name: true } } } },
+          addOns: { include: { addOn: { select: { id: true, name: true } } } },
+          _count: { select: { services: true, packages: true, addOns: true } },
         },
       }),
       prisma.appointment.count({ where }),
@@ -171,17 +157,14 @@ export async function GET(req: NextRequest) {
     return paginated(appointments, total, page, limit, "Appointments fetched successfully");
   } catch (error) {
     console.error("GET Reception Appointments Error:", error);
-    return err("Internal server error", 500);
+    // TEMPORARY DEBUG ONLY — leaks internal error details to the client.
+    // Revert to err("Internal server error", 500) before committing.
+    const debugMessage = error instanceof Error ? error.message : String(error);
+    return err(`DEBUG: ${debugMessage}`, 500);
   }
 }
 
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
 // ============================================================================
-// POST /api/v1/reception/appointments
-// Create Walk-in Appointment
-// Not included in the file you shared — send it over when ready so it can
-// be reviewed alongside this GET handler.
+// POST /api/v1/reception/appointments — Create Walk-in Appointment
+// Still not included — send it when ready.
 // ============================================================================
