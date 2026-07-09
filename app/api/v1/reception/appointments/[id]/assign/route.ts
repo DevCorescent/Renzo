@@ -113,21 +113,28 @@ export async function PATCH(
     // ------------------------------------------------------------------------
     // Worker Validation
     // ------------------------------------------------------------------------
-    // VERIFY: WorkerProfile is assumed to have a `branchId` field, based on
-    // the branch-scoped worker patterns used elsewhere in this codebase
-    // (e.g. admin worker listing filterable by branch per TEAM.md). Confirm
-    // the exact field name against the real WorkerProfile model.
+    // WorkerProfile has no branchId — a worker is linked to one or more
+    // branches through the WorkerBranch join table.
 
     const worker = await prisma.workerProfile.findUnique({
       where: { id: workerId },
-      select: { id: true, firstName: true, lastName: true, isActive: true, branchId: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        isActive: true,
+        branches: { select: { branchId: true, isActive: true } },
+      },
     });
 
     if (!worker || !worker.isActive) {
       return err("Worker not found", 404);
     }
 
-    if (worker.branchId !== appointment.branchId) {
+    const worksAtBranch = worker.branches.some(
+      (b) => b.branchId === appointment.branchId && b.isActive
+    );
+    if (!worksAtBranch) {
       return err("Selected worker does not belong to this appointment's branch", 400);
     }
 

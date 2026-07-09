@@ -108,7 +108,6 @@ export async function POST(
           status: AppointmentStatus.CANCELLED,
           cancellationReason: reason.trim(),
           cancelledAt: new Date(),
-          cancelledBy: user.userId,
         },
         include: {
           branch: { select: { id: true, name: true } },
@@ -116,6 +115,16 @@ export async function POST(
           services: { include: { service: { select: { id: true, name: true } } } },
           addOns: { include: { addOn: { select: { id: true, name: true } } } },
           packages: { include: { package: { select: { id: true, name: true } } } },
+        },
+      });
+
+      // Who cancelled lives on CancellationRecord, not on Appointment.
+      await tx.cancellationRecord.create({
+        data: {
+          appointmentId: appointment.id,
+          cancelledBy: user.userId,
+          cancelledByType: "CUSTOMER",
+          reason: reason.trim(),
         },
       });
 

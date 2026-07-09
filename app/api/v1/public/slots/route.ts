@@ -202,7 +202,7 @@ export async function GET(req: NextRequest) {
           workerId: { in: candidateWorkerIds },
           date: appointmentDate,
         },
-        select: { workerId: true, startTime: true, endTime: true },
+        select: { workerId: true, fromTime: true, toTime: true },
       }),
     ]);
 
@@ -215,7 +215,10 @@ export async function GET(req: NextRequest) {
     }
     for (const b of blockedRanges) {
       if (!b.workerId) continue;
-      busyByWorker.get(b.workerId)?.push([timeToMinutes(b.startTime), timeToMinutes(b.endTime)]);
+      // WorkerAvailability.fromTime/toTime are nullable: null = blocked all day.
+      const from = b.fromTime ? timeToMinutes(b.fromTime) : 0;
+      const to = b.toTime ? timeToMinutes(b.toTime) : 24 * 60;
+      busyByWorker.get(b.workerId)?.push([from, to]);
     }
 
     // If it's today, don't offer slots that have already passed.
