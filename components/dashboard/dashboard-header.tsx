@@ -21,7 +21,9 @@ import { ThemeToggle } from "./theme-toggle";
 import { useDismiss } from "./use-dismiss";
 
 /* ── Per-role chrome config (icon refs stay client-side) ──────────────────── */
-export type DashRole = "super-admin" | "branch-admin" | "reception" | "worker" | "customer";
+export type DashRole =
+  | "super-admin" | "branch-admin" | "reception" | "worker" | "customer"
+  | "inventory" | "marketing" | "accountant";
 
 type RoleConfig = { label: string; home: string; settings?: string; quickActions: QuickAction[] };
 
@@ -76,6 +78,10 @@ const ROLE_CONFIG: Record<DashRole, RoleConfig> = {
       { label: "Reviews", href: "/customer/reviews", icon: Star, description: "Rate your visits" },
     ],
   },
+  // Overview-only roles — no dedicated sub-pages yet, so no quick-action targets.
+  inventory: { label: "Inventory", home: "/inventory/dashboard", quickActions: [] },
+  marketing: { label: "Marketing", home: "/marketing/dashboard", quickActions: [] },
+  accountant: { label: "Accounts", home: "/accountant/dashboard", quickActions: [] },
 };
 
 function UserMenu({ userName, roleLabel, settingsHref }: { userName: string; roleLabel: string; settingsHref?: string }) {
@@ -216,9 +222,12 @@ export function DashboardHeader({
             <Notifications items={notifications} />
           </div>
 
-          <div className="mx-1 hidden h-6 w-px bg-gray-200 sm:block dark:bg-(--sa-border)" />
-
-          <QuickActions actions={cfg.quickActions} />
+          {cfg.quickActions.length > 0 && (
+            <>
+              <div className="mx-1 hidden h-6 w-px bg-gray-200 sm:block dark:bg-(--sa-border)" />
+              <QuickActions actions={cfg.quickActions} />
+            </>
+          )}
 
           <div className="mx-1 hidden h-6 w-px bg-gray-200 sm:block dark:bg-(--sa-border)" />
 

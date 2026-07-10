@@ -15,6 +15,9 @@ const ROUTE_ROLES: Array<{ prefix: string; roles: AuthUser["userType"][] }> = [
   },
   { prefix: "/worker",   roles: ["WORKER"] },
   { prefix: "/customer", roles: ["CUSTOMER"] },
+  { prefix: "/inventory",  roles: ["INVENTORY_MANAGER", "SUPER_ADMIN", "OWNER"] },
+  { prefix: "/marketing",  roles: ["MARKETING_MANAGER", "SUPER_ADMIN", "OWNER"] },
+  { prefix: "/accountant", roles: ["ACCOUNTANT", "SUPER_ADMIN", "OWNER"] },
 ];
 
 export async function proxy(req: NextRequest) {
@@ -47,5 +50,8 @@ export const config = {
     "/reception/:path*",
     "/worker/:path*",
     "/customer/:path*",
+    "/inventory/:path*",
+    "/marketing/:path*",
+    "/accountant/:path*",
   ],
 };

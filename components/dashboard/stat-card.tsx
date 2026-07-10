@@ -7,7 +7,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   TrendingUp, TrendingDown, Building2, Users, UserCheck, CalendarDays,
   IndianRupee, Star, Package, Scissors, Megaphone, Activity, BarChart3,
-  CalendarClock,
+  CalendarClock, TriangleAlert, Truck, ShoppingCart, Receipt, Wallet, Ticket, Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CountUp } from "./count-up";
@@ -28,6 +28,13 @@ const STAT_ICONS = {
   chart: BarChart3,
   pending: CalendarClock,
   served: UserCheck,
+  alert: TriangleAlert,
+  supplier: Truck,
+  purchase: ShoppingCart,
+  invoice: Receipt,
+  wallet: Wallet,
+  coupon: Ticket,
+  offer: Tag,
 } as const;
 export type StatIcon = keyof typeof STAT_ICONS;
 

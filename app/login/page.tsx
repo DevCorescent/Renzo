@@ -19,9 +19,9 @@ const HOME_FOR: Record<UserType, string> = {
   RECEPTIONIST:       "/reception/dashboard",
   WORKER:             "/worker/dashboard",
   CUSTOMER:           "/customer/dashboard",
-  INVENTORY_MANAGER:  "/",
-  MARKETING_MANAGER:  "/",
-  ACCOUNTANT:         "/",
+  INVENTORY_MANAGER:  "/inventory/dashboard",
+  MARKETING_MANAGER:  "/marketing/dashboard",
+  ACCOUNTANT:         "/accountant/dashboard",
 };
 
 type LoggedInUser = { userType: UserType; name: string | null };

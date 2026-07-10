@@ -12,7 +12,7 @@ import {
   LayoutTemplate, Menu, X, LogOut, ChevronRight,
 } from "lucide-react";
 
-type Role = "worker" | "reception" | "branch-admin" | "super-admin";
+type Role = "worker" | "reception" | "branch-admin" | "super-admin" | "inventory" | "marketing" | "accountant";
 type Icon = React.ComponentType<{ className?: string }>;
 type NavItem = { label: string; href: string; icon: Icon };
 
@@ -66,6 +66,24 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
       { label: "CMS",        href: "/super-admin/cms",         icon: LayoutTemplate },
       { label: "Audit Logs", href: "/super-admin/audit-logs",  icon: ScrollText },
       { label: "Settings",   href: "/super-admin/settings",    icon: Settings },
+    ],
+  },
+  inventory: {
+    brand: "Renzo", label: "Inventory",
+    items: [
+      { label: "Dashboard", href: "/inventory/dashboard", icon: LayoutDashboard },
+    ],
+  },
+  marketing: {
+    brand: "Renzo", label: "Marketing",
+    items: [
+      { label: "Dashboard", href: "/marketing/dashboard", icon: LayoutDashboard },
+    ],
+  },
+  accountant: {
+    brand: "Renzo", label: "Accounts",
+    items: [
+      { label: "Dashboard", href: "/accountant/dashboard", icon: LayoutDashboard },
     ],
   },
 };
