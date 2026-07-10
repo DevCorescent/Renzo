@@ -1,64 +1,148 @@
-// OWNER: Hemant | MODULE: Branch Detail & Settings
-import Link from "next/link";
-import { ArrowLeft, MapPin, Phone, Clock } from "lucide-react";
-import { PageHeader, StatCard, Card, CardHeader, CardTitle, CardBody, Badge } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import prisma from "@/lib/db";
+import { getServerUser } from "@/lib/server-session";
+import { redirect, notFound } from "next/navigation";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { AssignStaffForm } from "./assign-staff-form";
 
-const timings = [
-  { day: "Monday", hours: "10:00 – 21:00" },
-  { day: "Tuesday", hours: "10:00 – 21:00" },
-  { day: "Wednesday", hours: "10:00 – 21:00" },
-  { day: "Thursday", hours: "10:00 – 21:00" },
-  { day: "Friday", hours: "10:00 – 22:00" },
-  { day: "Saturday", hours: "09:00 – 22:00" },
-  { day: "Sunday", hours: "09:00 – 20:00" },
-];
+// OWNER: Hemant | MODULE: Super Admin — Branch Detail
 
 export default async function SuperAdminBranchDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const authUser = await getServerUser();
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
   const { id } = await params;
+
+  const branch = await prisma.branch.findUnique({
+    where: { id },
+    include: {
+      timings: { orderBy: { dayOfWeek: "asc" } },
+      setting: true,
+      staffProfiles: {
+        include: { user: { select: { userType: true } } },
+        orderBy: { createdAt: "desc" },
+      },
+      workerBranches: {
+        where: { isActive: true },
+        include: { worker: { select: { firstName: true, lastName: true, employeeCode: true, designation: { select: { name: true } } } } },
+        orderBy: { joinedAt: "desc" },
+      },
+      _count: { select: { appointments: true } },
+    },
+  });
+
+  if (!branch) notFound();
+
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
   return (
-    <>
-      <Link href="/super-admin/branches" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" /> Back to branches
-      </Link>
-
-      <PageHeader eyebrow={`Branch · ${id.toUpperCase()}`} title="Renzo Bandra" subtitle="Mumbai · Manager: Rohit Menon"
-        actions={<><Button variant="outline" size="sm">Holidays</Button><Button size="sm">Edit branch</Button></>} />
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Revenue MTD" value="₹12.6L" delta={{ value: "14%", positive: true }} />
-        <StatCard label="Staff" value="10" hint="8 present" />
-        <StatCard label="Bookings" value="742" hint="this month" />
-        <StatCard label="Rating" value="4.8" delta={{ value: "0.2", positive: true }} />
+    <div className="space-y-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">{branch.name}</h1>
+          <p className="mt-0.5 text-sm text-gray-500">{branch.address}, {branch.city}, {branch.state} — {branch.pincode}</p>
+        </div>
+        <Badge tone={branch.isActive ? "success" : "danger"}>{branch.isActive ? "Active" : "Inactive"}</Badge>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      <div className="grid gap-4 sm:grid-cols-4">
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">Total Appointments</p>
+          <p className="mt-1 text-2xl font-semibold text-gray-900">{branch._count.appointments}</p>
+        </div>
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">Active Workers</p>
+          <p className="mt-1 text-2xl font-semibold text-gray-900">{branch.workerBranches.length}</p>
+        </div>
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">Staff</p>
+          <p className="mt-1 text-2xl font-semibold text-gray-900">{branch.staffProfiles.length}</p>
+        </div>
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">Phone</p>
+          <p className="mt-1 text-sm font-medium text-gray-900">{branch.phone}</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
           <CardHeader><CardTitle>Operating Hours</CardTitle></CardHeader>
-          <CardBody className="p-0">
-            {timings.map((t) => (
-              <div key={t.day} className="flex items-center justify-between border-b border-border/70 px-5 py-3 last:border-0">
-                <span className="text-sm">{t.day}</span>
-                <span className="text-sm font-medium tabular-nums">{t.hours}</span>
+          <div className="divide-y divide-gray-50">
+            {branch.timings.map((t) => (
+              <div key={t.id} className="flex items-center justify-between px-4 py-2.5">
+                <span className="w-8 text-sm font-medium text-gray-700">{DAYS[t.dayOfWeek]}</span>
+                {t.isOpen ? (
+                  <span className="font-mono text-xs text-gray-600">{t.openTime} – {t.closeTime}</span>
+                ) : (
+                  <Badge tone="neutral">Closed</Badge>
+                )}
               </div>
             ))}
-          </CardBody>
+            {branch.timings.length === 0 && <p className="px-4 py-4 text-sm text-gray-400">No timings set.</p>}
+          </div>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Details</CardTitle></CardHeader>
-          <CardBody className="space-y-4 text-sm">
-            <div className="flex items-start gap-2.5"><MapPin className="mt-0.5 size-4 text-muted-foreground" /><span>Hill Road, Bandra West, Mumbai 400050</span></div>
-            <div className="flex items-center gap-2.5"><Phone className="size-4 text-muted-foreground" /><span>+91 22 4000 1234</span></div>
-            <div className="flex items-center gap-2.5"><Clock className="size-4 text-muted-foreground" /><span>Opened 14 Mar 2021</span></div>
-            <div className="flex flex-wrap gap-2 pt-2">
-              <Badge tone="success">Active</Badge>
-              <Badge tone="primary">Flagship</Badge>
-              <Badge tone="info">Online booking on</Badge>
-            </div>
-          </CardBody>
+          <CardHeader>
+            <CardTitle>Staff</CardTitle>
+            <AssignStaffForm branchId={id} />
+          </CardHeader>
+          <div className="divide-y divide-gray-50">
+            {branch.staffProfiles.map((s) => (
+              <div key={s.id} className="flex items-center justify-between px-4 py-2.5">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{s.firstName} {s.lastName}</p>
+                  <p className="text-xs text-gray-400">{s.user.userType.replace(/_/g, " ")}</p>
+                </div>
+                <Badge tone={s.isActive ? "success" : "neutral"}>{s.isActive ? "Active" : "Off"}</Badge>
+              </div>
+            ))}
+            {branch.staffProfiles.length === 0 && <p className="px-4 py-4 text-sm text-gray-400">No staff assigned.</p>}
+          </div>
         </Card>
       </div>
-    </>
+
+      <Card>
+        <CardHeader><CardTitle>Workers ({branch.workerBranches.length})</CardTitle></CardHeader>
+        <Table>
+          <THead><tr><TH>Name</TH><TH>Code</TH><TH>Designation</TH><TH>Assignment</TH></tr></THead>
+          <tbody>
+            {branch.workerBranches.map((wb) => (
+              <TR key={wb.id}>
+                <TD className="font-medium text-gray-900">{wb.worker.firstName} {wb.worker.lastName}</TD>
+                <TD className="font-mono text-xs text-gray-400">{wb.worker.employeeCode}</TD>
+                <TD className="text-gray-500">{wb.worker.designation?.name ?? "—"}</TD>
+                <TD><Badge tone={wb.isPrimary ? "primary" : "neutral"}>{wb.isPrimary ? "Primary" : "Secondary"}</Badge></TD>
+              </TR>
+            ))}
+            {branch.workerBranches.length === 0 && (
+              <tr><td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-400">No workers assigned.</td></tr>
+            )}
+          </tbody>
+        </Table>
+      </Card>
+
+      {branch.setting && (
+        <Card>
+          <CardHeader><CardTitle>Settings</CardTitle></CardHeader>
+          <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              ["Tax", `${branch.setting.taxPercent}% ${branch.setting.taxName}`],
+              ["GST Number", branch.setting.taxNumber ?? "—"],
+              ["Advance Booking", `${branch.setting.advanceBookingDays} days`],
+              ["Min Advance", `${branch.setting.minAdvanceBookingHours}h`],
+              ["Cancellation", `${branch.setting.cancellationHours}h notice`],
+              ["Auto Confirm", branch.setting.autoConfirmBookings ? "Yes" : "No"],
+              ["Online Pay", branch.setting.onlinePaymentEnabled ? "Yes" : "No"],
+              ["Loyalty", branch.setting.loyaltyEnabled ? "Enabled" : "Disabled"],
+              ["Membership", branch.setting.membershipEnabled ? "Enabled" : "Disabled"],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded border border-gray-100 p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{label}</p>
+                <p className="mt-1 text-sm text-gray-800">{value}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }

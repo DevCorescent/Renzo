@@ -3,13 +3,13 @@ import { ok, err } from "@/lib/response";
 import prisma from "@/lib/db";
 
 // OWNER: Aman | MODULE: Public Workers
-// GET /api/v1/public/workers/[id] — Get single worker public profile (no auth)
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+// GET /api/v1/public/workers/[slug] — Get single worker public profile by id (no auth)
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
-    const { id } = await params;
+    const { slug } = await params;
 
     const worker = await prisma.workerProfile.findFirst({
-      where: { id, isPublic: true, isActive: true },
+      where: { id: slug, isPublic: true, isActive: true },
       select: {
         id: true,
         firstName: true,

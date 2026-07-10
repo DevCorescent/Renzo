@@ -1,132 +1,169 @@
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { StatCard, Badge } from "@/components/shared/ui";
+import { CalendarDays, Wallet, Sparkles, Crown } from "lucide-react";
 import Link from "next/link";
-import {
-  Wallet,
-  Sparkles,
-  Crown,
-  CalendarDays,
-  ArrowRight,
-  Clock,
-  MapPin,
-  Scissors,
-  User,
-} from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { PageHeader, Card, StatusBadge } from "@/components/customer/ui";
-import { CUSTOMER, BOOKINGS, WALLET, LOYALTY, MEMBERSHIP, rupee } from "@/components/customer/data";
 
-// OWNER: Devanshi | MODULE: Customer Dashboard (hardcoded)
-export default function CustomerDashboardPage() {
-  const upcoming = BOOKINGS.filter((b) => b.status === "CONFIRMED" || b.status === "PENDING");
-  const next = upcoming[0];
+// OWNER: Devanshi | MODULE: Customer Dashboard
 
-  const stats = [
-    { label: "Wallet Balance", value: rupee(WALLET.balance), icon: Wallet, href: "/customer/wallet" },
-    { label: "Loyalty Points", value: LOYALTY.points.toLocaleString("en-IN"), icon: Sparkles, href: "/customer/loyalty" },
-    { label: "Membership", value: MEMBERSHIP.active ? MEMBERSHIP.plan : "None", icon: Crown, href: "/customer/membership" },
-    { label: "Upcoming", value: `${upcoming.length} booking${upcoming.length === 1 ? "" : "s"}`, icon: CalendarDays, href: "/customer/bookings" },
-  ];
+const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info" | "primary"> = {
+  PENDING: "neutral",
+  CONFIRMED: "info",
+  CHECKED_IN: "warning",
+  STARTED: "primary",
+  COMPLETED: "success",
+  CANCELLED: "danger",
+  NO_SHOW: "danger",
+  RESCHEDULED: "info",
+};
+
+export default async function CustomerDashboardPage() {
+  const authUser = await getServerUser();
+  if (!authUser?.customerId) redirect("/login");
+  const customerId = authUser.customerId;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [customer, wallet, loyalty, activeMembership, upcomingAppointments, recentAppointments] =
+    await Promise.all([
+      prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { firstName: true, totalVisits: true, totalSpend: true },
+      }),
+      prisma.wallet.findUnique({
+        where: { customerId },
+        select: { balance: true },
+      }),
+      prisma.loyaltyAccount.findUnique({
+        where: { customerId },
+        select: { availablePoints: true, tier: true },
+      }),
+      prisma.customerMembership.findFirst({
+        where: { customerId, status: "ACTIVE" },
+        include: { plan: { select: { name: true, tier: true } } },
+      }),
+      prisma.appointment.findMany({
+        where: {
+          customerId,
+          appointmentDate: { gte: today },
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+        },
+        orderBy: [{ appointmentDate: "asc" }, { startTime: "asc" }],
+        take: 5,
+        include: {
+          branch: { select: { name: true } },
+          services: { include: { service: { select: { name: true } } } },
+        },
+      }),
+      prisma.appointment.findMany({
+        where: {
+          customerId,
+          status: "COMPLETED",
+        },
+        orderBy: { appointmentDate: "desc" },
+        take: 5,
+        include: {
+          branch: { select: { name: true } },
+          services: { include: { service: { select: { name: true } } } },
+        },
+      }),
+    ]);
 
   return (
-    <div>
-      <PageHeader
-        title={`Welcome back, ${CUSTOMER.name.split(" ")[0]} 👋`}
-        description="Here's what's happening with your account."
-        action={
-          <Link href="/book" className={cn(buttonVariants())}>
-            <Scissors className="size-4" />
-            Book New Appointment
-          </Link>
-        }
-      />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">
+          Welcome back, {customer?.firstName ?? "there"}!
+        </h1>
+        <p className="mt-0.5 text-sm text-gray-500">
+          {customer?.totalVisits ?? 0} visits · ₹{Number(customer?.totalSpend ?? 0).toLocaleString("en-IN")} lifetime spend
+        </p>
+      </div>
 
-      {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((s) => (
-          <Link key={s.label} href={s.href}>
-            <Card className="group flex items-center gap-4 p-5 transition-colors hover:border-primary">
-              <span className="inline-flex size-11 items-center justify-center bg-muted text-primary">
-                <s.icon className="size-5" />
-              </span>
-              <div>
-                <p className="text-xs uppercase tracking-widest text-muted-foreground">{s.label}</p>
-                <p className="mt-1 font-heading text-xl font-semibold">{s.value}</p>
-              </div>
-            </Card>
-          </Link>
-        ))}
+        <StatCard
+          label="Wallet Balance"
+          value={`₹${Number(wallet?.balance ?? 0).toLocaleString("en-IN")}`}
+          icon={Wallet}
+        />
+        <StatCard
+          label="Loyalty Points"
+          value={(loyalty?.availablePoints ?? 0).toLocaleString()}
+          hint={loyalty?.tier}
+          icon={Sparkles}
+        />
+        <StatCard
+          label="Upcoming"
+          value={upcomingAppointments.length.toString()}
+          icon={CalendarDays}
+        />
+        <StatCard
+          label="Membership"
+          value={activeMembership?.plan.name ?? "None"}
+          hint={activeMembership ? activeMembership.plan.tier : undefined}
+          icon={Crown}
+        />
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-3">
-        {/* Next appointment */}
-        <div className="lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold">Next appointment</h2>
-            <Link href="/customer/bookings" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground">
-              View all
+      {upcomingAppointments.length > 0 && (
+        <div className="rounded border border-gray-200 bg-white">
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-gray-700">Upcoming Appointments</h2>
+            <Link href="/customer/bookings" className="text-xs text-gray-500 hover:text-gray-800">
+              All bookings →
             </Link>
           </div>
-          {next ? (
-            <Card className="overflow-hidden">
-              <div className="flex flex-col sm:flex-row">
-                <img src={next.image} alt={next.service} className="h-40 w-full object-cover sm:h-auto sm:w-44" />
-                <div className="flex flex-1 flex-col p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="font-heading text-lg font-semibold">{next.service}</h3>
-                    <StatusBadge status={next.status} />
-                  </div>
-                  <div className="mt-4 grid gap-2 text-sm text-muted-foreground">
-                    <p className="flex items-center gap-2"><User className="size-4 text-primary" /> {next.stylist}</p>
-                    <p className="flex items-center gap-2"><CalendarDays className="size-4 text-primary" /> {next.date} · {next.time}</p>
-                    <p className="flex items-center gap-2"><MapPin className="size-4 text-primary" /> {next.branch}</p>
-                    <p className="flex items-center gap-2"><Clock className="size-4 text-primary" /> {next.duration}</p>
-                  </div>
-                  <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
-                    <span className="font-heading text-lg font-semibold">{rupee(next.price)}</span>
-                    <Link href={`/customer/bookings/${next.id}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-                      View Details <ArrowRight className="size-3.5" />
-                    </Link>
-                  </div>
+          <div className="divide-y divide-gray-50">
+            {upcomingAppointments.map((a) => (
+              <div key={a.id} className="flex items-start justify-between px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {a.services.map((s) => s.service.name).join(", ") || "Appointment"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(a.appointmentDate).toLocaleDateString("en-IN", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                    })}{" "}
+                    · {a.startTime} · {a.branch.name}
+                  </p>
                 </div>
+                <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>
+                  {a.status.replace(/_/g, " ")}
+                </Badge>
               </div>
-            </Card>
-          ) : (
-            <Card className="p-10 text-center text-sm text-muted-foreground">No upcoming appointments.</Card>
-          )}
-        </div>
-
-        {/* Loyalty snapshot */}
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold">Rewards</h2>
+            ))}
           </div>
-          <Card className="space-y-5 p-6">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex size-11 items-center justify-center bg-primary text-primary-foreground">
-                <Sparkles className="size-5" />
-              </span>
-              <div>
-                <p className="font-heading text-2xl font-bold">{LOYALTY.points.toLocaleString("en-IN")}</p>
-                <p className="text-xs uppercase tracking-widest text-muted-foreground">{LOYALTY.tier} tier</p>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{LOYALTY.pointsToNext} pts to {LOYALTY.nextTier}</span>
-              </div>
-              <div className="mt-2 h-2 w-full overflow-hidden bg-muted">
-                <div
-                  className="h-full bg-primary"
-                  style={{ width: `${(LOYALTY.points / (LOYALTY.points + LOYALTY.pointsToNext)) * 100}%` }}
-                />
-              </div>
-            </div>
-            <Link href="/customer/loyalty" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full")}>
-              Redeem Points
-            </Link>
-          </Card>
         </div>
-      </div>
+      )}
+
+      {recentAppointments.length > 0 && (
+        <div className="rounded border border-gray-200 bg-white">
+          <div className="border-b border-gray-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-gray-700">Recent Visits</h2>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {recentAppointments.map((a) => (
+              <div key={a.id} className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {a.services.map((s) => s.service.name).join(", ") || "Visit"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(a.appointmentDate).toLocaleDateString("en-IN")} · {a.branch.name}
+                  </p>
+                </div>
+                <p className="text-sm font-medium text-gray-700">
+                  ₹{Number(a.totalAmount).toLocaleString("en-IN")}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

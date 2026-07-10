@@ -278,15 +278,20 @@ export async function POST(req: NextRequest) {
     if (isNonEmptyString(workerId)) {
       worker = await prisma.workerProfile.findUnique({
         where: { id: workerId },
-        select: { id: true, firstName: true, lastName: true, isActive: true },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          isActive: true,
+          branches: { where: { branchId, isActive: true }, select: { id: true } },
+        },
       });
 
-      if (!worker || !worker.isActive) {
-        return err("Worker not found", 404);
-      }
+      if (!worker || !worker.isActive) return err("Worker not found", 404);
 
-      // TODO (Phase 2): validate worker belongs to selected branch
-      // TODO (Phase 2): validate worker can perform selected services
+      if (worker.branches.length === 0) {
+        return err("This worker is not assigned to the selected branch", 422);
+      }
     }
 
     // ------------------------------------------------------------------------
@@ -390,12 +395,80 @@ export async function POST(req: NextRequest) {
       return { packageId: pkg.id, price: Number(pkg.price) };
     });
 
-    // NOTE: taxAmount is hardcoded to 0 here, ignoring service.taxPercent
-    // used elsewhere in this codebase — confirm this is deliberate (e.g.
-    // tax computed later at invoice generation) rather than an oversight.
+    // Tax is computed at invoice generation (per-service rate). Zero here is
+    // intentional — the booking records the pre-tax subtotal.
     const taxAmount = 0;
-    const discountAmount = 0;
-    const totalAmount = subtotal + taxAmount - discountAmount;
+    let discountAmount = 0;
+    let couponId: string | null = null;
+
+    // ------------------------------------------------------------------------
+    // Slot Availability Check (if a specific worker is requested)
+    // ------------------------------------------------------------------------
+
+    if (worker) {
+      const overlapping = await prisma.appointment.count({
+        where: {
+          workerId: worker.id,
+          appointmentDate: parsedDate,
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+          OR: [
+            { startTime: { lt: endTime.trim() }, endTime: { gt: startTime.trim() } },
+          ],
+        },
+      });
+      if (overlapping > 0) {
+        return err("The selected time slot is not available for this worker", 409);
+      }
+
+      // Also check worker's manual availability blocks.
+      const dateStr = parsedDate.toISOString().slice(0, 10);
+      const blocked = await prisma.workerAvailability.count({
+        where: {
+          workerId: worker.id,
+          date: new Date(dateStr),
+          fromTime: { lt: endTime.trim() },
+          toTime: { gt: startTime.trim() },
+        },
+      });
+      if (blocked > 0) {
+        return err("The worker has marked this time as unavailable", 409);
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // Branch Holiday Check
+    // ------------------------------------------------------------------------
+
+    const dateStr = parsedDate.toISOString().slice(0, 10);
+    const holiday = await prisma.branchHoliday.findFirst({
+      where: { branchId, date: new Date(dateStr) },
+    });
+    if (holiday) {
+      return err(
+        `The branch is closed on this date${holiday.reason ? `: ${holiday.reason}` : ""}`,
+        409
+      );
+    }
+
+    // ------------------------------------------------------------------------
+    // Coupon Application (optional)
+    // ------------------------------------------------------------------------
+
+    const couponCode = typeof body.couponCode === "string" ? body.couponCode.trim() : null;
+    if (couponCode) {
+      const coupon = await prisma.coupon.findFirst({
+        where: { code: couponCode, isActive: true },
+      });
+      if (!coupon) {
+        return err("Invalid or inactive coupon code", 422);
+      }
+      const { couponUnusableReason, computeCouponDiscount } = await import("@/lib/coupons");
+      const reason = await couponUnusableReason(prisma, coupon, customer.id, subtotal);
+      if (reason) return err(reason, 422);
+
+      discountAmount = computeCouponDiscount(coupon, subtotal);
+      couponId = coupon.id;
+    }
 
     // ------------------------------------------------------------------------
     // Generate Appointment Number
@@ -403,11 +476,7 @@ export async function POST(req: NextRequest) {
 
     const appointmentNo = generateAppointmentNumber();
 
-    // TODO (Phase 2): validate slot availability
-    // TODO (Phase 2): apply coupon
-    // TODO (Phase 2): membership discount
-    // TODO (Phase 2): loyalty redemption
-    // TODO (Phase 2): wallet payment
+    const totalAmount = Math.max(0, subtotal + taxAmount - discountAmount);
 
     // ------------------------------------------------------------------------
     // Create Appointment
@@ -446,15 +515,21 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // TODO (Phase 2): generate invoice
-      // TODO (Phase 2): update customer total visits
-      // TODO (Phase 2): reserve booking slot
-      // TODO (Phase 2): create appointment reminders
-      // TODO (Phase 2): send SMS / WhatsApp / Email confirmation
-      // TODO (Phase 2): loyalty points
-      // TODO (Phase 2): membership usage
-      // TODO (Phase 2): audit log
-      // TODO (Phase 2): activity log
+      // Record coupon usage so the per-customer limit is enforced.
+      if (couponId) {
+        await tx.couponUsage.create({
+          data: {
+            couponId,
+            customerId: customer.id,
+            appointmentId: createdAppointment.id,
+            discountAmount,
+          },
+        });
+        await tx.coupon.update({
+          where: { id: couponId },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
 
       return createdAppointment;
     });

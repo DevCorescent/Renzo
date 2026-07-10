@@ -1,4 +1,4 @@
-// OWNER: Devanshi | COMPONENT: Public site footer
+// OWNER: Gauransh | COMPONENT: Public site footer
 import Link from "next/link";
 import { Scissors, MapPin, Phone, Mail, Camera, MessageCircle, Share2 } from "lucide-react";
 
@@ -19,27 +19,35 @@ const FOOTER_LINKS = {
   ],
 };
 
+const SOCIALS = [
+  { Icon: Camera, label: "Instagram" },
+  { Icon: MessageCircle, label: "WhatsApp" },
+  { Icon: Share2, label: "Facebook" },
+];
+
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border bg-muted/40">
+    <footer className="border-t border-white/10 bg-stone-950 text-stone-300">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="space-y-4">
-            <Link href="/" className="flex items-center gap-2">
-              <Scissors className="size-6 text-primary" />
-              <span className="font-heading text-2xl font-bold tracking-tight">Renzo</span>
+            <Link href="/" className="flex items-center gap-2.5">
+              <span className="inline-flex size-9 items-center justify-center rounded-full bg-gold/15 text-gold ring-1 ring-gold/30">
+                <Scissors className="size-4.5" />
+              </span>
+              <span className="font-heading text-2xl font-bold tracking-tight text-white">Renzo</span>
             </Link>
-            <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
+            <p className="max-w-xs text-sm leading-relaxed text-stone-400">
               A modern hair &amp; beauty studio crafting confidence, one cut at a time.
             </p>
             <div className="flex gap-3">
-              {[Camera, MessageCircle, Share2].map((Icon, i) => (
+              {SOCIALS.map(({ Icon, label }) => (
                 <a
-                  key={i}
+                  key={label}
                   href="#"
-                  aria-label="Social link"
-                  className="inline-flex size-9 items-center justify-center border border-border text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+                  aria-label={label}
+                  className="inline-flex size-9 items-center justify-center rounded-lg border border-white/10 text-stone-400 transition-colors hover:border-gold/40 hover:text-gold"
                 >
                   <Icon className="size-4" />
                 </a>
@@ -50,7 +58,7 @@ export function SiteFooter() {
           {/* Link columns */}
           {Object.entries(FOOTER_LINKS).map(([title, links]) => (
             <div key={title}>
-              <h4 className="mb-4 text-xs font-semibold uppercase tracking-widest text-foreground">
+              <h4 className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-white">
                 {title}
               </h4>
               <ul className="space-y-3">
@@ -58,7 +66,7 @@ export function SiteFooter() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      className="text-sm text-stone-400 transition-colors hover:text-gold"
                     >
                       {link.label}
                     </Link>
@@ -70,31 +78,31 @@ export function SiteFooter() {
 
           {/* Contact */}
           <div>
-            <h4 className="mb-4 text-xs font-semibold uppercase tracking-widest text-foreground">
+            <h4 className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-white">
               Visit Us
             </h4>
-            <ul className="space-y-3 text-sm text-muted-foreground">
+            <ul className="space-y-3 text-sm text-stone-400">
               <li className="flex items-start gap-2">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
+                <MapPin className="mt-0.5 size-4 shrink-0 text-gold" />
                 <span>12 Rosewood Avenue, Bandra West, Mumbai 400050</span>
               </li>
               <li className="flex items-center gap-2">
-                <Phone className="size-4 shrink-0 text-primary" />
+                <Phone className="size-4 shrink-0 text-gold" />
                 <span>+91 98765 43210</span>
               </li>
               <li className="flex items-center gap-2">
-                <Mail className="size-4 shrink-0 text-primary" />
+                <Mail className="size-4 shrink-0 text-gold" />
                 <span>hello@renzo.salon</span>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 text-xs text-muted-foreground sm:flex-row">
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 text-xs text-stone-500 sm:flex-row">
           <p>&copy; {new Date().getFullYear()} Renzo Salon. All rights reserved.</p>
           <div className="flex gap-6">
-            <Link href="#" className="transition-colors hover:text-foreground">Privacy Policy</Link>
-            <Link href="#" className="transition-colors hover:text-foreground">Terms of Service</Link>
+            <Link href="#" className="transition-colors hover:text-gold">Privacy Policy</Link>
+            <Link href="#" className="transition-colors hover:text-gold">Terms of Service</Link>
           </div>
         </div>
       </div>

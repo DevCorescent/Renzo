@@ -1,107 +1,224 @@
-// OWNER: Hemant | MODULE: New Booking — walk-in / call
-import { Search, Clock } from "lucide-react";
-import { PageHeader, Card, CardHeader, CardTitle, CardBody, Badge } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+"use client";
 
-const slots = ["10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "14:00", "14:30", "15:00"];
-const services = [
-  { name: "Haircut & Style", dur: "45m", price: "₹800" },
-  { name: "Balayage", dur: "120m", price: "₹4,500" },
-  { name: "Keratin Treatment", dur: "150m", price: "₹6,000" },
-  { name: "Root Touch-up", dur: "60m", price: "₹1,500" },
-];
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { API } from "@/lib/endpoints";
 
-export default function NewBookingPage() {
+// OWNER: Hemant | MODULE: Reception — New Walk-in Booking
+
+type Service = { id: string; name: string; duration: number; basePrice: number };
+type Worker = { id: string; firstName: string; lastName: string };
+
+function fmt(n: number) {
+  return `₹${n.toLocaleString("en-IN")}`;
+}
+
+export default function ReceptionNewBookingPage() {
+  const router = useRouter();
+  const [services, setServices] = useState<Service[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [slots, setSlots] = useState<string[]>([]);
+
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [workerId, setWorkerId] = useState("");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [startTime, setStartTime] = useState("");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch(API.public.services)
+      .then((r) => r.json())
+      .then((d) => setServices(d.data?.items ?? d.data ?? []));
+    fetch(API.admin.workers)
+      .then((r) => r.json())
+      .then((d) => setWorkers(d.data?.items ?? d.data ?? []));
+  }, []);
+
+  useEffect(() => {
+    if (!workerId || !date || selectedServices.length === 0) { setSlots([]); return; }
+    fetch(`${API.public.slots}?workerId=${workerId}&date=${date}&serviceIds=${selectedServices.join(",")}`)
+      .then((r) => r.json())
+      .then((d) => setSlots(d.data ?? []));
+  }, [workerId, date, selectedServices]);
+
+  function toggleService(id: string) {
+    setSelectedServices((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+  }
+
+  const totalAmount = services
+    .filter((s) => selectedServices.includes(s.id))
+    .reduce((sum, s) => sum + s.basePrice, 0);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    if (!customerPhone || selectedServices.length === 0 || !date || !startTime) {
+      setError("Phone, at least one service, date, and time are required.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(API.reception.appointments, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerPhone,
+          customerName,
+          serviceIds: selectedServices,
+          workerId: workerId || undefined,
+          appointmentDate: date,
+          startTime,
+          notes,
+          source: "WALK_IN",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.message ?? "Booking failed"); return; }
+      router.push("/reception/checkin");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <>
-      <PageHeader eyebrow="Front Desk" title="New Booking" subtitle="Create a walk-in or phone booking." />
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <Card>
-            <CardHeader><CardTitle>1 · Customer</CardTitle></CardHeader>
-            <CardBody className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input placeholder="Search by phone or name…" className="w-full border border-input bg-transparent py-2 pl-9 pr-3 text-sm outline-none focus:border-ring" />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Input label="Full name" placeholder="e.g. Anaya Verma" />
-                <Input label="Phone" placeholder="+91 …" />
-              </div>
-              <Badge tone="info">New customer will be created</Badge>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader><CardTitle>2 · Services</CardTitle></CardHeader>
-            <CardBody className="p-0">
-              {services.map((s, i) => (
-                <label key={i} className="flex cursor-pointer items-center gap-3 border-b border-border/70 px-5 py-3 last:border-0 hover:bg-muted/40">
-                  <input type="checkbox" defaultChecked={i === 0} className="size-4 accent-primary" />
-                  <span className="flex-1 text-sm font-medium">{s.name}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{s.dur}</span>
-                  <span className="w-16 text-right text-sm font-semibold tabular-nums">{s.price}</span>
-                </label>
-              ))}
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader><CardTitle>3 · Stylist & Time</CardTitle></CardHeader>
-            <CardBody className="space-y-4">
-              <label className="block space-y-1.5">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stylist</span>
-                <select className="w-full border border-input bg-transparent px-3 py-2 text-sm outline-none focus:border-ring">
-                  <option>Any available</option><option>Priya Nair</option><option>Arjun Singh</option><option>Zoya Khan</option>
-                </select>
-              </label>
-              <div>
-                <span className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><Clock className="size-3.5" /> Available slots</span>
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                  {slots.map((t, i) => (
-                    <button key={t} className={i === 1 ? "border border-primary bg-primary/10 py-2 text-sm font-semibold text-primary" : "border border-border py-2 text-sm hover:bg-muted"}>{t}</button>
-                  ))}
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-
-        <div>
-          <Card className="sticky top-24">
-            <CardHeader><CardTitle>Summary</CardTitle></CardHeader>
-            <CardBody className="space-y-3 text-sm">
-              <Row label="Customer" value="Anaya Verma" />
-              <Row label="Service" value="Haircut & Style" />
-              <Row label="Stylist" value="Priya Nair" />
-              <Row label="Time" value="Today · 10:30" />
-              <div className="flex items-center justify-between border-t border-border pt-3">
-                <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Total</span>
-                <span className="font-heading text-xl font-semibold tabular-nums">₹800</span>
-              </div>
-              <Button className="w-full justify-center">Confirm booking</Button>
-            </CardBody>
-          </Card>
-        </div>
+    <div className="mx-auto max-w-xl space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">New Walk-in Booking</h1>
+        <p className="mt-0.5 text-sm text-gray-500">Create an appointment for a walk-in customer</p>
       </div>
-    </>
-  );
-}
 
-function Input({ label, placeholder }: { label: string; placeholder: string }) {
-  return (
-    <label className="block space-y-1.5">
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-      <input placeholder={placeholder} className="w-full border border-input bg-transparent px-3 py-2 text-sm outline-none focus:border-ring" />
-    </label>
-  );
-}
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="rounded border border-gray-200 bg-white p-4 space-y-4">
+          <h2 className="text-sm font-semibold text-gray-700">Customer</h2>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Phone *</label>
+            <input
+              type="tel"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              placeholder="+91 98765 43210"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Name (optional if existing customer)</label>
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              placeholder="Full name"
+            />
+          </div>
+        </div>
+
+        <div className="rounded border border-gray-200 bg-white p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-700">Services *</h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {services.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => toggleService(s.id)}
+                className={`flex items-start justify-between rounded border p-3 text-left text-sm transition-colors ${
+                  selectedServices.includes(s.id)
+                    ? "border-gray-800 bg-gray-50"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div>
+                  <p className="font-medium text-gray-900">{s.name}</p>
+                  <p className="text-[11px] text-gray-400">{s.duration} min</p>
+                </div>
+                <p className="text-sm text-gray-700">{fmt(s.basePrice)}</p>
+              </button>
+            ))}
+          </div>
+          {selectedServices.length > 0 && (
+            <p className="text-xs text-gray-500">Total: <span className="font-semibold text-gray-900">{fmt(totalAmount)}</span></p>
+          )}
+        </div>
+
+        <div className="rounded border border-gray-200 bg-white p-4 space-y-4">
+          <h2 className="text-sm font-semibold text-gray-700">Schedule</h2>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Worker</label>
+            <select
+              value={workerId}
+              onChange={(e) => setWorkerId(e.target.value)}
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+            >
+              <option value="">Any available</option>
+              {workers.map((w) => (
+                <option key={w.id} value={w.id}>{w.firstName} {w.lastName}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Date *</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              min={new Date().toISOString().slice(0, 10)}
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Time *</label>
+            {slots.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {slots.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStartTime(s)}
+                    className={`rounded border px-3 py-1.5 text-sm font-mono ${
+                      startTime === s ? "border-gray-800 bg-gray-900 text-white" : "border-gray-200 hover:border-gray-400"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+            placeholder="Any special instructions…"
+          />
+        </div>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+        >
+          {loading ? "Booking…" : "Confirm Booking"}
+        </button>
+      </form>
     </div>
   );
 }

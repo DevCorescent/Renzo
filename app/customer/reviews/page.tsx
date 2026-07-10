@@ -1,63 +1,78 @@
-import { Star, Scissors } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { PageHeader, Card } from "@/components/customer/ui";
-import { REVIEWS, BOOKINGS } from "@/components/customer/data";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle } from "@/components/shared/ui";
 
-// OWNER: Devanshi | MODULE: Customer Reviews (hardcoded)
-export default function CustomerReviewsPage() {
-  const reviewedServices = new Set(REVIEWS.map((r) => r.service));
-  const pending = BOOKINGS.filter((b) => b.status === "COMPLETED" && !reviewedServices.has(b.service));
+// OWNER: Devanshi | MODULE: Customer — Reviews
+
+const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger"> = {
+  PENDING: "warning", APPROVED: "success", REJECTED: "danger", FLAGGED: "neutral",
+};
+
+export default async function CustomerReviewsPage() {
+  const authUser = await getServerUser();
+  if (!authUser?.customerId) redirect("/login");
+  const customerId = authUser.customerId;
+
+  const reviews = await prisma.review.findMany({
+    where: { customerId },
+    orderBy: { createdAt: "desc" },
+    include: {
+      branch: { select: { name: true } },
+      worker: { select: { firstName: true, lastName: true } },
+    },
+  });
 
   return (
-    <div>
-      <PageHeader title="My Reviews" description="Share your experience and view past feedback." />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">My Reviews</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{reviews.length} submitted</p>
+      </div>
 
-      {/* Pending review requests */}
-      {pending.length > 0 && (
-        <div className="mb-10">
-          <h2 className="mb-4 font-heading text-xl font-semibold">Awaiting your review</h2>
-          <div className="space-y-4">
-            {pending.map((b) => (
-              <Card key={b.id} className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-4">
-                  <img src={b.image} alt={b.service} className="size-14 object-cover" />
-                  <div>
-                    <p className="font-heading text-base font-semibold">{b.service}</p>
-                    <p className="text-sm text-muted-foreground">{b.stylist} · {b.date}</p>
-                  </div>
-                </div>
-                <button className={cn(buttonVariants({ size: "sm" }))}>
-                  <Star className="size-4" /> Write Review
-                </button>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Submitted reviews */}
-      <h2 className="mb-4 font-heading text-xl font-semibold">Your reviews</h2>
-      {REVIEWS.length === 0 ? (
-        <Card className="p-10 text-center text-sm text-muted-foreground">
-          You haven&apos;t written any reviews yet.
-        </Card>
+      {reviews.length === 0 ? (
+        <Card><p className="px-4 py-8 text-center text-sm text-gray-400">No reviews yet. Reviews can be submitted after each appointment.</p></Card>
       ) : (
         <div className="space-y-4">
-          {REVIEWS.map((r) => (
-            <Card key={r.id} className="p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="font-heading text-base font-semibold">{r.service}</h3>
-                  <p className="text-sm text-muted-foreground">{r.stylist} · {r.date}</p>
+          {reviews.map((r) => (
+            <Card key={r.id}>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-gray-900">{r.branch.name}</span>
+                  {r.worker && (
+                    <span className="text-xs text-gray-400">with {r.worker.firstName} {r.worker.lastName}</span>
+                  )}
+                  <Badge tone={STATUS_TONE[r.status] ?? "neutral"}>{r.status}</Badge>
                 </div>
-                <div className="flex gap-0.5 text-primary">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className={cn("size-4", i < r.rating ? "fill-current" : "text-muted-foreground/30")} />
-                  ))}
+                <span className="font-mono text-xs text-gray-400">{new Date(r.createdAt).toLocaleDateString("en-IN")}</span>
+              </CardHeader>
+              <div className="px-4 py-3">
+                <div className="flex items-center gap-4 text-sm">
+                  <div>
+                    <span className="text-[11px] text-gray-400">Overall</span>
+                    <p className="text-gray-700">{"★".repeat(r.overallRating)}{"☆".repeat(5 - r.overallRating)}</p>
+                  </div>
+                  {r.serviceRating && (
+                    <div>
+                      <span className="text-[11px] text-gray-400">Service</span>
+                      <p className="text-gray-600">{"★".repeat(r.serviceRating)}{"☆".repeat(5 - r.serviceRating)}</p>
+                    </div>
+                  )}
+                  {r.workerRating && (
+                    <div>
+                      <span className="text-[11px] text-gray-400">Worker</span>
+                      <p className="text-gray-600">{"★".repeat(r.workerRating)}{"☆".repeat(5 - r.workerRating)}</p>
+                    </div>
+                  )}
                 </div>
+                {r.comment && <p className="mt-2 text-sm text-gray-600">{r.comment}</p>}
+                {r.adminReply && (
+                  <div className="mt-3 rounded border border-gray-100 bg-gray-50 px-3 py-2">
+                    <p className="text-[11px] font-medium text-gray-500">Response from {r.branch.name}</p>
+                    <p className="mt-1 text-xs text-gray-600">{r.adminReply}</p>
+                  </div>
+                )}
               </div>
-              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">&ldquo;{r.text}&rdquo;</p>
             </Card>
           ))}
         </div>

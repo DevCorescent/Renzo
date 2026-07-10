@@ -1,79 +1,112 @@
-// OWNER: Hemant | MODULE: Customer Detail & Timeline
-import Link from "next/link";
-import { ArrowLeft, Scissors, Receipt, Star, Gift } from "lucide-react";
-import { PageHeader, StatCard, Card, CardHeader, CardTitle, CardBody, Badge } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import prisma from "@/lib/db";
+import { getServerUser } from "@/lib/server-session";
+import { redirect, notFound } from "next/navigation";
+import { Badge, Card, CardHeader, CardTitle, CardBody, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-const timeline = [
-  { icon: Scissors, title: "Balayage + Gloss", meta: "Priya N. · Bandra", when: "Today", amount: "₹6,300" },
-  { icon: Star, title: "Left a 5★ review", meta: "“Best balayage in years”", when: "Today", amount: "" },
-  { icon: Receipt, title: "Invoice INV-2040 paid", meta: "UPI", when: "Today", amount: "₹6,300" },
-  { icon: Gift, title: "Redeemed 500 loyalty points", meta: "₹250 off", when: "2 weeks ago", amount: "" },
-  { icon: Scissors, title: "Root Touch-up", meta: "Priya N. · Bandra", when: "3 weeks ago", amount: "₹1,500" },
-];
+// OWNER: Hemant | MODULE: Super Admin — Customer Detail
+
+const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info" | "primary"> = {
+  PENDING: "neutral", CONFIRMED: "info", CHECKED_IN: "warning",
+  STARTED: "primary", COMPLETED: "success", CANCELLED: "danger",
+  NO_SHOW: "danger", RESCHEDULED: "info",
+};
 
 export default async function SuperAdminCustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const authUser = await getServerUser();
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
   const { id } = await params;
+
+  const customer = await prisma.customer.findUnique({
+    where: { id },
+    include: {
+      wallet: { include: { transactions: { orderBy: { createdAt: "desc" }, take: 10 } } },
+      loyaltyAccount: { include: { transactions: { orderBy: { createdAt: "desc" }, take: 10 } } },
+      appointments: {
+        orderBy: { appointmentDate: "desc" },
+        take: 20,
+        include: {
+          branch: { select: { name: true } },
+          services: { include: { service: { select: { name: true } } } },
+        },
+      },
+      memberships: {
+        include: { plan: { select: { name: true, tier: true } } },
+        orderBy: { purchasedAt: "desc" },
+      },
+    },
+  });
+
+  if (!customer) notFound();
+
   return (
-    <>
-      <Link href="/super-admin/customers" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" /> Back to customers
-      </Link>
-
-      <PageHeader eyebrow={`Customer · ${id.toUpperCase()}`} title="Sneha Kapoor" subtitle="Member since Jan 2024 · Bandra"
-        actions={<><Button variant="outline" size="sm">Add note</Button><Button size="sm">New booking</Button></>} />
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Tier" value="Gold" hint="20% off services" />
-        <StatCard label="Lifetime Spend" value="₹86,400" />
-        <StatCard label="Visits" value="14" hint="last 12 mo" />
-        <StatCard label="Loyalty Points" value="2,340" />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">{customer.firstName} {customer.lastName}</h1>
+        <p className="mt-0.5 text-sm text-gray-500">
+          {customer.phone} {customer.email ? `· ${customer.email}` : ""}
+        </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card>
-          <CardHeader><CardTitle>Profile</CardTitle></CardHeader>
-          <CardBody className="space-y-3 text-sm">
-            <Field label="Phone" value="+91 98••• ••210" />
-            <Field label="Email" value="sneha.k@email.com" />
-            <Field label="Birthday" value="14 Aug" />
-            <Field label="Preferred stylist" value="Priya Nair" />
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Badge tone="warning">Gold Member</Badge>
-              <Badge tone="info">Prefers ash tones</Badge>
-              <Badge tone="danger">Ammonia allergy</Badge>
-            </div>
-          </CardBody>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-4">
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">Total Spend</p>
+          <p className="mt-1 text-xl font-semibold text-gray-900">₹{Number(customer.totalSpend).toLocaleString("en-IN")}</p>
+        </div>
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">Total Visits</p>
+          <p className="mt-1 text-xl font-semibold text-gray-900">{customer.totalVisits}</p>
+        </div>
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">Wallet Balance</p>
+          <p className="mt-1 text-xl font-semibold text-gray-900">₹{Number(customer.wallet?.balance ?? 0).toLocaleString("en-IN")}</p>
+        </div>
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">Loyalty Points</p>
+          <p className="mt-1 text-xl font-semibold text-gray-900">{(customer.loyaltyAccount?.availablePoints ?? 0).toLocaleString()}</p>
+          <p className="text-[11px] text-gray-400">{customer.loyaltyAccount?.tier ?? "No account"}</p>
+        </div>
+      </div>
 
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Activity Timeline</CardTitle></CardHeader>
-          <CardBody className="space-y-0">
-            {timeline.map((t, i) => (
-              <div key={i} className="flex gap-4 border-b border-border/70 py-3.5 last:border-0">
-                <div className="flex size-8 shrink-0 items-center justify-center bg-muted"><t.icon className="size-4 text-muted-foreground" /></div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{t.title}</p>
-                  <p className="text-xs text-muted-foreground">{t.meta}</p>
-                </div>
-                <div className="text-right">
-                  {t.amount && <p className="text-sm font-semibold tabular-nums">{t.amount}</p>}
-                  <p className="text-xs text-muted-foreground">{t.when}</p>
-                </div>
-              </div>
+      <Card>
+        <CardHeader><CardTitle>Appointments ({customer.appointments.length})</CardTitle></CardHeader>
+        <Table>
+          <THead><tr><TH>Date</TH><TH>Service</TH><TH>Branch</TH><TH>Amount</TH><TH>Status</TH></tr></THead>
+          <tbody>
+            {customer.appointments.map((a) => (
+              <TR key={a.id}>
+                <TD className="font-mono text-xs text-gray-500">{new Date(a.appointmentDate).toLocaleDateString("en-IN")}</TD>
+                <TD className="text-gray-700 text-xs">{a.services.map((s) => s.service.name).join(", ") || "—"}</TD>
+                <TD className="text-gray-500">{a.branch.name}</TD>
+                <TD className="text-gray-700">₹{Number(a.totalAmount).toLocaleString("en-IN")}</TD>
+                <TD><Badge tone={STATUS_TONE[a.status] ?? "neutral"}>{a.status.replace(/_/g, " ")}</Badge></TD>
+              </TR>
             ))}
-          </CardBody>
-        </Card>
-      </div>
-    </>
-  );
-}
+            {customer.appointments.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-400">No appointments.</td></tr>
+            )}
+          </tbody>
+        </Table>
+      </Card>
 
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
+      {customer.memberships.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Memberships</CardTitle></CardHeader>
+          <Table>
+            <THead><tr><TH>Plan</TH><TH>Tier</TH><TH>Start</TH><TH>End</TH><TH>Status</TH></tr></THead>
+            <tbody>
+              {customer.memberships.map((m) => (
+                <TR key={m.id}>
+                  <TD className="font-medium text-gray-900">{m.plan.name}</TD>
+                  <TD className="text-gray-500">{m.plan.tier}</TD>
+                  <TD className="font-mono text-xs text-gray-500">{new Date(m.startDate).toLocaleDateString("en-IN")}</TD>
+                  <TD className="font-mono text-xs text-gray-500">{new Date(m.endDate).toLocaleDateString("en-IN")}</TD>
+                  <TD><Badge tone={m.status === "ACTIVE" ? "success" : m.status === "EXPIRED" ? "neutral" : "danger"}>{m.status}</Badge></TD>
+                </TR>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
+      )}
     </div>
   );
 }

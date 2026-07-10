@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { created, err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { hashPassword } from "@/lib/password";
 import prisma from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/admin/workers — Create worker profile + user account
 export async function POST(req: NextRequest) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
 
   try {
@@ -75,12 +76,19 @@ export async function POST(req: NextRequest) {
     }
 
     const worker = await prisma.$transaction(async (tx) => {
+      const passwordHash =
+        body.password && typeof body.password === "string" && body.password.length >= 6
+          ? await hashPassword(body.password as string)
+          : null;
+
       const account = await tx.user.create({
         data: {
           email: body.email ?? null,
           phone: body.phone ?? null,
+          passwordHash,
           userType: "WORKER",
           isActive: true,
+          isVerified: true,
         },
       });
 
@@ -106,10 +114,16 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Optionally attach to a primary branch on creation.
-      if (body.branchId) {
+      // Branch Admin always assigns to their own branch.
+      // Super Admin / Owner supply branchId explicitly (optional).
+      const assignBranchId =
+        user.userType === "BRANCH_ADMIN" || user.userType === "OWNER"
+          ? (user.branchId ?? body.branchId ?? null)
+          : (body.branchId ?? null);
+
+      if (assignBranchId) {
         await tx.workerBranch.create({
-          data: { workerId: profile.id, branchId: body.branchId, isPrimary: true },
+          data: { workerId: profile.id, branchId: assignBranchId, isPrimary: true },
         });
       }
 

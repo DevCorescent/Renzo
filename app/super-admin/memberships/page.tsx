@@ -1,46 +1,93 @@
-// OWNER: Hemant | MODULE: Membership Plans Management
-import { Plus, Check } from "lucide-react";
-import { PageHeader, Card, CardHeader, CardTitle, CardBody, Badge } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import prisma from "@/lib/db";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-const plans = [
-  { name: "Silver", price: "₹2,999", period: "/year", members: 720, tone: "neutral" as const, perks: ["10% off all services", "Priority booking", "Birthday voucher"] },
-  { name: "Gold", price: "₹5,999", period: "/year", members: 480, tone: "warning" as const, featured: true, perks: ["20% off all services", "Free monthly hair spa", "Priority booking", "2× loyalty points"] },
-  { name: "Platinum", price: "₹11,999", period: "/year", members: 140, tone: "primary" as const, perks: ["30% off all services", "Free monthly treatment", "Dedicated stylist", "3× loyalty points", "Home service"] },
-];
+// OWNER: Hemant | MODULE: Super Admin — Memberships
 
-export default function SuperAdminMembershipsPage() {
+const TIER_TONE: Record<string, "neutral" | "success" | "warning" | "info" | "primary"> = {
+  SILVER: "info", GOLD: "warning", PLATINUM: "primary", CUSTOM: "neutral",
+};
+
+export default async function SuperAdminMembershipsPage() {
+  const authUser = await getServerUser();
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
+
+  const [plans, recentMembers] = await Promise.all([
+    prisma.membershipPlan.findMany({
+      orderBy: { sortOrder: "asc" },
+      include: {
+        _count: { select: { customers: true } },
+        benefits: true,
+      },
+    }),
+    prisma.customerMembership.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { purchasedAt: "desc" },
+      take: 30,
+      include: {
+        customer: { select: { firstName: true, lastName: true, phone: true } },
+        plan: { select: { name: true, tier: true } },
+      },
+    }),
+  ]);
+
   return (
-    <>
-      <PageHeader eyebrow="Loyalty" title="Membership Plans" subtitle="1,340 active members across 3 tiers."
-        actions={<Button size="sm"><Plus /> New plan</Button>} />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Memberships</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{plans.length} plans · {recentMembers.length} active members</p>
+      </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {plans.map((p) => (
-          <Card key={p.name} className={p.featured ? "border-primary" : ""}>
-            <CardHeader>
-              <CardTitle>{p.name}</CardTitle>
-              {p.featured ? <Badge tone="primary">Most popular</Badge> : <Badge tone={p.tone}>{p.members} members</Badge>}
-            </CardHeader>
-            <CardBody className="space-y-4">
+          <div key={p.id} className="rounded border border-gray-200 bg-white p-4">
+            <div className="flex items-start justify-between">
               <div>
-                <span className="font-heading text-3xl font-semibold tabular-nums">{p.price}</span>
-                <span className="text-sm text-muted-foreground">{p.period}</span>
+                <p className="font-medium text-gray-900">{p.name}</p>
+                <Badge tone={TIER_TONE[p.tier] ?? "neutral"} className="mt-1">{p.tier}</Badge>
               </div>
-              <ul className="space-y-2">
-                {p.perks.map((perk) => (
-                  <li key={perk} className="flex items-start gap-2 text-sm">
-                    <Check className="mt-0.5 size-4 shrink-0 text-emerald-600 dark:text-emerald-500" />
-                    <span>{perk}</span>
-                  </li>
+              <div className="text-right">
+                <p className="text-lg font-semibold text-gray-900">₹{Number(p.price).toLocaleString("en-IN")}</p>
+                <p className="text-xs text-gray-400">{p.validityDays} days</p>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-gray-400">{p._count.customers} active member{p._count.customers !== 1 ? "s" : ""}</p>
+            {p.benefits.length > 0 && (
+              <ul className="mt-2 space-y-0.5">
+                {p.benefits.slice(0, 3).map((b) => (
+                  <li key={b.id} className="text-[11px] text-gray-500">· {b.name}</li>
                 ))}
               </ul>
-              {p.featured && <p className="text-xs text-muted-foreground">{p.members} active members</p>}
-              <Button variant="outline" className="w-full justify-center" size="sm">Edit plan</Button>
-            </CardBody>
-          </Card>
+            )}
+          </div>
         ))}
       </div>
-    </>
+
+      <Card>
+        <CardHeader><CardTitle>Active Members</CardTitle></CardHeader>
+        <Table>
+          <THead><tr><TH>Customer</TH><TH>Plan</TH><TH>Tier</TH><TH>Purchased</TH><TH>End Date</TH></tr></THead>
+          <tbody>
+            {recentMembers.length === 0 ? (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">No active memberships.</td></tr>
+            ) : (
+              recentMembers.map((m) => (
+                <TR key={m.id}>
+                  <TD className="font-medium text-gray-900">
+                    {m.customer.firstName} {m.customer.lastName}
+                    {m.customer.phone && <p className="text-[11px] text-gray-400">{m.customer.phone}</p>}
+                  </TD>
+                  <TD className="text-gray-700">{m.plan.name}</TD>
+                  <TD><Badge tone={TIER_TONE[m.plan.tier] ?? "neutral"}>{m.plan.tier}</Badge></TD>
+                  <TD className="font-mono text-xs text-gray-500">{new Date(m.purchasedAt).toLocaleDateString("en-IN")}</TD>
+                  <TD className="font-mono text-xs text-gray-500">{new Date(m.endDate).toLocaleDateString("en-IN")}</TD>
+                </TR>
+              ))
+            )}
+          </tbody>
+        </Table>
+      </Card>
+    </div>
   );
 }

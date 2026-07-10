@@ -1,43 +1,93 @@
-// OWNER: Hemant | MODULE: Branches Management Table
 import Link from "next/link";
-import { Plus } from "lucide-react";
-import { PageHeader, Card, CardHeader, CardTitle, Badge, Table, THead, TH, TR, TD } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
 
-const branches = [
-  { id: "br_1", name: "Renzo Bandra", city: "Mumbai", staff: 10, revenue: "₹12.6L", status: "Active", tone: "success" as const },
-  { id: "br_2", name: "Renzo Koramangala", city: "Bengaluru", staff: 12, revenue: "₹10.9L", status: "Active", tone: "success" as const },
-  { id: "br_3", name: "Renzo Banjara Hills", city: "Hyderabad", staff: 8, revenue: "₹8.4L", status: "Active", tone: "success" as const },
-  { id: "br_4", name: "Renzo CP", city: "Delhi", staff: 11, revenue: "₹9.7L", status: "Active", tone: "success" as const },
-  { id: "br_5", name: "Renzo Powai", city: "Mumbai", staff: 0, revenue: "—", status: "Opening soon", tone: "warning" as const },
-];
+// OWNER: Hemant | MODULE: Branches Management
 
-export default function SuperAdminBranchesPage() {
+export default async function SuperAdminBranchesPage() {
+  const authUser = await getServerUser();
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
+  const branches = await prisma.branch.findMany({
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+    include: {
+      _count: {
+        select: {
+          workerBranches: { where: { isActive: true } },
+          staffProfiles: true,
+        },
+      },
+    },
+  });
+
   return (
-    <>
-      <PageHeader eyebrow="Platform" title="Branches" subtitle="5 locations across 4 cities."
-        actions={<Button size="sm"><Plus /> Add branch</Button>} />
+    <div className="space-y-6">
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Branches</h1>
+          <p className="mt-0.5 text-sm text-gray-500">{branches.length} total</p>
+        </div>
+        <Link
+          href="/super-admin/branches/new"
+          className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          + New branch
+        </Link>
+      </div>
 
       <Card>
-        <CardHeader><CardTitle>All Branches</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>All Branches</CardTitle>
+        </CardHeader>
         <Table>
-          <THead><tr><TH>Branch</TH><TH>City</TH><TH>Staff</TH><TH>Revenue MTD</TH><TH>Status</TH><TH className="text-right">—</TH></tr></THead>
+          <THead>
+            <tr>
+              <TH>Name</TH>
+              <TH>Code</TH>
+              <TH>City</TH>
+              <TH>Phone</TH>
+              <TH>Workers</TH>
+              <TH>Staff</TH>
+              <TH>Status</TH>
+              <TH className="text-right">Action</TH>
+            </tr>
+          </THead>
           <tbody>
-            {branches.map((b) => (
-              <TR key={b.id}>
-                <TD className="font-medium">{b.name}</TD>
-                <TD className="text-muted-foreground">{b.city}</TD>
-                <TD className="tabular-nums">{b.staff}</TD>
-                <TD className="tabular-nums">{b.revenue}</TD>
-                <TD><Badge tone={b.tone}>{b.status}</Badge></TD>
-                <TD className="text-right">
-                  <Link href={`/super-admin/branches/${b.id}`} className="text-xs font-semibold uppercase tracking-wider text-primary hover:underline">Manage</Link>
-                </TD>
-              </TR>
-            ))}
+            {branches.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No branches yet.
+                </td>
+              </tr>
+            ) : (
+              branches.map((b) => (
+                <TR key={b.id}>
+                  <TD className="font-medium text-gray-900">{b.name}</TD>
+                  <TD className="font-mono text-xs text-gray-400">{b.code}</TD>
+                  <TD className="text-gray-500">{b.city}</TD>
+                  <TD className="text-gray-500">{b.phone}</TD>
+                  <TD className="text-gray-700">{b._count.workerBranches}</TD>
+                  <TD className="text-gray-700">{b._count.staffProfiles}</TD>
+                  <TD>
+                    <Badge tone={b.isActive ? "success" : "neutral"}>
+                      {b.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </TD>
+                  <TD className="text-right">
+                    <Link
+                      href={`/super-admin/branches/${b.id}`}
+                      className="text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline"
+                    >
+                      Manage
+                    </Link>
+                  </TD>
+                </TR>
+              ))
+            )}
           </tbody>
         </Table>
       </Card>
-    </>
+    </div>
   );
 }

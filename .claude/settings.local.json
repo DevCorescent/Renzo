@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"d:/corescent/spa/app/api/v1/admin/staff/[id]/reset-password\")",
+      "Bash(mkdir -p \"d:/corescent/spa/app/api/v1/admin/workers/[id]/set-password\")",
+      "PowerShell(cd d:\\\\corescent\\\\spa; npx tsc --noEmit 2>&1 | Where-Object { $_ -notmatch \"validator.ts\" } | Select-Object -First 40)",
+      "PowerShell(cd d:\\\\corescent\\\\spa; npx tsc --noEmit 2>&1 | Where-Object { $_ -notmatch \"validator.ts\" })",
+      "PowerShell(cd d:\\\\corescent\\\\spa; $output = npx tsc --noEmit 2>&1; $output | Where-Object { $_ -match \"error TS\" -and $_ -notmatch \"validator.ts\" })"
+    ]
+  }
+}

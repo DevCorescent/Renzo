@@ -1,41 +1,49 @@
-// OWNER: Hemant | MODULE: CMS Gallery
-import Link from "next/link";
-import { ArrowLeft, UploadCloud } from "lucide-react";
-import { PageHeader, Card, Badge } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import prisma from "@/lib/db";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-const filters = ["All", "Hair", "Colour", "Bridal", "Nails", "Interiors"];
-const hues = [
-  "from-rose-200 to-rose-400", "from-amber-100 to-amber-300", "from-sky-200 to-sky-400",
-  "from-fuchsia-200 to-fuchsia-400", "from-stone-200 to-stone-400", "from-emerald-200 to-emerald-400",
-  "from-indigo-200 to-indigo-400", "from-orange-100 to-orange-300",
-];
-const tags = ["Bridal", "Colour", "Hair", "Nails", "Interiors", "Colour", "Hair", "Bridal"];
+// OWNER: Hemant | MODULE: CMS — Gallery
 
-export default function SuperAdminCmsGalleryPage() {
+export default async function SuperAdminCmsGalleryPage() {
+  const authUser = await getServerUser();
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
+
+  const items = await prisma.gallery.findMany({
+    orderBy: [{ category: "asc" }, { sortOrder: "asc" }],
+  });
+
+  const grouped = items.reduce<Record<string, typeof items>>((acc, g) => {
+    acc[g.category] = [...(acc[g.category] ?? []), g];
+    return acc;
+  }, {});
+
   return (
-    <>
-      <Link href="/super-admin/cms" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" /> Back to CMS
-      </Link>
-
-      <PageHeader eyebrow="Content · CMS" title="Gallery" subtitle="142 images across 5 categories."
-        actions={<Button size="sm"><UploadCloud /> Upload</Button>} />
-
-      <div className="flex flex-wrap gap-2">
-        {filters.map((f, i) => (
-          <button key={f} className={i === 0 ? "border border-primary bg-primary/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary" : "border border-border px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-muted"}>{f}</button>
-        ))}
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Gallery</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{items.length} items across {Object.keys(grouped).length} categories</p>
       </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {hues.map((h, i) => (
-          <Card key={i} className="group relative overflow-hidden">
-            <div className={`aspect-square bg-gradient-to-br ${h}`} />
-            <div className="absolute left-2 top-2"><Badge tone="neutral">{tags[i]}</Badge></div>
-          </Card>
-        ))}
-      </div>
-    </>
+      <Card>
+        <CardHeader><CardTitle>All Gallery Items</CardTitle></CardHeader>
+        <Table>
+          <THead><tr><TH>Title</TH><TH>Category</TH><TH>Sort</TH><TH>Status</TH></tr></THead>
+          <tbody>
+            {items.length === 0 ? (
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">No gallery items.</td></tr>
+            ) : (
+              items.map((g) => (
+                <TR key={g.id}>
+                  <TD className="text-gray-700">{g.title ?? "Untitled"}</TD>
+                  <TD><Badge tone="neutral">{g.category}</Badge></TD>
+                  <TD className="text-gray-400">{g.sortOrder}</TD>
+                  <TD><Badge tone={g.isActive ? "success" : "neutral"}>{g.isActive ? "Active" : "Off"}</Badge></TD>
+                </TR>
+              ))
+            )}
+          </tbody>
+        </Table>
+      </Card>
+    </div>
   );
 }

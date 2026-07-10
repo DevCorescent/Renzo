@@ -1,48 +1,104 @@
-// OWNER: Hemant | MODULE: Branch Workers List — shifts + leave status
-import Link from "next/link";
-import { UserPlus } from "lucide-react";
-import { PageHeader, Card, CardHeader, CardTitle, Badge, Table, THead, TH, TR, TD } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-const workers = [
-  { id: "wrk_1", name: "Priya Nair", role: "Senior Stylist", shift: "10:00 – 19:00", rating: "4.9", status: "Present", tone: "success" as const },
-  { id: "wrk_2", name: "Arjun Singh", role: "Stylist", shift: "10:00 – 19:00", rating: "4.7", status: "Present", tone: "success" as const },
-  { id: "wrk_3", name: "Zoya Khan", role: "Beautician", shift: "11:00 – 20:00", rating: "4.8", status: "Present", tone: "success" as const },
-  { id: "wrk_4", name: "Rahul Verma", role: "Stylist", shift: "—", rating: "4.6", status: "On leave", tone: "warning" as const },
-  { id: "wrk_5", name: "Neha Gupta", role: "Nail Artist", shift: "12:00 – 21:00", rating: "4.9", status: "Present", tone: "success" as const },
-];
+// OWNER: Hemant | MODULE: Branch Admin Workers
 
-export default function BranchWorkersPage() {
+export default async function BranchAdminWorkersPage() {
+  const authUser = await getServerUser();
+  if (!authUser?.branchId) redirect("/login");
+  const branchId = authUser.branchId;
+
+  const workerBranches = await prisma.workerBranch.findMany({
+    where: { branchId },
+    orderBy: { joinedAt: "desc" },
+    include: {
+      worker: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          employeeCode: true,
+          phone: true,
+          experience: true,
+          isActive: true,
+          designation: { select: { name: true } },
+          services: {
+            where: { isActive: true },
+            include: { service: { select: { name: true } } },
+            take: 3,
+          },
+        },
+      },
+    },
+  });
+
   return (
-    <>
-      <PageHeader eyebrow="Bandra Branch" title="Workers" subtitle="10 staff · 8 present today"
-        actions={<Button size="sm"><UserPlus /> Add worker</Button>} />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Workers</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{workerBranches.length} assigned</p>
+      </div>
 
       <Card>
-        <CardHeader><CardTitle>Team</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Branch Workers</CardTitle>
+        </CardHeader>
         <Table>
-          <THead><tr><TH>Name</TH><TH>Role</TH><TH>Today's Shift</TH><TH>Rating</TH><TH>Status</TH><TH className="text-right">—</TH></tr></THead>
+          <THead>
+            <tr>
+              <TH>Name</TH>
+              <TH>Code</TH>
+              <TH>Designation</TH>
+              <TH>Services</TH>
+              <TH>Experience</TH>
+              <TH>Assignment</TH>
+              <TH>Status</TH>
+            </tr>
+          </THead>
           <tbody>
-            {workers.map((w) => (
-              <TR key={w.id}>
-                <TD>
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-8 items-center justify-center bg-primary text-[0.6rem] font-semibold uppercase text-primary-foreground">{w.name.split(" ").map(n=>n[0]).join("")}</div>
-                    <span className="font-medium">{w.name}</span>
-                  </div>
-                </TD>
-                <TD className="text-muted-foreground">{w.role}</TD>
-                <TD className="tabular-nums text-muted-foreground">{w.shift}</TD>
-                <TD className="tabular-nums">★ {w.rating}</TD>
-                <TD><Badge tone={w.tone}>{w.status}</Badge></TD>
-                <TD className="text-right">
-                  <Link href={`/branch-admin/workers/${w.id}`} className="text-xs font-semibold uppercase tracking-wider text-primary hover:underline">View</Link>
-                </TD>
-              </TR>
-            ))}
+            {workerBranches.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No workers assigned to this branch.
+                </td>
+              </tr>
+            ) : (
+              workerBranches.map((wb) => (
+                <TR key={wb.id}>
+                  <TD className="font-medium text-gray-900">
+                    {wb.worker.firstName} {wb.worker.lastName}
+                    {wb.worker.phone && (
+                      <p className="text-[11px] font-normal text-gray-400">{wb.worker.phone}</p>
+                    )}
+                  </TD>
+                  <TD className="font-mono text-xs text-gray-400">{wb.worker.employeeCode}</TD>
+                  <TD className="text-gray-500">{wb.worker.designation?.name ?? "—"}</TD>
+                  <TD className="text-gray-500 text-xs">
+                    {wb.worker.services.length > 0
+                      ? wb.worker.services.map((s) => s.service.name).join(", ")
+                      : "—"}
+                  </TD>
+                  <TD className="text-gray-500">
+                    {wb.worker.experience} yr{wb.worker.experience !== 1 ? "s" : ""}
+                  </TD>
+                  <TD>
+                    <Badge tone={wb.isPrimary ? "primary" : "neutral"}>
+                      {wb.isPrimary ? "Primary" : "Secondary"}
+                    </Badge>
+                  </TD>
+                  <TD>
+                    <Badge tone={wb.worker.isActive && wb.isActive ? "success" : "danger"}>
+                      {wb.worker.isActive && wb.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </TD>
+                </TR>
+              ))
+            )}
           </tbody>
         </Table>
       </Card>
-    </>
+    </div>
   );
 }

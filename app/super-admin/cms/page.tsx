@@ -1,39 +1,53 @@
-// OWNER: Hemant | MODULE: CMS Hub — Banners, Blogs, Gallery, SEO
+import prisma from "@/lib/db";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Image as ImageIcon, FileText, Images, Search, ArrowRight } from "lucide-react";
-import { PageHeader, Card, CardBody } from "@/components/shared/ui";
+import { FileText, Image, MessageSquare, HelpCircle, LayoutTemplate } from "lucide-react";
 
-const sections = [
-  { title: "Banners", desc: "Homepage hero & promo banners", count: "6 active", href: "/super-admin/cms/banners", icon: ImageIcon },
-  { title: "Blogs", desc: "Articles & beauty guides", count: "24 published", href: "/super-admin/cms/blogs", icon: FileText },
-  { title: "Gallery", desc: "Showcase images by category", count: "142 images", href: "/super-admin/cms/gallery", icon: Images },
-  { title: "SEO & Pages", desc: "Meta tags, static pages, FAQs", count: "18 pages", href: "/super-admin/cms", icon: Search },
-];
+// OWNER: Hemant | MODULE: Super Admin — CMS Hub
 
-export default function SuperAdminCmsPage() {
+export default async function SuperAdminCmsPage() {
+  const authUser = await getServerUser();
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
+
+  const [bannerCount, blogCount, galleryCount, faqCount, testimonialCount] = await Promise.all([
+    prisma.banner.count({ where: { isActive: true } }),
+    prisma.blog.count({ where: { isPublished: true } }),
+    prisma.gallery.count({ where: { isActive: true } }),
+    prisma.faq.count({ where: { isActive: true } }),
+    prisma.testimonial.count({ where: { isApproved: true } }),
+  ]);
+
+  const sections = [
+    { label: "Banners", href: "/super-admin/cms/banners", count: bannerCount, icon: LayoutTemplate, hint: "active" },
+    { label: "Blogs", href: "/super-admin/cms/blogs", count: blogCount, icon: FileText, hint: "published" },
+    { label: "Gallery", href: "/super-admin/cms/gallery", count: galleryCount, icon: Image, hint: "active" },
+    { label: "FAQs", href: "/super-admin/cms/faqs", count: faqCount, icon: HelpCircle, hint: "active" },
+    { label: "Testimonials", href: "/super-admin/cms/testimonials", count: testimonialCount, icon: MessageSquare, hint: "approved" },
+  ];
+
   return (
-    <>
-      <PageHeader eyebrow="Content" title="CMS" subtitle="Manage everything shown on the public website." />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">CMS</h1>
+        <p className="mt-0.5 text-sm text-gray-500">Manage website content</p>
+      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sections.map((s) => (
-          <Link key={s.title} href={s.href}>
-            <Card className="group h-full transition-colors hover:border-primary">
-              <CardBody className="flex items-start gap-4">
-                <div className="flex size-11 items-center justify-center bg-muted"><s.icon className="size-5 text-muted-foreground" /></div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-heading text-lg font-semibold">{s.title}</h3>
-                    <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">{s.desc}</p>
-                  <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-primary">{s.count}</p>
-                </div>
-              </CardBody>
-            </Card>
+          <Link
+            key={s.href}
+            href={s.href}
+            className="flex items-center gap-4 rounded border border-gray-200 bg-white p-5 hover:bg-gray-50"
+          >
+            <s.icon className="size-8 text-gray-300" />
+            <div>
+              <p className="font-medium text-gray-900">{s.label}</p>
+              <p className="text-sm text-gray-500">{s.count} {s.hint}</p>
+            </div>
           </Link>
         ))}
       </div>
-    </>
+    </div>
   );
 }
