@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { created, err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { hashPassword } from "@/lib/password";
 import prisma from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 
@@ -75,12 +76,19 @@ export async function POST(req: NextRequest) {
     }
 
     const worker = await prisma.$transaction(async (tx) => {
+      const passwordHash =
+        body.password && typeof body.password === "string" && body.password.length >= 6
+          ? await hashPassword(body.password as string)
+          : null;
+
       const account = await tx.user.create({
         data: {
           email: body.email ?? null,
           phone: body.phone ?? null,
+          passwordHash,
           userType: "WORKER",
           isActive: true,
+          isVerified: true,
         },
       });
 
