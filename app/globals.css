@@ -39,6 +39,9 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-gold-soft: var(--gold-soft);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -73,6 +76,11 @@
   --chart-4: oklch(0.367 0.016 35.7);
   --chart-5: oklch(0.268 0.011 36.5);
   --radius: 0.625rem;
+  /* Renzo accent — warm orange (Veloura-style dark theme). Token name kept as
+     `gold` so every bg-gold/text-gold utility across the app repoints at once. */
+  --gold: oklch(0.7 0.2 47);
+  --gold-soft: oklch(0.8 0.14 55);
+  --gold-foreground: oklch(0.22 0.03 50);
   --sidebar: oklch(0.986 0.002 67.8);
   --sidebar-foreground: oklch(0.147 0.004 49.3);
   --sidebar-primary: oklch(0.214 0.009 43.1);
@@ -99,6 +107,10 @@
   --accent: oklch(0.268 0.011 36.5);
   --accent-foreground: oklch(0.986 0.002 67.8);
   --destructive: oklch(0.704 0.191 22.216);
+  /* Slightly brighter orange reads better on near-black surfaces. */
+  --gold: oklch(0.72 0.2 47);
+  --gold-soft: oklch(0.82 0.14 55);
+  --gold-foreground: oklch(0.22 0.03 50);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.547 0.021 43.1);
