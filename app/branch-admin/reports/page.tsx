@@ -1,89 +1,181 @@
-// OWNER: Hemant | MODULE: Branch Reports — sales, worker performance, appointment stats
-import { IndianRupee, CalendarDays, Repeat, Percent } from "lucide-react";
-import { PageHeader, StatCard, Card, CardHeader, CardTitle, CardBody, Table, THead, TH, TR, TD } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { StatCard } from "@/components/shared/ui";
+import { IndianRupee, CalendarDays, Users, TrendingUp } from "lucide-react";
 
-const week = [
-  { d: "Mon", v: 62 }, { d: "Tue", v: 78 }, { d: "Wed", v: 55 }, { d: "Thu", v: 70 },
-  { d: "Fri", v: 88 }, { d: "Sat", v: 100 }, { d: "Sun", v: 40 },
-];
+// OWNER: Hemant | MODULE: Branch Admin Reports
 
-const performers = [
-  { name: "Priya Nair", services: 112, revenue: "₹1.84L", rating: "4.9" },
-  { name: "Zoya Khan", services: 98, revenue: "₹1.42L", rating: "4.8" },
-  { name: "Arjun Singh", services: 87, revenue: "₹1.10L", rating: "4.7" },
-  { name: "Neha Gupta", services: 76, revenue: "₹0.94L", rating: "4.9" },
-];
+export default async function BranchAdminReportsPage() {
+  const authUser = await getServerUser();
+  if (!authUser?.branchId) redirect("/login");
+  const branchId = authUser.branchId;
 
-const services = [
-  { name: "Haircut & Style", count: 210, share: "28%" },
-  { name: "Balayage", count: 96, share: "13%" },
-  { name: "Keratin Treatment", count: 64, share: "9%" },
-  { name: "Facial", count: 120, share: "16%" },
-];
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
-export default function BranchReportsPage() {
+  const [
+    monthRevenue,
+    lastMonthRevenue,
+    monthAppointments,
+    lastMonthAppointments,
+    completedThisMonth,
+    cancelledThisMonth,
+    workerCount,
+    recentInvoices,
+  ] = await Promise.all([
+    prisma.invoice.aggregate({
+      _sum: { paidAmount: true },
+      where: { branchId, createdAt: { gte: startOfMonth } },
+    }),
+    prisma.invoice.aggregate({
+      _sum: { paidAmount: true },
+      where: { branchId, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } },
+    }),
+    prisma.appointment.count({
+      where: { branchId, createdAt: { gte: startOfMonth } },
+    }),
+    prisma.appointment.count({
+      where: { branchId, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } },
+    }),
+    prisma.appointment.count({
+      where: { branchId, status: "COMPLETED", createdAt: { gte: startOfMonth } },
+    }),
+    prisma.appointment.count({
+      where: { branchId, status: "CANCELLED", createdAt: { gte: startOfMonth } },
+    }),
+    prisma.workerBranch.count({ where: { branchId, isActive: true } }),
+    prisma.invoice.findMany({
+      where: { branchId },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      include: {
+        appointment: {
+          select: { customer: { select: { firstName: true, lastName: true } } },
+        },
+      },
+    }),
+  ]);
+
+  const thisRev = Number(monthRevenue._sum.paidAmount ?? 0);
+  const lastRev = Number(lastMonthRevenue._sum.paidAmount ?? 0);
+  const revDiff = lastRev > 0 ? (((thisRev - lastRev) / lastRev) * 100).toFixed(1) : null;
+  const apptDiff =
+    lastMonthAppointments > 0
+      ? (((monthAppointments - lastMonthAppointments) / lastMonthAppointments) * 100).toFixed(1)
+      : null;
+
   return (
-    <>
-      <PageHeader eyebrow="Bandra · This Month" title="Reports" subtitle="Sales, performance and appointment trends."
-        actions={<Button variant="outline" size="sm">Export CSV</Button>} />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Reports</h1>
+        <p className="mt-0.5 text-sm text-gray-500">
+          {now.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
+        </p>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Revenue MTD" value="₹12.6L" delta={{ value: "14%", positive: true }} icon={IndianRupee} />
-        <StatCard label="Appointments" value="742" delta={{ value: "6%", positive: true }} icon={CalendarDays} />
-        <StatCard label="Rebook Rate" value="58%" delta={{ value: "3%", positive: true }} icon={Repeat} />
-        <StatCard label="No-show Rate" value="4.2%" delta={{ value: "0.8%", positive: false }} icon={Percent} />
+        <StatCard
+          label="Revenue This Month"
+          value={`₹${thisRev.toLocaleString("en-IN")}`}
+          icon={IndianRupee}
+          delta={revDiff ? { value: `${revDiff}%`, positive: Number(revDiff) >= 0 } : undefined}
+          hint="vs last month"
+        />
+        <StatCard
+          label="Appointments"
+          value={monthAppointments.toString()}
+          icon={CalendarDays}
+          delta={apptDiff ? { value: `${apptDiff}%`, positive: Number(apptDiff) >= 0 } : undefined}
+          hint="vs last month"
+        />
+        <StatCard
+          label="Completed"
+          value={completedThisMonth.toString()}
+          icon={TrendingUp}
+          hint={monthAppointments > 0 ? `${Math.round((completedThisMonth / monthAppointments) * 100)}% rate` : undefined}
+        />
+        <StatCard label="Active Workers" value={workerCount.toString()} icon={Users} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Revenue by Day</CardTitle><span className="text-xs text-muted-foreground">This week</span></CardHeader>
-          <CardBody>
-            <div className="flex h-52 items-end gap-3">
-              {week.map((b) => (
-                <div key={b.d} className="flex flex-1 flex-col items-center gap-2">
-                  <div className="flex w-full flex-1 items-end">
-                    <div className="w-full bg-primary/80 hover:bg-primary" style={{ height: `${b.v}%` }} />
-                  </div>
-                  <span className="text-[0.65rem] text-muted-foreground">{b.d}</span>
-                </div>
-              ))}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <h3 className="text-sm font-semibold text-gray-700">This Month</h3>
+          <div className="mt-3 space-y-2 text-sm">
+            <div className="flex justify-between text-gray-600">
+              <span>Total Appointments</span>
+              <span className="font-medium">{monthAppointments}</span>
             </div>
-          </CardBody>
-        </Card>
+            <div className="flex justify-between text-gray-600">
+              <span>Completed</span>
+              <span className="font-medium text-green-700">{completedThisMonth}</span>
+            </div>
+            <div className="flex justify-between text-gray-600">
+              <span>Cancelled</span>
+              <span className="font-medium text-red-600">{cancelledThisMonth}</span>
+            </div>
+            <div className="flex justify-between text-gray-600 border-t border-gray-100 pt-2">
+              <span>Revenue</span>
+              <span className="font-semibold text-gray-900">₹{thisRev.toLocaleString("en-IN")}</span>
+            </div>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader><CardTitle>Top Services</CardTitle></CardHeader>
-          <CardBody className="space-y-4">
-            {services.map((s) => (
-              <div key={s.name} className="space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span>{s.name}</span>
-                  <span className="text-muted-foreground tabular-nums">{s.count} · {s.share}</span>
-                </div>
-                <div className="h-1.5 w-full bg-muted"><div className="h-full bg-primary" style={{ width: s.share }} /></div>
-              </div>
-            ))}
-          </CardBody>
-        </Card>
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <h3 className="text-sm font-semibold text-gray-700">Last Month</h3>
+          <div className="mt-3 space-y-2 text-sm">
+            <div className="flex justify-between text-gray-600">
+              <span>Total Appointments</span>
+              <span className="font-medium">{lastMonthAppointments}</span>
+            </div>
+            <div className="flex justify-between text-gray-600 border-t border-gray-100 pt-2">
+              <span>Revenue</span>
+              <span className="font-semibold text-gray-900">₹{lastRev.toLocaleString("en-IN")}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader><CardTitle>Worker Performance</CardTitle></CardHeader>
-        <Table>
-          <THead><tr><TH>Stylist</TH><TH>Services</TH><TH>Revenue</TH><TH>Rating</TH></tr></THead>
+      <div className="rounded border border-gray-200 bg-white">
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h3 className="text-sm font-semibold text-gray-700">Recent Invoices</h3>
+        </div>
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 text-left text-xs font-medium text-gray-400">
+              <th className="px-4 py-2.5">Invoice #</th>
+              <th className="px-4 py-2.5">Customer</th>
+              <th className="px-4 py-2.5">Date</th>
+              <th className="px-4 py-2.5 text-right">Amount</th>
+            </tr>
+          </thead>
           <tbody>
-            {performers.map((p) => (
-              <TR key={p.name}>
-                <TD className="font-medium">{p.name}</TD>
-                <TD className="tabular-nums">{p.services}</TD>
-                <TD className="tabular-nums">{p.revenue}</TD>
-                <TD className="tabular-nums">★ {p.rating}</TD>
-              </TR>
+            {recentInvoices.map((inv) => (
+              <tr key={inv.id} className="border-b border-gray-50 last:border-0">
+                <td className="px-4 py-3 font-mono text-xs text-gray-400">{inv.invoiceNo}</td>
+                <td className="px-4 py-3 text-gray-700">
+                  {inv.appointment?.customer.firstName} {inv.appointment?.customer.lastName}
+                </td>
+                <td className="px-4 py-3 font-mono text-xs text-gray-500">
+                  {new Date(inv.createdAt).toLocaleDateString("en-IN")}
+                </td>
+                <td className="px-4 py-3 text-right font-medium text-gray-900">
+                  ₹{Number(inv.paidAmount).toLocaleString("en-IN")}
+                </td>
+              </tr>
             ))}
+            {recentInvoices.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No invoices yet.
+                </td>
+              </tr>
+            )}
           </tbody>
-        </Table>
-      </Card>
-    </>
+        </table>
+      </div>
+    </div>
   );
 }

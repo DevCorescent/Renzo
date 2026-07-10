@@ -1,89 +1,141 @@
-// OWNER: Hemant | MODULE: Reception Dashboard
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { StatCard, Badge } from "@/components/shared/ui";
+import { CalendarDays, UserCheck, IndianRupee, Clock } from "lucide-react";
 import Link from "next/link";
-import { CalendarDays, UserCheck, Users, IndianRupee, PlusCircle } from "lucide-react";
-import { HeroBanner, StatCard, Card, CardHeader, CardTitle, Badge, Table, THead, TH, TR, TD } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
 
-const appts = [
-  { time: "10:00", customer: "Sneha Kapoor", worker: "Priya N.", service: "Balayage", status: "In service", tone: "info" as const },
-  { time: "10:15", customer: "Karan Malhotra", worker: "Arjun S.", service: "Haircut", status: "Checked in", tone: "primary" as const },
-  { time: "10:45", customer: "Ritika Sharma", worker: "Priya N.", service: "Haircut & Style", status: "Waiting", tone: "warning" as const },
-  { time: "11:30", customer: "Meera Iyer", worker: "Zoya K.", service: "Keratin", status: "Booked", tone: "neutral" as const },
-];
+// OWNER: Hemant | MODULE: Reception Dashboard
 
-const pending = [
-  { inv: "INV-2041", customer: "Karan Malhotra", amount: "₹950" },
-  { inv: "INV-2039", customer: "Farah Ali", amount: "₹2,300" },
-];
+const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info" | "primary"> = {
+  PENDING: "neutral",
+  CONFIRMED: "info",
+  CHECKED_IN: "warning",
+  STARTED: "primary",
+  COMPLETED: "success",
+  CANCELLED: "danger",
+  NO_SHOW: "danger",
+  RESCHEDULED: "info",
+};
 
-export default function ReceptionDashboardPage() {
+export default async function ReceptionDashboardPage() {
+  const authUser = await getServerUser();
+  if (!authUser?.branchId) redirect("/login");
+  const branchId = authUser.branchId;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const [todayCount, checkedInCount, revenueAgg, appointments] = await Promise.all([
+    prisma.appointment.count({
+      where: { branchId, appointmentDate: { gte: today, lt: tomorrow } },
+    }),
+    prisma.appointment.count({
+      where: {
+        branchId,
+        status: { in: ["CHECKED_IN", "STARTED"] },
+        appointmentDate: { gte: today, lt: tomorrow },
+      },
+    }),
+    prisma.invoice.aggregate({
+      _sum: { paidAmount: true },
+      where: { branchId, createdAt: { gte: today, lt: tomorrow } },
+    }),
+    prisma.appointment.findMany({
+      where: {
+        branchId,
+        appointmentDate: { gte: today, lt: tomorrow },
+        status: { notIn: ["CANCELLED", "NO_SHOW"] },
+      },
+      orderBy: { startTime: "asc" },
+      take: 30,
+      include: {
+        customer: { select: { firstName: true, lastName: true, phone: true } },
+        worker: { select: { firstName: true, lastName: true } },
+        services: { include: { service: { select: { name: true } } } },
+      },
+    }),
+  ]);
+
+  const revenue = Number(revenueAgg._sum.paidAmount ?? 0);
+
   return (
-    <>
-      <HeroBanner
-        eyebrow="Bandra · 8 Jul 2026"
-        title="Front"
-        highlight="Desk"
-        subtitle="18 appointments today · 3 waiting to be seated."
-        actions={<Button><PlusCircle /> New booking</Button>}
-        stats={[
-          { label: "Today", value: "18" },
-          { label: "In Queue", value: "3" },
-          { label: "Collected", value: "₹32.4K" },
-        ]}
-      />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Reception — Today</h1>
+        <p className="mt-0.5 text-sm text-gray-500">
+          {today.toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        </p>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Today's Appointments" value="18" hint="6 done" icon={CalendarDays} />
-        <StatCard label="Checked In" value="4" hint="waiting: 3" icon={UserCheck} />
-        <StatCard label="In Queue" value="3" hint="avg wait 12m" icon={Users} />
-        <StatCard label="Collected Today" value="₹32,450" delta={{ value: "8%", positive: true }} icon={IndianRupee} />
+        <StatCard label="Today's Bookings" value={todayCount.toString()} icon={CalendarDays} />
+        <StatCard label="In Chair / Checked In" value={checkedInCount.toString()} icon={UserCheck} />
+        <StatCard
+          label="Pending Check-in"
+          value={(appointments.filter((a) => a.status === "CONFIRMED" || a.status === "PENDING").length).toString()}
+          icon={Clock}
+        />
+        <StatCard
+          label="Revenue Today"
+          value={`₹${revenue.toLocaleString("en-IN")}`}
+          icon={IndianRupee}
+        />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Today's Appointments</CardTitle>
-            <Link href="/reception/queue" className="text-xs font-medium text-primary hover:underline">Queue →</Link>
-          </CardHeader>
-          <Table>
-            <THead>
-              <tr><TH>Time</TH><TH>Customer</TH><TH>Stylist</TH><TH>Service</TH><TH>Status</TH></tr>
-            </THead>
-            <tbody>
-              {appts.map((a, i) => (
-                <TR key={i}>
-                  <TD className="font-medium tabular-nums">{a.time}</TD>
-                  <TD>{a.customer}</TD>
-                  <TD className="text-muted-foreground">{a.worker}</TD>
-                  <TD className="text-muted-foreground">{a.service}</TD>
-                  <TD><Badge tone={a.tone}>{a.status}</Badge></TD>
-                </TR>
-              ))}
-            </tbody>
-          </Table>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Pending Payments</CardTitle>
-            <Link href="/reception/billing" className="text-xs font-medium text-primary hover:underline">All →</Link>
-          </CardHeader>
-          <div className="p-0">
-            {pending.map((p) => (
-              <Link key={p.inv} href={`/reception/billing/${p.inv}`} className="flex items-center justify-between border-b border-border/70 px-5 py-4 last:border-0 hover:bg-muted/40">
-                <div>
-                  <p className="text-sm font-medium">{p.customer}</p>
-                  <p className="text-xs text-muted-foreground">{p.inv}</p>
-                </div>
-                <span className="font-semibold tabular-nums">{p.amount}</span>
-              </Link>
-            ))}
-            <div className="px-5 py-4">
-              <Button variant="outline" className="w-full justify-center" size="sm">Collect payment</Button>
-            </div>
-          </div>
-        </Card>
+      <div className="rounded border border-gray-200 bg-white">
+        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+          <h2 className="text-sm font-semibold text-gray-700">Today's Queue</h2>
+          <Link href="/reception/checkin" className="text-xs text-gray-500 hover:text-gray-800">
+            Check-in →
+          </Link>
+        </div>
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 text-left text-xs font-medium text-gray-400">
+              <th className="px-4 py-2.5">Time</th>
+              <th className="px-4 py-2.5">Customer</th>
+              <th className="px-4 py-2.5">Service</th>
+              <th className="px-4 py-2.5">Worker</th>
+              <th className="px-4 py-2.5">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {appointments.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No appointments today.
+                </td>
+              </tr>
+            ) : (
+              appointments.map((a) => (
+                <tr key={a.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-xs text-gray-600">
+                    {a.startTime}–{a.endTime}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {a.customer.firstName} {a.customer.lastName}
+                    <p className="text-[11px] font-normal text-gray-400">{a.customer.phone}</p>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {a.services.map((s) => s.service.name).join(", ") || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {a.worker ? `${a.worker.firstName} ${a.worker.lastName}` : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>
+                      {a.status.replace(/_/g, " ")}
+                    </Badge>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
-    </>
+    </div>
   );
 }

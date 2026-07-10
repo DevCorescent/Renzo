@@ -1,89 +1,109 @@
-// OWNER: Hemant | MODULE: Worker Attendance — clock in/out, log, monthly calendar
-import { Clock, LogIn, LogOut } from "lucide-react";
-import { PageHeader, StatCard, Card, CardHeader, CardTitle, CardBody, Badge, Table, THead, TH, TR, TD } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-const log = [
-  { date: "8 Jul", in: "09:42", out: "—", hrs: "—", status: "Present", tone: "info" as const },
-  { date: "7 Jul", in: "09:55", out: "18:30", hrs: "8.5", status: "Present", tone: "success" as const },
-  { date: "6 Jul", in: "10:12", out: "18:40", hrs: "8.4", status: "Late", tone: "warning" as const },
-  { date: "5 Jul", in: "—", out: "—", hrs: "—", status: "Week off", tone: "neutral" as const },
-  { date: "4 Jul", in: "09:38", out: "18:15", hrs: "8.6", status: "Present", tone: "success" as const },
-];
+// OWNER: Hemant | MODULE: Worker Attendance
 
-// 0 = off, 1 = present, 2 = late, 3 = leave
-const month = [1, 1, 2, 1, 1, 0, 0, 1, 1, 1, 2, 1, 0, 0, 1, 3, 1, 1, 1, 0, 0, 1, 1, 2, 1, 1, 0, 0, 1, 1];
-const dayTone = ["bg-muted", "bg-emerald-500/70", "bg-amber-500/70", "bg-sky-500/70"];
+const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info"> = {
+  PRESENT: "success",
+  ABSENT: "danger",
+  HALF_DAY: "warning",
+  LATE: "warning",
+  ON_LEAVE: "info",
+};
 
-export default function WorkerAttendancePage() {
+export default async function WorkerAttendancePage() {
+  const authUser = await getServerUser();
+  if (!authUser?.workerId) redirect("/login");
+  const workerId = authUser.workerId;
+
+  const records = await prisma.attendance.findMany({
+    where: { workerId },
+    orderBy: { date: "desc" },
+    take: 60,
+    include: { branch: { select: { name: true } } },
+  });
+
+  const presentCount = records.filter((r) => r.status === "PRESENT").length;
+  const absentCount = records.filter((r) => r.status === "ABSENT").length;
+  const halfCount = records.filter((r) => r.status === "HALF_DAY").length;
+
   return (
-    <>
-      <PageHeader
-        eyebrow="July 2026"
-        title="Attendance"
-        subtitle="Clocked in at 09:42 today."
-        actions={<Button><LogOut /> Clock out</Button>}
-      />
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Status Today" value="Clocked In" hint="since 09:42" icon={LogIn} />
-        <StatCard label="Hours Today" value="6.3" hint="running" icon={Clock} />
-        <StatCard label="Present Days" value="22/24" hint="this month" />
-        <StatCard label="Late Marks" value="3" hint="this month" />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Attendance</h1>
+        <p className="mt-0.5 text-sm text-gray-500">Last {records.length} records</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Recent Log</CardTitle></CardHeader>
-          <Table>
-            <THead>
-              <tr><TH>Date</TH><TH>In</TH><TH>Out</TH><TH>Hours</TH><TH>Status</TH></tr>
-            </THead>
-            <tbody>
-              {log.map((r) => (
-                <TR key={r.date}>
-                  <TD className="font-medium">{r.date}</TD>
-                  <TD className="tabular-nums">{r.in}</TD>
-                  <TD className="tabular-nums">{r.out}</TD>
-                  <TD className="tabular-nums">{r.hrs}</TD>
-                  <TD><Badge tone={r.tone}>{r.status}</Badge></TD>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs font-medium text-gray-500">Present</p>
+          <p className="mt-2 text-2xl font-semibold text-green-700">{presentCount}</p>
+        </div>
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs font-medium text-gray-500">Absent</p>
+          <p className="mt-2 text-2xl font-semibold text-red-600">{absentCount}</p>
+        </div>
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs font-medium text-gray-500">Half Day</p>
+          <p className="mt-2 text-2xl font-semibold text-yellow-700">{halfCount}</p>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Attendance Records</CardTitle>
+        </CardHeader>
+        <Table>
+          <THead>
+            <tr>
+              <TH>Date</TH>
+              <TH>Branch</TH>
+              <TH>Check In</TH>
+              <TH>Check Out</TH>
+              <TH>Working Hrs</TH>
+              <TH>Status</TH>
+            </tr>
+          </THead>
+          <tbody>
+            {records.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No attendance records.
+                </td>
+              </tr>
+            ) : (
+              records.map((r) => (
+                <TR key={r.id}>
+                  <TD className="font-mono text-xs text-gray-600">
+                    {new Date(r.date).toLocaleDateString("en-IN")}
+                  </TD>
+                  <TD className="text-gray-500">{r.branch.name}</TD>
+                  <TD className="font-mono text-xs text-gray-600">
+                    {r.checkIn
+                      ? new Date(r.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                      : "—"}
+                  </TD>
+                  <TD className="font-mono text-xs text-gray-600">
+                    {r.checkOut
+                      ? new Date(r.checkOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                      : "—"}
+                  </TD>
+                  <TD className="text-gray-500">
+                    {r.workingMinutes > 0 ? `${Math.floor(r.workingMinutes / 60)}h ${r.workingMinutes % 60}m` : "—"}
+                  </TD>
+                  <TD>
+                    <Badge tone={STATUS_TONE[r.status] ?? "neutral"}>
+                      {r.status.replace(/_/g, " ")}
+                    </Badge>
+                  </TD>
                 </TR>
-              ))}
-            </tbody>
-          </Table>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>July Overview</CardTitle></CardHeader>
-          <CardBody className="space-y-4">
-            <div className="grid grid-cols-7 gap-1.5">
-              {month.map((d, i) => (
-                <div
-                  key={i}
-                  title={`Jul ${i + 1}`}
-                  className={`flex aspect-square items-center justify-center text-[0.6rem] font-medium text-foreground/70 ${dayTone[d]}`}
-                >
-                  {i + 1}
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-              <Legend cls="bg-emerald-500/70" label="Present" />
-              <Legend cls="bg-amber-500/70" label="Late" />
-              <Legend cls="bg-sky-500/70" label="Leave" />
-              <Legend cls="bg-muted" label="Off" />
-            </div>
-          </CardBody>
-        </Card>
-      </div>
-    </>
-  );
-}
-
-function Legend({ cls, label }: { cls: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={`size-3 ${cls}`} /> {label}
-    </span>
+              ))
+            )}
+          </tbody>
+        </Table>
+      </Card>
+    </div>
   );
 }

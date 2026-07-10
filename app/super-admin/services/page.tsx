@@ -1,60 +1,85 @@
-// OWNER: Hemant | MODULE: Services & Categories Management
-import { Plus } from "lucide-react";
-import { PageHeader, Card, CardHeader, CardTitle, CardBody, Badge, Table, THead, TH, TR, TD } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import prisma from "@/lib/db";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-const categories = [
-  { name: "Hair", count: 24, active: true },
-  { name: "Colour", count: 18, active: true },
-  { name: "Skin & Facial", count: 15, active: true },
-  { name: "Nails", count: 12, active: true },
-  { name: "Bridal", count: 8, active: true },
-  { name: "Spa", count: 10, active: false },
-];
+// OWNER: Hemant | MODULE: Super Admin — Services
 
-const services = [
-  { name: "Haircut & Style", cat: "Hair", dur: "45m", price: "₹800", status: "Active", tone: "success" as const },
-  { name: "Balayage", cat: "Colour", dur: "120m", price: "₹4,500", status: "Active", tone: "success" as const },
-  { name: "Keratin Treatment", cat: "Hair", dur: "150m", price: "₹6,000", status: "Active", tone: "success" as const },
-  { name: "Classic Facial", cat: "Skin & Facial", dur: "60m", price: "₹1,600", status: "Active", tone: "success" as const },
-  { name: "Bridal Makeup", cat: "Bridal", dur: "180m", price: "₹15,000", status: "Active", tone: "success" as const },
-  { name: "Aroma Spa", cat: "Spa", dur: "90m", price: "₹3,200", status: "Hidden", tone: "neutral" as const },
-];
+export default async function SuperAdminServicesPage() {
+  const authUser = await getServerUser();
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
 
-export default function SuperAdminServicesPage() {
+  const [categories, services] = await Promise.all([
+    prisma.serviceCategory.findMany({
+      orderBy: { sortOrder: "asc" },
+      include: { _count: { select: { services: true } } },
+    }),
+    prisma.service.findMany({
+      orderBy: [{ categoryId: "asc" }, { sortOrder: "asc" }],
+      include: {
+        category: { select: { name: true } },
+        _count: { select: { variants: true, workerServices: true } },
+      },
+    }),
+  ]);
+
   return (
-    <>
-      <PageHeader eyebrow="Catalogue" title="Services" subtitle="Manage service categories and pricing."
-        actions={<Button size="sm"><Plus /> New service</Button>} />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Services</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{services.length} services across {categories.length} categories</p>
+      </div>
 
-      <Card>
-        <CardHeader><CardTitle>Categories</CardTitle></CardHeader>
-        <CardBody className="flex flex-wrap gap-2">
-          {categories.map((c) => (
-            <span key={c.name} className={`inline-flex items-center gap-2 border px-3 py-1.5 text-sm ${c.active ? "border-border" : "border-dashed border-border text-muted-foreground"}`}>
-              {c.name} <Badge tone={c.active ? "primary" : "neutral"}>{c.count}</Badge>
-            </span>
-          ))}
-        </CardBody>
-      </Card>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {categories.map((c) => (
+          <div key={c.id} className="rounded border border-gray-200 bg-white p-4">
+            <p className="text-sm font-medium text-gray-800">{c.name}</p>
+            <p className="mt-1 text-xs text-gray-400">
+              {c._count.services} service{c._count.services !== 1 ? "s" : ""} ·{" "}
+              <Badge tone={c.isActive ? "success" : "neutral"}>{c.isActive ? "Active" : "Off"}</Badge>
+            </p>
+          </div>
+        ))}
+      </div>
 
       <Card>
         <CardHeader><CardTitle>All Services</CardTitle></CardHeader>
         <Table>
-          <THead><tr><TH>Service</TH><TH>Category</TH><TH>Duration</TH><TH>Base Price</TH><TH>Status</TH></tr></THead>
+          <THead>
+            <tr>
+              <TH>Name</TH>
+              <TH>Category</TH>
+              <TH>Base Price</TH>
+              <TH>Duration</TH>
+              <TH>Gender</TH>
+              <TH>Variants</TH>
+              <TH>Workers</TH>
+              <TH>Status</TH>
+            </tr>
+          </THead>
           <tbody>
-            {services.map((s) => (
-              <TR key={s.name}>
-                <TD className="font-medium">{s.name}</TD>
-                <TD className="text-muted-foreground">{s.cat}</TD>
-                <TD className="tabular-nums text-muted-foreground">{s.dur}</TD>
-                <TD className="font-semibold tabular-nums">{s.price}</TD>
-                <TD><Badge tone={s.tone}>{s.status}</Badge></TD>
-              </TR>
-            ))}
+            {services.length === 0 ? (
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">No services yet.</td></tr>
+            ) : (
+              services.map((s) => (
+                <TR key={s.id}>
+                  <TD className="font-medium text-gray-900">
+                    {s.name}
+                    {s.isPopular && <span className="ml-1 text-[10px] text-yellow-600">★ Popular</span>}
+                  </TD>
+                  <TD className="text-gray-500">{s.category.name}</TD>
+                  <TD className="text-gray-700">₹{Number(s.basePrice).toLocaleString("en-IN")}</TD>
+                  <TD className="text-gray-500">{s.duration} min</TD>
+                  <TD className="text-gray-500 capitalize">{s.gender.toLowerCase()}</TD>
+                  <TD className="text-gray-500">{s._count.variants}</TD>
+                  <TD className="text-gray-500">{s._count.workerServices}</TD>
+                  <TD><Badge tone={s.isActive ? "success" : "neutral"}>{s.isActive ? "Active" : "Inactive"}</Badge></TD>
+                </TR>
+              ))
+            )}
           </tbody>
         </Table>
       </Card>
-    </>
+    </div>
   );
 }

@@ -1,78 +1,132 @@
-import { Crown, Check, Sparkles } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { PageHeader, Card } from "@/components/customer/ui";
-import { MEMBERSHIP, rupee } from "@/components/customer/data";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle, CardBody } from "@/components/shared/ui";
 
-// OWNER: Devanshi | MODULE: Customer Membership (hardcoded)
-export default function CustomerMembershipPage() {
+// OWNER: Devanshi | MODULE: Customer — Membership
+
+const TIER_TONE: Record<string, "neutral" | "success" | "warning" | "info" | "primary"> = {
+  SILVER: "info", GOLD: "warning", PLATINUM: "primary", CUSTOM: "neutral",
+};
+
+export default async function CustomerMembershipPage() {
+  const authUser = await getServerUser();
+  if (!authUser?.customerId) redirect("/login");
+  const customerId = authUser.customerId;
+
+  const [activeMembership, allPlans, history] = await Promise.all([
+    prisma.customerMembership.findFirst({
+      where: { customerId, status: "ACTIVE" },
+      include: {
+        plan: { include: { benefits: true } },
+      },
+    }),
+    prisma.membershipPlan.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: "asc" },
+      include: { benefits: true },
+    }),
+    prisma.customerMembership.findMany({
+      where: { customerId },
+      orderBy: { purchasedAt: "desc" },
+      include: { plan: { select: { name: true, tier: true } } },
+    }),
+  ]);
+
   return (
-    <div>
-      <PageHeader title="Membership" description="Your plan, benefits and renewal details." />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Membership</h1>
+      </div>
 
-      {/* Active plan */}
-      {MEMBERSHIP.active && (
-        <Card className="mb-10 overflow-hidden">
-          <div className="flex flex-col gap-6 bg-primary p-7 text-primary-foreground sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <span className="inline-flex size-14 items-center justify-center bg-primary-foreground/15">
-                <Crown className="size-7" />
-              </span>
+      {activeMembership ? (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-700">Active Plan</span>
+              <Badge tone={TIER_TONE[activeMembership.plan.tier] ?? "neutral"}>{activeMembership.plan.tier}</Badge>
+            </div>
+          </CardHeader>
+          <CardBody>
+            <div className="flex items-start justify-between">
               <div>
-                <p className="text-xs uppercase tracking-widest text-primary-foreground/70">Active plan</p>
-                <p className="font-heading text-2xl font-bold">{MEMBERSHIP.plan}</p>
-                <p className="text-sm text-primary-foreground/70">Renews on {MEMBERSHIP.renewsOn}</p>
+                <p className="text-lg font-semibold text-gray-900">{activeMembership.plan.name}</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Valid until {new Date(activeMembership.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+                </p>
               </div>
+              <Badge tone="success">Active</Badge>
             </div>
-            <div className="text-right">
-              <p className="font-heading text-3xl font-bold">{rupee(MEMBERSHIP.price)}</p>
-              <p className="text-sm text-primary-foreground/70">per {MEMBERSHIP.cycle}</p>
+            {activeMembership.plan.benefits.length > 0 && (
+              <ul className="mt-4 space-y-1.5">
+                {activeMembership.plan.benefits.map((b) => (
+                  <li key={b.id} className="flex items-start gap-2 text-sm text-gray-700">
+                    <span className="text-green-600">✓</span> {b.name}
+                    {b.value && <span className="text-gray-400">— {b.value}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardBody>
+        </Card>
+      ) : (
+        <div className="rounded border border-gray-200 bg-gray-50 p-6 text-center">
+          <p className="text-sm font-medium text-gray-700">No active membership</p>
+          <p className="mt-1 text-xs text-gray-400">Choose a plan below to get started</p>
+        </div>
+      )}
+
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-gray-700">Available Plans</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {allPlans.map((plan) => (
+            <div key={plan.id} className="rounded border border-gray-200 bg-white p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-medium text-gray-900">{plan.name}</p>
+                  <Badge tone={TIER_TONE[plan.tier] ?? "neutral"} className="mt-1">{plan.tier}</Badge>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-semibold text-gray-900">₹{Number(plan.price).toLocaleString("en-IN")}</p>
+                  <p className="text-xs text-gray-400">{plan.validityDays} days</p>
+                </div>
+              </div>
+              {plan.discountPercent > 0 && (
+                <p className="mt-2 text-xs text-gray-500">{plan.discountPercent}% off on services</p>
+              )}
+              {plan.walletCredit > 0 && (
+                <p className="text-xs text-gray-500">₹{plan.walletCredit} wallet credit on purchase</p>
+              )}
+              {plan.benefits.length > 0 && (
+                <ul className="mt-3 space-y-1">
+                  {plan.benefits.map((b) => (
+                    <li key={b.id} className="text-xs text-gray-500">· {b.name}</li>
+                  ))}
+                </ul>
+              )}
             </div>
-          </div>
-          <div className="grid gap-3 p-7 sm:grid-cols-2">
-            {MEMBERSHIP.benefits.map((b) => (
-              <div key={b} className="flex items-center gap-2.5 text-sm">
-                <Check className="size-4 shrink-0 text-primary" /> {b}
+          ))}
+        </div>
+      </div>
+
+      {history.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>Membership History</CardTitle></CardHeader>
+          <div className="divide-y divide-gray-50">
+            {history.map((m) => (
+              <div key={m.id} className="flex items-center justify-between px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{m.plan.name}</p>
+                  <p className="text-xs text-gray-400">
+                    {new Date(m.startDate).toLocaleDateString("en-IN")} – {new Date(m.endDate).toLocaleDateString("en-IN")}
+                  </p>
+                </div>
+                <Badge tone={m.status === "ACTIVE" ? "success" : m.status === "EXPIRED" ? "neutral" : "danger"}>{m.status}</Badge>
               </div>
             ))}
           </div>
         </Card>
       )}
-
-      {/* Plans */}
-      <h2 className="mb-4 font-heading text-xl font-semibold">Explore plans</h2>
-      <div className="grid gap-6 lg:grid-cols-3">
-        {MEMBERSHIP.plans.map((plan) => {
-          const current = plan.name === MEMBERSHIP.plan;
-          return (
-            <Card key={plan.name} className={cn("flex flex-col p-7", current && "border-primary ring-1 ring-primary")}>
-              {current && (
-                <span className="mb-3 inline-flex w-fit items-center gap-1 bg-primary px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground">
-                  <Sparkles className="size-3" /> Current
-                </span>
-              )}
-              <h3 className="font-heading text-xl font-semibold">{plan.name}</h3>
-              <p className="mt-2">
-                <span className="font-heading text-3xl font-bold">{rupee(plan.price)}</span>
-                <span className="text-sm text-muted-foreground"> / {plan.cycle}</span>
-              </p>
-              <ul className="mt-6 flex-1 space-y-3">
-                {plan.perks.map((p) => (
-                  <li key={p} className="flex items-start gap-2.5 text-sm text-muted-foreground">
-                    <Check className="mt-0.5 size-4 shrink-0 text-primary" /> {p}
-                  </li>
-                ))}
-              </ul>
-              <button
-                className={cn(buttonVariants({ variant: current ? "outline" : "default" }), "mt-7 w-full")}
-                disabled={current}
-              >
-                {current ? "Current Plan" : "Choose Plan"}
-              </button>
-            </Card>
-          );
-        })}
-      </div>
     </div>
   );
 }

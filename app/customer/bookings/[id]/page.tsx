@@ -1,171 +1,157 @@
+import { getServerUser } from "@/lib/server-session";
+import { redirect, notFound } from "next/navigation";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle, CardBody } from "@/components/shared/ui";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import {
-  ArrowLeft,
-  CalendarDays,
-  Clock,
-  MapPin,
-  User,
-  Phone,
-  Scissors,
-  CheckCircle2,
-} from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { Card, StatusBadge } from "@/components/customer/ui";
-import { BOOKINGS, rupee } from "@/components/customer/data";
 
-// OWNER: Devanshi | MODULE: Customer Booking Detail (dynamic id param, hardcoded)
-export default async function CustomerBookingDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+// OWNER: Devanshi | MODULE: Customer — Booking Detail
+
+const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info" | "primary"> = {
+  PENDING: "neutral", CONFIRMED: "info", CHECKED_IN: "warning",
+  STARTED: "primary", COMPLETED: "success", CANCELLED: "danger",
+  NO_SHOW: "danger", RESCHEDULED: "info",
+};
+
+export default async function CustomerBookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const authUser = await getServerUser();
+  if (!authUser?.customerId) redirect("/login");
   const { id } = await params;
-  const booking = BOOKINGS.find((b) => b.id === id);
-  if (!booking) notFound();
 
-  const canManage = booking.status === "CONFIRMED" || booking.status === "PENDING";
-  const timeline = [
-    { label: "Booked", done: true },
-    { label: "Confirmed", done: booking.status !== "PENDING" },
-    { label: "Checked in", done: booking.status === "CHECKED_IN" || booking.status === "COMPLETED" },
-    { label: "Completed", done: booking.status === "COMPLETED" },
-  ];
+  const appointment = await prisma.appointment.findUnique({
+    where: { id },
+    include: {
+      branch: { select: { name: true, address: true, city: true, phone: true, mapUrl: true } },
+      worker: { select: { firstName: true, lastName: true, designation: { select: { name: true } } } },
+      services: { include: { service: { select: { name: true, duration: true } } } },
+      addOns: { include: { addOn: { select: { name: true } } } },
+      invoice: {
+        select: {
+          invoiceNo: true, status: true, totalAmount: true,
+          paidAmount: true, balanceDue: true,
+          payments: { select: { method: true, amount: true, paidAt: true } },
+        },
+      },
+    },
+  });
 
-  const gst = Math.round(booking.price * 0.18);
+  if (!appointment || appointment.customerId !== authUser.customerId) notFound();
+
+  const canCancel = ["PENDING", "CONFIRMED"].includes(appointment.status);
 
   return (
-    <div>
-      <Link
-        href="/customer/bookings"
-        className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" /> Back to bookings
-      </Link>
+    <div className="space-y-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs text-gray-400">Appointment</p>
+          <h1 className="text-xl font-semibold text-gray-900">#{appointment.appointmentNo}</h1>
+          <p className="mt-0.5 text-sm text-gray-500">
+            {new Date(appointment.appointmentDate).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+            {" · "}{appointment.startTime}–{appointment.endTime}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <Badge tone={STATUS_TONE[appointment.status] ?? "neutral"}>{appointment.status.replace(/_/g, " ")}</Badge>
+          {canCancel && (
+            <span className="text-xs text-red-500 hover:underline cursor-pointer">Cancel booking</span>
+          )}
+        </div>
+      </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main detail */}
-        <div className="space-y-6 lg:col-span-2">
-          <Card className="overflow-hidden">
-            <img src={booking.image} alt={booking.service} className="h-52 w-full object-cover" />
-            <div className="p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                    Booking #{booking.id.replace("bk-", "")}
-                  </p>
-                  <h1 className="mt-1 font-heading text-2xl font-bold tracking-tight">{booking.service}</h1>
+      <Card>
+        <CardHeader><CardTitle>Services</CardTitle></CardHeader>
+        <div className="divide-y divide-gray-50">
+          {appointment.services.map((s) => (
+            <div key={s.id} className="flex justify-between px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{s.service.name}</p>
+                <p className="text-xs text-gray-400">{s.service.duration} min</p>
+              </div>
+              <p className="text-sm text-gray-700">₹{Number(s.price).toLocaleString("en-IN")}</p>
+            </div>
+          ))}
+          {appointment.addOns.map((a) => (
+            <div key={a.id} className="flex justify-between px-4 py-3">
+              <p className="text-sm text-gray-600">{a.addOn.name} <span className="text-xs text-gray-400">(add-on)</span></p>
+              <p className="text-sm text-gray-700">₹{Number(a.price).toLocaleString("en-IN")}</p>
+            </div>
+          ))}
+        </div>
+        {Number(appointment.discountAmount) > 0 && (
+          <div className="border-t border-gray-100 px-4 py-2 flex justify-between text-xs text-green-700">
+            <span>Discount</span><span>−₹{Number(appointment.discountAmount).toLocaleString("en-IN")}</span>
+          </div>
+        )}
+        <div className="border-t border-gray-100 px-4 py-3 flex justify-between text-sm font-semibold text-gray-900">
+          <span>Total</span><span>₹{Number(appointment.totalAmount).toLocaleString("en-IN")}</span>
+        </div>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle>Stylist</CardTitle></CardHeader>
+          <CardBody>
+            {appointment.worker ? (
+              <>
+                <p className="font-medium text-gray-900">{appointment.worker.firstName} {appointment.worker.lastName}</p>
+                <p className="text-xs text-gray-400">{appointment.worker.designation?.name}</p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-400">Not assigned yet</p>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Location</CardTitle></CardHeader>
+          <CardBody>
+            <p className="font-medium text-gray-900">{appointment.branch.name}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{appointment.branch.address}, {appointment.branch.city}</p>
+            <p className="text-xs text-gray-400">{appointment.branch.phone}</p>
+            {appointment.branch.mapUrl && (
+              <Link href={appointment.branch.mapUrl} target="_blank" className="mt-2 inline-block text-xs text-gray-500 hover:underline">
+                View on map →
+              </Link>
+            )}
+          </CardBody>
+        </Card>
+      </div>
+
+      {appointment.invoice && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Payment</CardTitle>
+            <Badge tone={appointment.invoice.status === "PAID" ? "success" : appointment.invoice.status === "PARTIAL" ? "info" : "warning"}>
+              {appointment.invoice.status}
+            </Badge>
+          </CardHeader>
+          <CardBody>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between text-gray-700">
+                <span>Total</span><span>₹{Number(appointment.invoice.totalAmount).toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between text-green-700 font-medium">
+                <span>Paid</span><span>₹{Number(appointment.invoice.paidAmount).toLocaleString("en-IN")}</span>
+              </div>
+              {Number(appointment.invoice.balanceDue) > 0 && (
+                <div className="flex justify-between text-red-600 font-semibold">
+                  <span>Due</span><span>₹{Number(appointment.invoice.balanceDue).toLocaleString("en-IN")}</span>
                 </div>
-                <StatusBadge status={booking.status} />
-              </div>
-
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <Detail icon={User} label="Stylist" value={booking.stylist} />
-                <Detail icon={MapPin} label="Branch" value={booking.branch} />
-                <Detail icon={CalendarDays} label="Date & time" value={`${booking.date} · ${booking.time}`} />
-                <Detail icon={Clock} label="Duration" value={booking.duration} />
-              </div>
-            </div>
-          </Card>
-
-          {/* Timeline */}
-          <Card className="p-6">
-            <h2 className="mb-5 font-heading text-lg font-semibold">Status</h2>
-            <ol className="flex items-center">
-              {timeline.map((step, i) => (
-                <li key={step.label} className="flex flex-1 items-center last:flex-none">
-                  <div className="flex flex-col items-center gap-2">
-                    <span
-                      className={cn(
-                        "inline-flex size-9 items-center justify-center rounded-full border",
-                        step.done
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-background text-muted-foreground",
-                      )}
-                    >
-                      <CheckCircle2 className="size-4.5" />
-                    </span>
-                    <span className={cn("text-xs", step.done ? "font-medium text-foreground" : "text-muted-foreground")}>
-                      {step.label}
-                    </span>
-                  </div>
-                  {i < timeline.length - 1 && (
-                    <div className={cn("mx-2 h-0.5 flex-1", step.done ? "bg-primary" : "bg-border")} />
-                  )}
-                </li>
-              ))}
-            </ol>
-          </Card>
-        </div>
-
-        {/* Summary + actions */}
-        <div className="space-y-6">
-          <Card className="p-6">
-            <h2 className="mb-4 font-heading text-lg font-semibold">Payment summary</h2>
-            <dl className="space-y-2.5 text-sm">
-              <Row label="Service" value={rupee(booking.price)} />
-              <Row label="GST (18%)" value={rupee(gst)} />
-              <div className="my-2 border-t border-border" />
-              <Row label="Total" value={rupee(booking.price + gst)} strong />
-            </dl>
-          </Card>
-
-          <Card className="p-6">
-            <h2 className="mb-4 font-heading text-lg font-semibold">Need help?</h2>
-            <div className="space-y-3">
-              {canManage ? (
-                <>
-                  <Link href={`/customer/bookings/${booking.id}`} className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
-                    Reschedule
-                  </Link>
-                  <Link href={`/customer/bookings/${booking.id}`} className={cn(buttonVariants({ variant: "destructive" }), "w-full")}>
-                    Cancel booking
-                  </Link>
-                </>
-              ) : (
-                <Link href="/book" className={cn(buttonVariants(), "w-full")}>
-                  <Scissors className="size-4" /> Book again
-                </Link>
               )}
-              <a href="tel:+919876543210" className={cn(buttonVariants({ variant: "ghost" }), "w-full")}>
-                <Phone className="size-4" /> Call the salon
-              </a>
             </div>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-}
+          </CardBody>
+        </Card>
+      )}
 
-function Detail({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="inline-flex size-9 shrink-0 items-center justify-center bg-muted text-primary">
-        <Icon className="size-4.5" />
-      </span>
-      <div>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-sm font-medium">{value}</p>
-      </div>
-    </div>
-  );
-}
+      {appointment.notes && (
+        <Card>
+          <CardHeader><CardTitle>Your Notes</CardTitle></CardHeader>
+          <CardBody><p className="text-sm text-gray-600">{appointment.notes}</p></CardBody>
+        </Card>
+      )}
 
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className="flex items-center justify-between">
-      <dt className={cn("text-muted-foreground", strong && "font-semibold text-foreground")}>{label}</dt>
-      <dd className={cn(strong ? "font-heading text-lg font-semibold" : "font-medium")}>{value}</dd>
+      <Link href="/customer/bookings" className="inline-block text-sm text-gray-500 hover:text-gray-800">
+        ← Back to bookings
+      </Link>
     </div>
   );
 }

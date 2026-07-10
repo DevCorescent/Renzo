@@ -1,79 +1,98 @@
-import Link from "next/link";
-import { CalendarDays, MapPin, User, Clock, ArrowRight, Scissors } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { PageHeader, Card, StatusBadge } from "@/components/customer/ui";
-import { BOOKINGS, rupee } from "@/components/customer/data";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-// OWNER: Devanshi | MODULE: Customer Bookings — history list (hardcoded)
-export default function CustomerBookingsPage() {
-  const upcoming = BOOKINGS.filter((b) => b.status === "CONFIRMED" || b.status === "PENDING");
-  const past = BOOKINGS.filter((b) => b.status === "COMPLETED" || b.status === "CANCELLED");
+// OWNER: Devanshi | MODULE: Customer Bookings
+
+const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info" | "primary"> = {
+  PENDING: "neutral",
+  CONFIRMED: "info",
+  CHECKED_IN: "warning",
+  STARTED: "primary",
+  COMPLETED: "success",
+  CANCELLED: "danger",
+  NO_SHOW: "danger",
+  RESCHEDULED: "info",
+};
+
+export default async function CustomerBookingsPage() {
+  const authUser = await getServerUser();
+  if (!authUser?.customerId) redirect("/login");
+  const customerId = authUser.customerId;
+
+  const appointments = await prisma.appointment.findMany({
+    where: { customerId },
+    orderBy: [{ appointmentDate: "desc" }, { startTime: "asc" }],
+    take: 100,
+    include: {
+      branch: { select: { name: true, city: true } },
+      worker: { select: { firstName: true, lastName: true } },
+      services: { include: { service: { select: { name: true } } } },
+    },
+  });
 
   return (
-    <div>
-      <PageHeader
-        title="My Bookings"
-        description="Track upcoming appointments and revisit your history."
-        action={
-          <Link href="/book" className={cn(buttonVariants())}>
-            <Scissors className="size-4" />
-            New Booking
-          </Link>
-        }
-      />
-
-      <Section title="Upcoming" bookings={upcoming} empty="No upcoming appointments." />
-      <div className="mt-10">
-        <Section title="Past" bookings={past} empty="No past appointments yet." />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">My Bookings</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{appointments.length} appointments</p>
       </div>
-    </div>
-  );
-}
 
-function Section({
-  title,
-  bookings,
-  empty,
-}: {
-  title: string;
-  bookings: typeof BOOKINGS;
-  empty: string;
-}) {
-  return (
-    <div>
-      <h2 className="mb-4 font-heading text-xl font-semibold">{title}</h2>
-      {bookings.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">{empty}</Card>
-      ) : (
-        <div className="space-y-4">
-          {bookings.map((b) => (
-            <Card key={b.id} className="flex flex-col overflow-hidden sm:flex-row">
-              <img src={b.image} alt={b.service} className="h-36 w-full object-cover sm:h-auto sm:w-40" />
-              <div className="flex flex-1 flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <h3 className="font-heading text-lg font-semibold">{b.service}</h3>
-                    <StatusBadge status={b.status} />
-                  </div>
-                  <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1.5"><User className="size-4 text-primary" /> {b.stylist}</span>
-                    <span className="flex items-center gap-1.5"><CalendarDays className="size-4 text-primary" /> {b.date} · {b.time}</span>
-                    <span className="flex items-center gap-1.5"><MapPin className="size-4 text-primary" /> {b.branch}</span>
-                    <span className="flex items-center gap-1.5"><Clock className="size-4 text-primary" /> {b.duration}</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end">
-                  <span className="font-heading text-lg font-semibold">{rupee(b.price)}</span>
-                  <Link href={`/customer/bookings/${b.id}`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-                    Details <ArrowRight className="size-3.5" />
-                  </Link>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Booking History</CardTitle>
+        </CardHeader>
+        <Table>
+          <THead>
+            <tr>
+              <TH>Date</TH>
+              <TH>Time</TH>
+              <TH>Service</TH>
+              <TH>Branch</TH>
+              <TH>Worker</TH>
+              <TH>Amount</TH>
+              <TH>Status</TH>
+            </tr>
+          </THead>
+          <tbody>
+            {appointments.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No bookings yet.
+                </td>
+              </tr>
+            ) : (
+              appointments.map((a) => (
+                <TR key={a.id}>
+                  <TD className="font-mono text-xs text-gray-500">
+                    {new Date(a.appointmentDate).toLocaleDateString("en-IN")}
+                  </TD>
+                  <TD className="font-mono text-xs text-gray-600">
+                    {a.startTime}–{a.endTime}
+                  </TD>
+                  <TD className="font-medium text-gray-900 text-xs">
+                    {a.services.map((s) => s.service.name).join(", ") || "—"}
+                  </TD>
+                  <TD className="text-gray-500">
+                    {a.branch.name}
+                    <p className="text-[11px] text-gray-400">{a.branch.city}</p>
+                  </TD>
+                  <TD className="text-gray-500">
+                    {a.worker ? `${a.worker.firstName} ${a.worker.lastName}` : "—"}
+                  </TD>
+                  <TD className="text-gray-700">₹{Number(a.totalAmount).toLocaleString("en-IN")}</TD>
+                  <TD>
+                    <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>
+                      {a.status.replace(/_/g, " ")}
+                    </Badge>
+                  </TD>
+                </TR>
+              ))
+            )}
+          </tbody>
+        </Table>
+      </Card>
     </div>
   );
 }

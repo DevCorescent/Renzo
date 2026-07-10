@@ -1,89 +1,134 @@
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { StatCard, Badge } from "@/components/shared/ui";
+import { CalendarDays, CheckCircle, Clock } from "lucide-react";
+
 // OWNER: Hemant | MODULE: Worker Dashboard
-import Link from "next/link";
-import { CalendarCheck, Clock, Star, IndianRupee, Play } from "lucide-react";
-import { HeroBanner, StatCard, Card, CardHeader, CardTitle, CardBody, Badge, DemoNote } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
 
-const today = [
-  { time: "10:00", customer: "Sneha Kapoor", service: "Balayage + Gloss", status: "In progress", tone: "info" as const },
-  { time: "11:30", customer: "Ritika Sharma", service: "Haircut & Style", status: "Upcoming", tone: "neutral" as const },
-  { time: "13:00", customer: "Meera Iyer", service: "Keratin Treatment", status: "Upcoming", tone: "neutral" as const },
-  { time: "15:30", customer: "Divya Menon", service: "Root Touch-up", status: "Upcoming", tone: "neutral" as const },
-];
+const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info" | "primary"> = {
+  PENDING: "neutral",
+  CONFIRMED: "info",
+  CHECKED_IN: "warning",
+  STARTED: "primary",
+  COMPLETED: "success",
+  CANCELLED: "danger",
+  NO_SHOW: "danger",
+  RESCHEDULED: "info",
+};
 
-export default function WorkerDashboardPage() {
+export default async function WorkerDashboardPage() {
+  const authUser = await getServerUser();
+  if (!authUser?.workerId) redirect("/login");
+  const workerId = authUser.workerId;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const [worker, todayCount, completedCount, attendance, appointments] = await Promise.all([
+    prisma.workerProfile.findUnique({
+      where: { id: workerId },
+      select: { firstName: true, lastName: true, designation: { select: { name: true } } },
+    }),
+    prisma.appointment.count({
+      where: { workerId, appointmentDate: { gte: today, lt: tomorrow } },
+    }),
+    prisma.appointment.count({
+      where: { workerId, status: "COMPLETED", appointmentDate: { gte: today, lt: tomorrow } },
+    }),
+    prisma.attendance.findFirst({
+      where: { workerId, date: { gte: today, lt: tomorrow } },
+      select: { checkIn: true, checkOut: true, status: true },
+    }),
+    prisma.appointment.findMany({
+      where: { workerId, appointmentDate: { gte: today, lt: tomorrow } },
+      orderBy: { startTime: "asc" },
+      include: {
+        customer: { select: { firstName: true, lastName: true, phone: true } },
+        branch: { select: { name: true } },
+        services: { include: { service: { select: { name: true } } } },
+      },
+    }),
+  ]);
+
   return (
-    <>
-      <HeroBanner
-        eyebrow="Tuesday · 8 Jul 2026"
-        title="Good morning,"
-        highlight="Priya"
-        subtitle="You have 4 appointments today and one pending reschedule request."
-        actions={<Button><Play /> Start next service</Button>}
-        stats={[
-          { label: "Today", value: "4" },
-          { label: "Rating", value: "4.9" },
-          { label: "MTD", value: "₹18.2K" },
-        ]}
-      />
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Today's Bookings" value="4" hint="1 in progress" icon={CalendarCheck} />
-        <StatCard label="Clocked In" value="09:42" hint="On time" icon={Clock} />
-        <StatCard label="Avg Rating" value="4.9" delta={{ value: "0.1", positive: true }} hint="this month" icon={Star} />
-        <StatCard label="Commission MTD" value="₹18,240" delta={{ value: "12%", positive: true }} icon={IndianRupee} />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">
+          {worker?.firstName} {worker?.lastName}
+          {worker?.designation?.name && (
+            <span className="ml-2 text-base font-normal text-gray-400">
+              · {worker.designation.name}
+            </span>
+          )}
+        </h1>
+        <p className="mt-0.5 text-sm text-gray-500">
+          {today.toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Today's Schedule</CardTitle>
-            <Link href="/worker/bookings" className="text-xs font-medium text-primary hover:underline">
-              View all →
-            </Link>
-          </CardHeader>
-          <CardBody className="p-0">
-            {today.map((a, i) => (
-              <Link
-                key={i}
-                href="/worker/bookings/apt_1042"
-                className="flex items-center gap-4 border-b border-border/70 px-5 py-4 last:border-0 hover:bg-muted/40"
-              >
-                <span className="font-heading text-lg font-semibold tabular-nums">{a.time}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{a.customer}</p>
-                  <p className="truncate text-sm text-muted-foreground">{a.service}</p>
-                </div>
-                <Badge tone={a.tone}>{a.status}</Badge>
-              </Link>
-            ))}
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>This Week</CardTitle>
-          </CardHeader>
-          <CardBody className="space-y-4">
-            <Row label="Services done" value="27" />
-            <Row label="Hours worked" value="38.5" />
-            <Row label="Rebook rate" value="64%" />
-            <Row label="Products sold" value="₹6,900" />
-            <div className="border-t border-border pt-4">
-              <DemoNote>Hardcoded preview · Phase 2 wires live data</DemoNote>
-            </div>
-          </CardBody>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Today's Bookings" value={todayCount.toString()} icon={CalendarDays} />
+        <StatCard label="Completed" value={completedCount.toString()} icon={CheckCircle} />
+        <StatCard
+          label="Check-in"
+          value={
+            attendance?.checkIn
+              ? new Date(attendance.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+              : "Not marked"
+          }
+          icon={Clock}
+        />
       </div>
-    </>
-  );
-}
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-semibold tabular-nums">{value}</span>
+      <div className="rounded border border-gray-200 bg-white">
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h2 className="text-sm font-semibold text-gray-700">Today's Schedule</h2>
+        </div>
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 text-left text-xs font-medium text-gray-400">
+              <th className="px-4 py-2.5">Time</th>
+              <th className="px-4 py-2.5">Customer</th>
+              <th className="px-4 py-2.5">Service</th>
+              <th className="px-4 py-2.5">Branch</th>
+              <th className="px-4 py-2.5">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {appointments.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No appointments today.
+                </td>
+              </tr>
+            ) : (
+              appointments.map((a) => (
+                <tr key={a.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-xs text-gray-600">
+                    {a.startTime}–{a.endTime}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {a.customer.firstName} {a.customer.lastName}
+                    <p className="text-[11px] font-normal text-gray-400">{a.customer.phone}</p>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {a.services.map((s) => s.service.name).join(", ") || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">{a.branch.name}</td>
+                  <td className="px-4 py-3">
+                    <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>
+                      {a.status.replace(/_/g, " ")}
+                    </Badge>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

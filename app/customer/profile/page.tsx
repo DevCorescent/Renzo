@@ -1,65 +1,104 @@
-import { User, Mail, Phone, MapPin, Calendar, Pencil } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { PageHeader, Card } from "@/components/customer/ui";
-import { CUSTOMER } from "@/components/customer/data";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { Card, CardHeader, CardTitle, CardBody, Badge } from "@/components/shared/ui";
 
-// OWNER: Devanshi | MODULE: Customer Profile (hardcoded)
-export default function CustomerProfilePage() {
-  const fields = [
-    { icon: User, label: "Full name", value: CUSTOMER.name },
-    { icon: Mail, label: "Email", value: CUSTOMER.email },
-    { icon: Phone, label: "Phone", value: CUSTOMER.phone },
-    { icon: Calendar, label: "Date of birth", value: CUSTOMER.dob },
-    { icon: User, label: "Gender", value: CUSTOMER.gender },
-    { icon: MapPin, label: "Address", value: CUSTOMER.address },
-  ];
+// OWNER: Devanshi | MODULE: Customer — Profile
+
+export default async function CustomerProfilePage() {
+  const authUser = await getServerUser();
+  if (!authUser?.customerId) redirect("/login");
+  const customerId = authUser.customerId;
+
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerId },
+    include: {
+      beautyProfile: true,
+      tagAssignments: { include: { tag: true } },
+      user: { select: { email: true, phone: true, isVerified: true, createdAt: true } },
+    },
+  });
+
+  if (!customer) redirect("/login");
 
   return (
-    <div>
-      <PageHeader
-        title="Profile"
-        description="Your personal details and preferences."
-        action={
-          <button className={cn(buttonVariants({ variant: "outline" }))}>
-            <Pencil className="size-4" /> Edit Profile
-          </button>
-        }
-      />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">My Profile</h1>
+      </div>
 
-      {/* Identity card */}
-      <Card className="mb-6 flex flex-col items-center gap-4 p-7 text-center sm:flex-row sm:text-left">
-        <img
-          src={CUSTOMER.avatar}
-          alt={CUSTOMER.name}
-          className="size-24 rounded-full object-cover ring-2 ring-border"
-        />
-        <div>
-          <h2 className="font-heading text-2xl font-bold">{CUSTOMER.name}</h2>
-          <p className="text-sm text-muted-foreground">{CUSTOMER.email}</p>
-          <p className="mt-1 text-xs uppercase tracking-widest text-muted-foreground">
-            Member since {CUSTOMER.memberSince}
-          </p>
-        </div>
-      </Card>
+      <Card>
+        <CardHeader><CardTitle>Personal Information</CardTitle></CardHeader>
+        <CardBody>
+          <dl className="grid gap-3 sm:grid-cols-2">
+            {[
+              ["First Name", customer.firstName],
+              ["Last Name", customer.lastName ?? "—"],
+              ["Phone", customer.user.phone ?? "—"],
+              ["Email", customer.user.email ?? "—"],
+              ["Gender", customer.gender ?? "—"],
+              ["Date of Birth", customer.dateOfBirth ? new Date(customer.dateOfBirth).toLocaleDateString("en-IN") : "—"],
+              ["Anniversary", customer.anniversary ? new Date(customer.anniversary).toLocaleDateString("en-IN") : "—"],
+              ["Member Since", new Date(customer.user.createdAt).toLocaleDateString("en-IN")],
+              ["Referral Code", customer.referralCode],
+              ["Total Visits", customer.totalVisits.toString()],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="rounded border border-gray-100 p-3">
+                <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{label}</dt>
+                <dd className="mt-1 text-sm text-gray-800">{String(value)}</dd>
+              </div>
+            ))}
+          </dl>
 
-      {/* Details */}
-      <Card className="p-7">
-        <h3 className="mb-6 font-heading text-lg font-semibold">Personal information</h3>
-        <div className="grid gap-6 sm:grid-cols-2">
-          {fields.map((f) => (
-            <div key={f.label} className="flex items-start gap-3">
-              <span className="inline-flex size-10 shrink-0 items-center justify-center bg-muted text-primary">
-                <f.icon className="size-4.5" />
-              </span>
-              <div>
-                <p className="text-xs uppercase tracking-widest text-muted-foreground">{f.label}</p>
-                <p className="mt-0.5 text-sm font-medium">{f.value}</p>
+          {customer.tagAssignments.length > 0 && (
+            <div className="mt-4">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400 mb-2">Tags</p>
+              <div className="flex flex-wrap gap-2">
+                {customer.tagAssignments.map((t) => (
+                  <Badge key={t.id} tone="info" style={t.tag.color ? { backgroundColor: t.tag.color + "20", color: t.tag.color } : undefined}>
+                    {t.tag.name}
+                  </Badge>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
+          )}
+        </CardBody>
       </Card>
+
+      {customer.beautyProfile && (
+        <Card>
+          <CardHeader><CardTitle>Beauty Profile</CardTitle></CardHeader>
+          <CardBody>
+            <dl className="grid gap-3 sm:grid-cols-2">
+              {[
+                ["Hair Type", customer.beautyProfile.hairType ?? "—"],
+                ["Hair Color", customer.beautyProfile.hairColor ?? "—"],
+                ["Skin Type", customer.beautyProfile.skinType ?? "—"],
+                ["Skin Concerns", customer.beautyProfile.skinConcerns.join(", ") || "—"],
+                ["Nail Preferences", customer.beautyProfile.nailPreferences ?? "—"],
+                ["Allergies", customer.beautyProfile.allergies ?? "—"],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="rounded border border-gray-100 p-3">
+                  <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{label}</dt>
+                  <dd className="mt-1 text-sm text-gray-800">{String(value)}</dd>
+                </div>
+              ))}
+            </dl>
+            {customer.beautyProfile.preferences && (
+              <div className="mt-3 rounded border border-gray-100 p-3">
+                <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Preferences</dt>
+                <dd className="mt-1 text-sm text-gray-700">{customer.beautyProfile.preferences}</dd>
+              </div>
+            )}
+            {customer.beautyProfile.medicalNotes && (
+              <div className="mt-3 rounded border border-yellow-100 bg-yellow-50 p-3">
+                <dt className="text-[11px] font-medium uppercase tracking-wide text-yellow-700">Medical Notes</dt>
+                <dd className="mt-1 text-sm text-yellow-800">{customer.beautyProfile.medicalNotes}</dd>
+              </div>
+            )}
+          </CardBody>
+        </Card>
+      )}
     </div>
   );
 }

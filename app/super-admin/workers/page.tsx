@@ -1,50 +1,88 @@
-// OWNER: Hemant | MODULE: All Workers Management
+import prisma from "@/lib/db";
 import Link from "next/link";
-import { UserPlus, Search } from "lucide-react";
-import { PageHeader, Card, CardHeader, CardTitle, Badge, Table, THead, TH, TR, TD } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
 
-const workers = [
-  { id: "wrk_1", name: "Priya Nair", branch: "Bandra", role: "Senior Stylist", rating: "4.9", status: "Active", tone: "success" as const },
-  { id: "wrk_2", name: "Arjun Singh", branch: "Bandra", role: "Stylist", rating: "4.7", status: "Active", tone: "success" as const },
-  { id: "wrk_6", name: "Sana Sheikh", branch: "Koramangala", role: "Senior Stylist", rating: "4.8", status: "Active", tone: "success" as const },
-  { id: "wrk_7", name: "Vikram Rao", branch: "Banjara Hills", role: "Barber", rating: "4.6", status: "Active", tone: "success" as const },
-  { id: "wrk_8", name: "Deepa Nair", branch: "CP", role: "Beautician", rating: "4.9", status: "On leave", tone: "warning" as const },
-  { id: "wrk_9", name: "Imran Qureshi", branch: "Koramangala", role: "Stylist", rating: "4.5", status: "Suspended", tone: "danger" as const },
-];
+// OWNER: Hemant | MODULE: All Workers
 
-export default function SuperAdminWorkersPage() {
+export default async function SuperAdminWorkersPage() {
+  const authUser = await getServerUser();
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
+  const workers = await prisma.workerProfile.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      branches: {
+        where: { isPrimary: true },
+        include: { branch: { select: { name: true } } },
+      },
+      designation: { select: { name: true } },
+    },
+  });
+
   return (
-    <>
-      <PageHeader eyebrow="Platform" title="Workers" subtitle="118 staff across all branches."
-        actions={<Button size="sm"><UserPlus /> Add worker</Button>} />
+    <div className="space-y-6">
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Workers</h1>
+          <p className="mt-0.5 text-sm text-gray-500">{workers.length} total</p>
+        </div>
+      </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>All Staff</CardTitle>
-          <div className="relative hidden sm:block">
-            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <input placeholder="Search…" className="w-48 border border-input bg-transparent py-1.5 pl-8 pr-3 text-xs outline-none focus:border-ring" />
-          </div>
+          <CardTitle>All Workers</CardTitle>
         </CardHeader>
         <Table>
-          <THead><tr><TH>Name</TH><TH>Branch</TH><TH>Role</TH><TH>Rating</TH><TH>Status</TH><TH className="text-right">—</TH></tr></THead>
+          <THead>
+            <tr>
+              <TH>Name</TH>
+              <TH>Code</TH>
+              <TH>Primary Branch</TH>
+              <TH>Designation</TH>
+              <TH>Experience</TH>
+              <TH>Status</TH>
+              <TH className="text-right">Action</TH>
+            </tr>
+          </THead>
           <tbody>
-            {workers.map((w) => (
-              <TR key={w.id}>
-                <TD className="font-medium">{w.name}</TD>
-                <TD className="text-muted-foreground">{w.branch}</TD>
-                <TD className="text-muted-foreground">{w.role}</TD>
-                <TD className="tabular-nums">★ {w.rating}</TD>
-                <TD><Badge tone={w.tone}>{w.status}</Badge></TD>
-                <TD className="text-right">
-                  <Link href={`/super-admin/workers/${w.id}`} className="text-xs font-semibold uppercase tracking-wider text-primary hover:underline">View</Link>
-                </TD>
-              </TR>
-            ))}
+            {workers.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No workers yet.
+                </td>
+              </tr>
+            ) : (
+              workers.map((w) => (
+                <TR key={w.id}>
+                  <TD className="font-medium text-gray-900">
+                    {w.firstName} {w.lastName}
+                  </TD>
+                  <TD className="font-mono text-xs text-gray-400">{w.employeeCode}</TD>
+                  <TD className="text-gray-500">
+                    {w.branches[0]?.branch.name ?? "—"}
+                  </TD>
+                  <TD className="text-gray-500">{w.designation?.name ?? "—"}</TD>
+                  <TD className="text-gray-500">{w.experience} yr{w.experience !== 1 ? "s" : ""}</TD>
+                  <TD>
+                    <Badge tone={w.isActive ? "success" : "neutral"}>
+                      {w.isActive ? "Active" : "Inactive"}
+                    </Badge>
+                  </TD>
+                  <TD className="text-right">
+                    <Link
+                      href={`/super-admin/workers/${w.id}`}
+                      className="text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline"
+                    >
+                      View
+                    </Link>
+                  </TD>
+                </TR>
+              ))
+            )}
           </tbody>
         </Table>
       </Card>
-    </>
+    </div>
   );
 }

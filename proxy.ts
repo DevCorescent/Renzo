@@ -17,7 +17,7 @@ const ROUTE_ROLES: Array<{ prefix: string; roles: AuthUser["userType"][] }> = [
   { prefix: "/customer", roles: ["CUSTOMER"] },
 ];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const rule = ROUTE_ROLES.find((r) => pathname.startsWith(r.prefix));

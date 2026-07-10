@@ -1,70 +1,119 @@
-// OWNER: Hemant | MODULE: Branch Appointment Calendar (day / worker-wise grid)
-import { PageHeader, Card, Badge } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-const hours = ["9", "10", "11", "12", "1", "2", "3", "4", "5"];
-const workers = ["Priya N.", "Arjun S.", "Zoya K.", "Rahul V."];
+// OWNER: Hemant | MODULE: Branch Admin Appointments
 
-// [workerIndex][col] -> appointment spanning `span` hours
-type Block = { col: number; span: number; label: string; sub: string; tone: string };
-const grid: Block[][] = [
-  [ { col: 1, span: 2, label: "Sneha K.", sub: "Balayage", tone: "bg-sky-500/15 border-sky-500/40" }, { col: 5, span: 1, label: "Ritika S.", sub: "Haircut", tone: "bg-emerald-500/15 border-emerald-500/40" } ],
-  [ { col: 1, span: 1, label: "Karan M.", sub: "Haircut", tone: "bg-emerald-500/15 border-emerald-500/40" }, { col: 3, span: 2, label: "Aisha K.", sub: "Bridal Trial", tone: "bg-amber-500/15 border-amber-500/40" } ],
-  [ { col: 2, span: 3, label: "Meera I.", sub: "Keratin", tone: "bg-fuchsia-500/15 border-fuchsia-500/40" } ],
-  [ { col: 4, span: 2, label: "Pooja R.", sub: "Facial", tone: "bg-sky-500/15 border-sky-500/40" } ],
-];
+const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info" | "primary"> = {
+  PENDING: "neutral",
+  CONFIRMED: "info",
+  CHECKED_IN: "warning",
+  STARTED: "primary",
+  COMPLETED: "success",
+  CANCELLED: "danger",
+  NO_SHOW: "danger",
+  RESCHEDULED: "info",
+};
 
-const views = ["Day", "Week", "Month", "Worker"];
+export default async function BranchAdminAppointmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; date?: string }>;
+}) {
+  const authUser = await getServerUser();
+  if (!authUser?.branchId) redirect("/login");
+  const branchId = authUser.branchId;
+  const sp = await searchParams;
 
-export default function BranchAppointmentsPage() {
+  const dateFilter = sp.date ? new Date(sp.date) : null;
+  const statusFilter = sp.status ?? null;
+
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      branchId,
+      ...(statusFilter ? { status: statusFilter as never } : {}),
+      ...(dateFilter
+        ? {
+            appointmentDate: {
+              gte: dateFilter,
+              lt: new Date(dateFilter.getTime() + 86400000),
+            },
+          }
+        : {}),
+    },
+    orderBy: [{ appointmentDate: "desc" }, { startTime: "asc" }],
+    take: 100,
+    include: {
+      customer: { select: { firstName: true, lastName: true, phone: true } },
+      worker: { select: { firstName: true, lastName: true } },
+      services: { include: { service: { select: { name: true } } } },
+    },
+  });
+
   return (
-    <>
-      <PageHeader
-        eyebrow="Bandra · Tue 8 Jul"
-        title="Appointments"
-        subtitle="Worker-wise day schedule."
-        actions={
-          <div className="flex border border-border">
-            {views.map((v, i) => (
-              <button key={v} className={i === 3 ? "bg-primary px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary-foreground" : "px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-muted"}>{v}</button>
-            ))}
-          </div>
-        }
-      />
-
-      <Card className="overflow-x-auto">
-        <div className="min-w-[720px]">
-          {/* header row */}
-          <div className="grid border-b border-border" style={{ gridTemplateColumns: `120px repeat(${hours.length}, 1fr)` }}>
-            <div className="px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">Stylist</div>
-            {hours.map((h) => (
-              <div key={h} className="border-l border-border px-2 py-2 text-center text-[0.65rem] font-semibold text-muted-foreground">{h}:00</div>
-            ))}
-          </div>
-          {/* worker rows */}
-          {workers.map((w, wi) => (
-            <div key={w} className="grid border-b border-border/70 last:border-0" style={{ gridTemplateColumns: `120px repeat(${hours.length}, 1fr)` }}>
-              <div className="flex items-center px-3 py-4 text-sm font-medium">{w}</div>
-              <div className="relative col-span-9 grid" style={{ gridTemplateColumns: `repeat(${hours.length}, 1fr)` }}>
-                {hours.map((_, i) => <div key={i} className="h-16 border-l border-border/50" />)}
-                {grid[wi]?.map((b, bi) => (
-                  <div key={bi} className={`absolute top-1.5 bottom-1.5 border px-2 py-1 ${b.tone}`} style={{ left: `${((b.col - 1) / hours.length) * 100}%`, width: `${(b.span / hours.length) * 100}%` }}>
-                    <p className="truncate text-xs font-semibold">{b.label}</p>
-                    <p className="truncate text-[0.65rem] text-muted-foreground">{b.sub}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-        <Badge tone="info">Hair</Badge>
-        <Badge tone="warning">Bridal</Badge>
-        <Badge tone="success">Quick</Badge>
-        <span>· 4 stylists · 12 appointments today</span>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Appointments</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{appointments.length} records</p>
       </div>
-    </>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All Appointments</CardTitle>
+        </CardHeader>
+        <Table>
+          <THead>
+            <tr>
+              <TH>Date</TH>
+              <TH>Time</TH>
+              <TH>Customer</TH>
+              <TH>Service</TH>
+              <TH>Worker</TH>
+              <TH>Amount</TH>
+              <TH>Status</TH>
+            </tr>
+          </THead>
+          <tbody>
+            {appointments.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No appointments found.
+                </td>
+              </tr>
+            ) : (
+              appointments.map((a) => (
+                <TR key={a.id}>
+                  <TD className="font-mono text-xs text-gray-500">
+                    {new Date(a.appointmentDate).toLocaleDateString("en-IN")}
+                  </TD>
+                  <TD className="font-mono text-xs text-gray-600">
+                    {a.startTime}–{a.endTime}
+                  </TD>
+                  <TD className="font-medium text-gray-900">
+                    {a.customer.firstName} {a.customer.lastName}
+                    <p className="text-[11px] font-normal text-gray-400">{a.customer.phone}</p>
+                  </TD>
+                  <TD className="text-gray-600">
+                    {a.services.map((s) => s.service.name).join(", ") || "—"}
+                  </TD>
+                  <TD className="text-gray-500">
+                    {a.worker ? `${a.worker.firstName} ${a.worker.lastName}` : "—"}
+                  </TD>
+                  <TD className="text-gray-700">
+                    ₹{Number(a.totalAmount).toLocaleString("en-IN")}
+                  </TD>
+                  <TD>
+                    <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>
+                      {a.status.replace(/_/g, " ")}
+                    </Badge>
+                  </TD>
+                </TR>
+              ))
+            )}
+          </tbody>
+        </Table>
+      </Card>
+    </div>
   );
 }

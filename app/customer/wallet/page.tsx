@@ -1,64 +1,103 @@
-import { Wallet, Plus, ArrowUpRight, ArrowDownLeft, CreditCard } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { PageHeader, Card } from "@/components/customer/ui";
-import { WALLET, rupee } from "@/components/customer/data";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-// OWNER: Devanshi | MODULE: Customer Wallet (hardcoded)
-export default function CustomerWalletPage() {
+// OWNER: Devanshi | MODULE: Customer Wallet
+
+export default async function CustomerWalletPage() {
+  const authUser = await getServerUser();
+  if (!authUser?.customerId) redirect("/login");
+  const customerId = authUser.customerId;
+
+  const wallet = await prisma.wallet.findUnique({
+    where: { customerId },
+    include: {
+      transactions: {
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      },
+    },
+  });
+
+  const balance = Number(wallet?.balance ?? 0);
+  const totalAdded = Number(wallet?.totalAdded ?? 0);
+  const totalUsed = Number(wallet?.totalUsed ?? 0);
+
   return (
-    <div>
-      <PageHeader title="Wallet" description="Your Renzo balance and transaction history." />
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Balance card */}
-        <Card className="bg-primary p-7 text-primary-foreground lg:col-span-1">
-          <div className="flex items-center gap-2 text-primary-foreground/70">
-            <Wallet className="size-5" />
-            <span className="text-xs uppercase tracking-widest">Available balance</span>
-          </div>
-          <p className="mt-4 font-heading text-5xl font-bold">{rupee(WALLET.balance)}</p>
-          <button className={cn(buttonVariants({ variant: "secondary" }), "mt-8 w-full bg-background text-foreground hover:bg-background/90")}>
-            <Plus className="size-4" /> Add Money
-          </button>
-          <div className="mt-4 flex items-center gap-2 text-xs text-primary-foreground/60">
-            <CreditCard className="size-4" /> UPI · Card · Net Banking
-          </div>
-        </Card>
-
-        {/* Transactions */}
-        <Card className="lg:col-span-2">
-          <div className="border-b border-border px-6 py-4">
-            <h2 className="font-heading text-lg font-semibold">Recent transactions</h2>
-          </div>
-          <ul className="divide-y divide-border">
-            {WALLET.transactions.map((t) => {
-              const credit = t.type === "CREDIT";
-              return (
-                <li key={t.id} className="flex items-center justify-between gap-4 px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={cn(
-                        "inline-flex size-10 items-center justify-center",
-                        credit ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {credit ? <ArrowDownLeft className="size-5" /> : <ArrowUpRight className="size-5" />}
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium">{t.label}</p>
-                      <p className="text-xs text-muted-foreground">{t.date}</p>
-                    </div>
-                  </div>
-                  <span className={cn("font-heading text-base font-semibold", credit ? "text-emerald-600 dark:text-emerald-400" : "text-foreground")}>
-                    {credit ? "+" : "−"}{rupee(t.amount)}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Wallet</h1>
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs font-medium text-gray-500">Current Balance</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">
+            ₹{balance.toLocaleString("en-IN")}
+          </p>
+        </div>
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs font-medium text-gray-500">Total Added</p>
+          <p className="mt-2 text-2xl font-semibold text-green-700">
+            ₹{totalAdded.toLocaleString("en-IN")}
+          </p>
+        </div>
+        <div className="rounded border border-gray-200 bg-white p-4">
+          <p className="text-xs font-medium text-gray-500">Total Used</p>
+          <p className="mt-2 text-2xl font-semibold text-red-600">
+            ₹{totalUsed.toLocaleString("en-IN")}
+          </p>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Transaction History</CardTitle>
+        </CardHeader>
+        {!wallet ? (
+          <p className="px-4 py-8 text-center text-sm text-gray-400">
+            No wallet found. It will be created on your first transaction.
+          </p>
+        ) : wallet.transactions.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-gray-400">No transactions yet.</p>
+        ) : (
+          <Table>
+            <THead>
+              <tr>
+                <TH>Date</TH>
+                <TH>Type</TH>
+                <TH>Source</TH>
+                <TH>Description</TH>
+                <TH className="text-right">Amount</TH>
+                <TH className="text-right">Balance</TH>
+              </tr>
+            </THead>
+            <tbody>
+              {wallet.transactions.map((t) => (
+                <TR key={t.id}>
+                  <TD className="font-mono text-xs text-gray-500">
+                    {new Date(t.createdAt).toLocaleDateString("en-IN")}
+                  </TD>
+                  <TD>
+                    <Badge tone={t.type === "CREDIT" ? "success" : "danger"}>
+                      {t.type}
+                    </Badge>
+                  </TD>
+                  <TD className="text-gray-500 text-xs">{t.source}</TD>
+                  <TD className="text-gray-500 text-xs">{t.description ?? "—"}</TD>
+                  <TD className={`text-right font-medium ${t.type === "CREDIT" ? "text-green-700" : "text-red-600"}`}>
+                    {t.type === "CREDIT" ? "+" : "−"}₹{Number(t.amount).toLocaleString("en-IN")}
+                  </TD>
+                  <TD className="text-right font-mono text-xs text-gray-700">
+                    ₹{Number(t.balanceAfter).toLocaleString("en-IN")}
+                  </TD>
+                </TR>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
     </div>
   );
 }

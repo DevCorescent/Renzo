@@ -1,83 +1,93 @@
-// OWNER: Hemant | MODULE: Platform Settings
-import { PageHeader, Card, CardHeader, CardTitle, CardBody } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import prisma from "@/lib/db";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import { Card, CardHeader, CardTitle, CardBody } from "@/components/shared/ui";
 
-function Toggle({ on }: { on?: boolean }) {
-  return (
-    <span className={`inline-flex h-5 w-9 items-center rounded-full p-0.5 ${on ? "bg-primary" : "bg-muted"}`}>
-      <span className={`size-4 rounded-full bg-background transition-transform ${on ? "translate-x-4" : ""}`} />
-    </span>
-  );
-}
+// OWNER: Hemant | MODULE: Super Admin — Settings
 
-function SettingRow({ label, hint, on }: { label: string; hint: string; on?: boolean }) {
+export default async function SuperAdminSettingsPage() {
+  const authUser = await getServerUser();
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
+
+  const [config, branchSettings] = await Promise.all([
+    prisma.platformConfig.findUnique({ where: { id: "global" } }),
+    prisma.branchSetting.findMany({
+      include: { branch: { select: { name: true, city: true } } },
+    }),
+  ]);
+
   return (
-    <div className="flex items-center justify-between border-b border-border/70 py-4 last:border-0">
+    <div className="space-y-6">
       <div>
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-xs text-muted-foreground">{hint}</p>
+        <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
+        <p className="mt-0.5 text-sm text-gray-500">Platform configuration</p>
       </div>
-      <Toggle on={on} />
+
+      <Card>
+        <CardHeader><CardTitle>Platform Config</CardTitle></CardHeader>
+        <CardBody>
+          {config ? (
+            <dl className="grid gap-3 sm:grid-cols-2">
+              {[
+                ["Business Name", config.businessName],
+                ["Support Phone", config.supportPhone ?? "—"],
+                ["Support Email", config.supportEmail ?? "—"],
+                ["WhatsApp", config.whatsappNumber ?? "—"],
+                ["Instagram", config.instagramHandle ?? "—"],
+                ["Default Slot (min)", config.defaultBookingSlotMin],
+                ["Maintenance Mode", config.maintenanceMode ? "ON" : "off"],
+                ["Review Auto-Approve", config.reviewAutoApprove ? "Yes" : "No"],
+                ["Portfolio Auto-Approve", config.portfolioAutoApprove ? "Yes" : "No"],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="rounded border border-gray-100 p-3">
+                  <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{label}</dt>
+                  <dd className="mt-1 text-sm text-gray-800">{String(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p className="text-sm text-gray-400">No platform config found. Run the seed endpoint to create it.</p>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Branch Settings</CardTitle></CardHeader>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-left text-xs font-medium text-gray-400">
+                <th className="px-4 py-2.5">Branch</th>
+                <th className="px-4 py-2.5">Currency</th>
+                <th className="px-4 py-2.5">Tax %</th>
+                <th className="px-4 py-2.5">Advance Days</th>
+                <th className="px-4 py-2.5">Cancel Hrs</th>
+                <th className="px-4 py-2.5">Auto-Confirm</th>
+                <th className="px-4 py-2.5">Online Pay</th>
+              </tr>
+            </thead>
+            <tbody>
+              {branchSettings.map((s) => (
+                <tr key={s.id} className="border-b border-gray-50 last:border-0">
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {s.branch.name}
+                    <span className="ml-1 text-[11px] text-gray-400">{s.branch.city}</span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">{s.currency}</td>
+                  <td className="px-4 py-3 text-gray-500">{s.taxPercent}%</td>
+                  <td className="px-4 py-3 text-gray-500">{s.advanceBookingDays}d</td>
+                  <td className="px-4 py-3 text-gray-500">{s.cancellationHours}h</td>
+                  <td className="px-4 py-3 text-gray-500">{s.autoConfirmBookings ? "Yes" : "No"}</td>
+                  <td className="px-4 py-3 text-gray-500">{s.onlinePaymentEnabled ? "Yes" : "No"}</td>
+                </tr>
+              ))}
+              {branchSettings.length === 0 && (
+                <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-gray-400">No branch settings configured.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
-  );
-}
-
-export default function SuperAdminSettingsPage() {
-  return (
-    <>
-      <PageHeader eyebrow="Platform" title="Settings" subtitle="Global configuration for the Renzo platform."
-        actions={<Button size="sm">Save changes</Button>} />
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Business</CardTitle></CardHeader>
-          <CardBody className="space-y-4">
-            <Field label="Brand name" value="Renzo Salon & Spa" />
-            <Field label="Support email" value="care@renzo.in" />
-            <Field label="GST number" value="27ABCDE1234F1Z5" />
-            <Field label="Default currency" value="INR (₹)" />
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>Booking Rules</CardTitle></CardHeader>
-          <CardBody className="py-0">
-            <SettingRow label="Online booking" hint="Allow customers to book via website" on />
-            <SettingRow label="Same-day booking" hint="Accept bookings for today" on />
-            <SettingRow label="Auto-confirm" hint="Skip manual confirmation step" />
-            <SettingRow label="Cancellation window" hint="Free cancel up to 4h before" on />
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>Notifications</CardTitle></CardHeader>
-          <CardBody className="py-0">
-            <SettingRow label="WhatsApp reminders" hint="Send 24h & 2h before appointment" on />
-            <SettingRow label="Email receipts" hint="Email invoice after payment" on />
-            <SettingRow label="SMS OTP login" hint="Enable OTP-based login" on />
-            <SettingRow label="Marketing opt-in default" hint="New customers opted in" />
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>Loyalty & Payments</CardTitle></CardHeader>
-          <CardBody className="space-y-4">
-            <Field label="Points per ₹100 spent" value="5 pts" />
-            <Field label="Point value" value="₹0.50 / pt" />
-            <Field label="Payment gateway" value="Razorpay" />
-            <Field label="Wallet top-up" value="Enabled" />
-          </CardBody>
-        </Card>
-      </div>
-    </>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <label className="block space-y-1.5">
-      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-      <input defaultValue={value} className="w-full border border-input bg-transparent px-3 py-2 text-sm outline-none focus:border-ring" />
-    </label>
   );
 }

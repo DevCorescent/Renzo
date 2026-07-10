@@ -11,18 +11,17 @@ import { Button } from "@/components/ui/button";
 import type { ApiResponse, UserType } from "@/types/api";
 
 // Where each role lands after login. Must stay in step with the ROUTE_ROLES
-// table in middleware.ts, or the user bounces straight to /unauthorized.
+// table in proxy.ts, or the user bounces straight to /unauthorized.
 const HOME_FOR: Record<UserType, string> = {
-  SUPER_ADMIN: "/super-admin/dashboard",
-  OWNER: "/super-admin/dashboard",
-  BRANCH_ADMIN: "/branch-admin/dashboard",
-  RECEPTIONIST: "/reception/dashboard",
-  WORKER: "/worker/dashboard",
-  CUSTOMER: "/customer/dashboard",
-  // These roles have no panel of their own yet.
-  INVENTORY_MANAGER: "/",
-  MARKETING_MANAGER: "/",
-  ACCOUNTANT: "/",
+  SUPER_ADMIN:        "/super-admin/dashboard",
+  OWNER:              "/branch-admin/dashboard",   // branch owner → branch panel
+  BRANCH_ADMIN:       "/branch-admin/dashboard",
+  RECEPTIONIST:       "/reception/dashboard",
+  WORKER:             "/worker/dashboard",
+  CUSTOMER:           "/customer/dashboard",
+  INVENTORY_MANAGER:  "/",
+  MARKETING_MANAGER:  "/",
+  ACCOUNTANT:         "/",
 };
 
 type LoggedInUser = { userType: UserType; name: string | null };
@@ -32,6 +31,7 @@ export default function LoginPage() {
   const [tab, setTab] = useState<"staff" | "customer">("staff");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [debug, setDebug] = useState<string[]>([]);
 
   // staff
   const [email, setEmail] = useState("");
@@ -44,29 +44,41 @@ export default function LoginPage() {
   const [devOtp, setDevOtp] = useState<string | null>(null);
 
   function goHome(user: LoggedInUser) {
-    router.push(HOME_FOR[user.userType] ?? "/");
-    router.refresh(); // let middleware + server components see the new cookie
+    const dest = HOME_FOR[user.userType] ?? "/";
+    console.log("[login] role:", user.userType, "→ navigating to:", dest);
+    setDebug((d) => [...d, `✓ Logged in as ${user.userType} (${user.name ?? "—"}) → going to ${dest}`]);
+    router.push(dest);
+    router.refresh();
   }
 
   async function post<T>(url: string, body: unknown): Promise<ApiResponse<T>> {
+    console.log("[login] POST", url, body);
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    return res.json();
+    const data: ApiResponse<T> = await res.json();
+    console.log("[login] response", res.status, data);
+    return data;
   }
 
   async function handleStaffLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setDebug([]);
     try {
+      setDebug((d) => [...d, `→ Calling ${API.auth.login}…`]);
       const json = await post<{ user: LoggedInUser }>(API.auth.login, { email, password });
       if (!json.success || !json.data) throw new Error(json.message);
+      setDebug((d) => [...d, `✓ API success: role=${json.data!.user.userType}`]);
       goHome(json.data.user);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Login failed");
+      const msg = e instanceof Error ? e.message : "Login failed";
+      console.error("[login] error:", msg);
+      setDebug((d) => [...d, `✗ Error: ${msg}`]);
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -213,6 +225,14 @@ export default function LoginPage() {
               Use a different number
             </button>
           </form>
+        )}
+        {debug.length > 0 && (
+          <div className="mt-4 rounded border border-gray-200 bg-gray-50 p-3">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Auth log</p>
+            {debug.map((line, i) => (
+              <p key={i} className="font-mono text-[11px] text-gray-600">{line}</p>
+            ))}
+          </div>
         )}
       </div>
     </main>

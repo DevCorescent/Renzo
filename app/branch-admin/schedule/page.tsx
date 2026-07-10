@@ -1,57 +1,117 @@
-// OWNER: Hemant | MODULE: Shift Scheduling — weekly grid
-import { PageHeader, Card, CardHeader, CardTitle, Badge } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const workers = ["Priya Nair", "Arjun Singh", "Zoya Khan", "Rahul Verma", "Neha Gupta"];
+// OWNER: Hemant | MODULE: Branch Admin — Schedule
 
-// shift codes per worker per day
-const M = "10–19", E = "12–21", O = "OFF", L = "LEAVE";
-const roster: string[][] = [
-  [M, M, M, M, M, M, O],
-  [M, M, O, M, M, M, M],
-  [E, E, E, E, O, E, E],
-  [O, L, L, M, M, M, M],
-  [E, E, E, O, E, E, E],
-];
+export default async function BranchAdminSchedulePage() {
+  const authUser = await getServerUser();
+  if (!authUser?.branchId) redirect("/login");
+  const branchId = authUser.branchId;
 
-function tone(code: string) {
-  if (code === O) return "bg-muted text-muted-foreground";
-  if (code === L) return "bg-amber-500/15 text-amber-700 dark:text-amber-400";
-  return "bg-primary/10 text-primary";
-}
+  const today = new Date();
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay());
+  startOfWeek.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 7);
 
-export default function BranchSchedulePage() {
+  const [workerShifts, availability] = await Promise.all([
+    prisma.workerShift.findMany({
+      where: { branchId, isActive: true },
+      include: {
+        worker: { select: { firstName: true, lastName: true, employeeCode: true } },
+        shift: true,
+      },
+      orderBy: { startDate: "asc" },
+    }),
+    prisma.workerAvailability.findMany({
+      where: {
+        branchId,
+        date: { gte: startOfWeek, lt: endOfWeek },
+      },
+      include: {
+        worker: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { date: "asc" },
+    }),
+  ]);
+
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
   return (
-    <>
-      <PageHeader eyebrow="Week of 7 – 13 Jul" title="Shift Scheduler" subtitle="Assign weekly shifts for your team."
-        actions={<><Button variant="outline" size="sm">Copy last week</Button><Button size="sm">Publish roster</Button></>} />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Schedule</h1>
+        <p className="mt-0.5 text-sm text-gray-500">
+          Week of {startOfWeek.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} –{" "}
+          {endOfWeek.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+        </p>
+      </div>
 
-      <Card className="overflow-x-auto">
-        <div className="min-w-[700px]">
-          <div className="grid border-b border-border" style={{ gridTemplateColumns: `160px repeat(7, 1fr)` }}>
-            <div className="px-4 py-3 text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">Stylist</div>
-            {days.map((d) => <div key={d} className="border-l border-border px-2 py-3 text-center text-[0.65rem] font-semibold uppercase tracking-wider text-muted-foreground">{d}</div>)}
-          </div>
-          {workers.map((w, wi) => (
-            <div key={w} className="grid border-b border-border/70 last:border-0" style={{ gridTemplateColumns: `160px repeat(7, 1fr)` }}>
-              <div className="flex items-center px-4 py-3 text-sm font-medium">{w}</div>
-              {roster[wi].map((code, di) => (
-                <div key={di} className="border-l border-border/50 p-1.5">
-                  <div className={`flex h-9 items-center justify-center text-[0.65rem] font-semibold ${tone(code)}`}>{code}</div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+      <Card>
+        <CardHeader><CardTitle>Active Worker Shifts</CardTitle></CardHeader>
+        <Table>
+          <THead>
+            <tr>
+              <TH>Worker</TH>
+              <TH>Shift</TH>
+              <TH>Hours</TH>
+              <TH>Working Days</TH>
+              <TH>From</TH>
+              <TH>Status</TH>
+            </tr>
+          </THead>
+          <tbody>
+            {workerShifts.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">No active shifts assigned.</td></tr>
+            ) : (
+              workerShifts.map((ws) => (
+                <TR key={ws.id}>
+                  <TD className="font-medium text-gray-900">
+                    {ws.worker.firstName} {ws.worker.lastName}
+                    <p className="text-[11px] text-gray-400">{ws.worker.employeeCode}</p>
+                  </TD>
+                  <TD className="text-gray-700">{ws.shift.name}</TD>
+                  <TD className="font-mono text-xs text-gray-600">
+                    {ws.shift.startTime}–{ws.shift.endTime}
+                  </TD>
+                  <TD className="text-gray-500">
+                    {ws.shift.workingDays.map((d) => DAYS[d]).join(", ")}
+                  </TD>
+                  <TD className="font-mono text-xs text-gray-500">
+                    {new Date(ws.startDate).toLocaleDateString("en-IN")}
+                  </TD>
+                  <TD><Badge tone={ws.isActive ? "success" : "neutral"}>{ws.isActive ? "Active" : "Off"}</Badge></TD>
+                </TR>
+              ))
+            )}
+          </tbody>
+        </Table>
       </Card>
 
-      <div className="flex flex-wrap gap-3">
-        <Badge tone="primary">Morning 10–19</Badge>
-        <Badge tone="primary">Evening 12–21</Badge>
-        <Badge tone="warning">Leave</Badge>
-        <Badge tone="neutral">Off</Badge>
-      </div>
-    </>
+      {availability.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle>This Week — Unavailability Blocks</CardTitle></CardHeader>
+          <Table>
+            <THead><tr><TH>Worker</TH><TH>Date</TH><TH>From</TH><TH>To</TH><TH>Reason</TH></tr></THead>
+            <tbody>
+              {availability.map((a) => (
+                <TR key={a.id}>
+                  <TD className="font-medium text-gray-900">{a.worker.firstName} {a.worker.lastName}</TD>
+                  <TD className="font-mono text-xs text-gray-600">
+                    {new Date(a.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+                  </TD>
+                  <TD className="font-mono text-xs text-gray-600">{a.fromTime ?? "Full day"}</TD>
+                  <TD className="font-mono text-xs text-gray-600">{a.toTime ?? "—"}</TD>
+                  <TD className="text-gray-500 text-xs">{a.reason ?? "—"}</TD>
+                </TR>
+              ))}
+            </tbody>
+          </Table>
+        </Card>
+      )}
+    </div>
   );
 }

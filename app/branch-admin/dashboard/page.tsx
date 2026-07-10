@@ -1,98 +1,135 @@
-// OWNER: Hemant | MODULE: Branch Admin Dashboard
 import Link from "next/link";
-import { IndianRupee, CalendarDays, Users, AlertTriangle, Star } from "lucide-react";
-import { HeroBanner, StatCard, Card, CardHeader, CardTitle, CardBody, Badge, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { StatCard, Badge } from "@/components/shared/ui";
+import { Building2, Users, CalendarDays, IndianRupee } from "lucide-react";
 
-const hourly = [
-  { h: "9a", v: 20 }, { h: "10a", v: 55 }, { h: "11a", v: 80 }, { h: "12p", v: 65 },
-  { h: "1p", v: 40 }, { h: "2p", v: 50 }, { h: "3p", v: 72 }, { h: "4p", v: 90 },
-  { h: "5p", v: 78 }, { h: "6p", v: 60 },
-];
+// OWNER: Hemant | MODULE: Branch Admin Dashboard
 
-const staff = [
-  { name: "Priya Nair", role: "Senior Stylist", status: "Present", tone: "success" as const, busy: "In service" },
-  { name: "Arjun Singh", role: "Stylist", status: "Present", tone: "success" as const, busy: "Free" },
-  { name: "Zoya Khan", role: "Beautician", status: "Present", tone: "success" as const, busy: "In service" },
-  { name: "Rahul Verma", role: "Stylist", status: "On leave", tone: "warning" as const, busy: "—" },
-];
+export default async function BranchAdminDashboardPage() {
+  const authUser = await getServerUser();
+  if (!authUser?.branchId) redirect("/login");
+  const branchId = authUser.branchId;
 
-const alerts = [
-  { text: "Argan Serum below reorder level (4 left)", tone: "warning" as const },
-  { text: "3 reviews awaiting moderation", tone: "info" as const },
-  { text: "Rahul Verma leave approved for today", tone: "neutral" as const },
-];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
 
-export default function BranchAdminDashboardPage() {
+  const [branch, todayCount, inServiceCount, workerCount, revenueAgg, appointments] =
+    await Promise.all([
+      prisma.branch.findUnique({
+        where: { id: branchId },
+        select: { name: true, city: true },
+      }),
+      prisma.appointment.count({
+        where: { branchId, appointmentDate: { gte: today, lt: tomorrow } },
+      }),
+      prisma.appointment.count({
+        where: { branchId, status: "STARTED", appointmentDate: { gte: today, lt: tomorrow } },
+      }),
+      prisma.workerBranch.count({ where: { branchId, isActive: true } }),
+      prisma.invoice.aggregate({
+        _sum: { paidAmount: true },
+        where: { branchId, createdAt: { gte: today, lt: tomorrow } },
+      }),
+      prisma.appointment.findMany({
+        where: { branchId, appointmentDate: { gte: today, lt: tomorrow } },
+        orderBy: { startTime: "asc" },
+        take: 20,
+        include: {
+          customer: { select: { firstName: true, lastName: true, phone: true } },
+          worker: { select: { firstName: true, lastName: true } },
+          services: { include: { service: { select: { name: true } } } },
+        },
+      }),
+    ]);
+
+  const revenue = Number(revenueAgg._sum.paidAmount ?? 0);
+
+  const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info"> = {
+    PENDING: "neutral",
+    CONFIRMED: "info",
+    CHECKED_IN: "warning",
+    STARTED: "primary" as "info",
+    RESCHEDULED: "info",
+    COMPLETED: "success",
+    CANCELLED: "danger",
+    NO_SHOW: "danger",
+  };
+
   return (
-    <>
-      <HeroBanner
-        eyebrow="Bandra Branch · 8 Jul 2026"
-        title="Branch"
-        highlight="Overview"
-        subtitle="Live performance across your team today."
-        stats={[
-          { label: "Revenue", value: "₹64.2K" },
-          { label: "Bookings", value: "34" },
-          { label: "Rating", value: "4.8" },
-        ]}
-      />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">
+          {branch?.name ?? "Branch"} — Dashboard
+        </h1>
+        <p className="mt-0.5 text-sm text-gray-500">
+          {today.toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        </p>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Revenue Today" value="₹64,200" delta={{ value: "12%", positive: true }} icon={IndianRupee} />
-        <StatCard label="Bookings" value="34" hint="6 walk-ins" icon={CalendarDays} />
-        <StatCard label="Staff Present" value="8/10" hint="2 on leave" icon={Users} />
-        <StatCard label="Avg Rating" value="4.8" delta={{ value: "0.2", positive: true }} icon={Star} />
+        <StatCard label="Today's Appointments" value={todayCount.toString()} icon={CalendarDays} />
+        <StatCard label="In Service" value={inServiceCount.toString()} icon={Building2} />
+        <StatCard label="Active Workers" value={workerCount.toString()} icon={Users} />
+        <StatCard
+          label="Revenue Today"
+          value={`₹${revenue.toLocaleString("en-IN")}`}
+          icon={IndianRupee}
+        />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader><CardTitle>Bookings by Hour</CardTitle><span className="text-xs text-muted-foreground">Today</span></CardHeader>
-          <CardBody>
-            <div className="flex h-48 items-end gap-2">
-              {hourly.map((b) => (
-                <div key={b.h} className="flex flex-1 flex-col items-center gap-2">
-                  <div className="flex w-full items-end" style={{ height: "100%" }}>
-                    <div className="w-full bg-primary/80 transition-all hover:bg-primary" style={{ height: `${b.v}%` }} />
-                  </div>
-                  <span className="text-[0.65rem] text-muted-foreground">{b.h}</span>
-                </div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>Alerts</CardTitle></CardHeader>
-          <CardBody className="space-y-3">
-            {alerts.map((a, i) => (
-              <div key={i} className="flex items-start gap-2.5">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                <p className="text-sm">{a.text}</p>
-              </div>
-            ))}
-          </CardBody>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Staff on Floor</CardTitle>
-          <Link href="/branch-admin/workers" className="text-xs font-medium text-primary hover:underline">Manage →</Link>
-        </CardHeader>
-        <Table>
-          <THead><tr><TH>Name</TH><TH>Role</TH><TH>Attendance</TH><TH>Status</TH></tr></THead>
+      <div className="rounded border border-gray-200 bg-white">
+        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+          <h2 className="text-sm font-semibold text-gray-700">Today's Schedule</h2>
+          <Link href="/branch-admin/appointments" className="text-xs text-gray-500 hover:text-gray-800">
+            Full view →
+          </Link>
+        </div>
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 text-left text-xs font-medium text-gray-400">
+              <th className="px-4 py-2.5">Time</th>
+              <th className="px-4 py-2.5">Customer</th>
+              <th className="px-4 py-2.5">Service</th>
+              <th className="px-4 py-2.5">Worker</th>
+              <th className="px-4 py-2.5">Status</th>
+            </tr>
+          </thead>
           <tbody>
-            {staff.map((s, i) => (
-              <TR key={i}>
-                <TD className="font-medium">{s.name}</TD>
-                <TD className="text-muted-foreground">{s.role}</TD>
-                <TD><Badge tone={s.tone}>{s.status}</Badge></TD>
-                <TD className="text-muted-foreground">{s.busy}</TD>
-              </TR>
-            ))}
+            {appointments.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No appointments today.
+                </td>
+              </tr>
+            ) : (
+              appointments.map((a) => (
+                <tr key={a.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                  <td className="px-4 py-3 font-mono text-xs text-gray-600">
+                    {a.startTime} – {a.endTime}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {a.customer.firstName} {a.customer.lastName}
+                    <p className="text-[11px] font-normal text-gray-400">{a.customer.phone}</p>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {a.services.map((s) => s.service.name).join(", ") || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {a.worker ? `${a.worker.firstName} ${a.worker.lastName}` : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>{a.status.replace(/_/g, " ")}</Badge>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
-        </Table>
-      </Card>
-    </>
+        </table>
+      </div>
+    </div>
   );
 }

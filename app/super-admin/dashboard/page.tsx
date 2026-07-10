@@ -1,60 +1,110 @@
-// OWNER: Hemant | MODULE: Super Admin Dashboard
 import Link from "next/link";
-import { IndianRupee, CalendarDays, Users, UserCog, Building2 } from "lucide-react";
-import { HeroBanner, StatCard, Card, CardHeader, CardTitle, CardBody, Badge } from "@/components/shared/ui";
+import prisma from "@/lib/db";
+import { Building2, Users, UserCheck, CalendarDays } from "lucide-react";
+import { StatCard, Card, CardHeader, CardTitle, Badge } from "@/components/shared/ui";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
 
-const branches = [
-  { name: "Bandra", city: "Mumbai", revenue: "₹12.6L", bookings: 742, rating: 4.8, trend: 72 },
-  { name: "Koramangala", city: "Bengaluru", revenue: "₹10.9L", bookings: 690, rating: 4.7, trend: 63 },
-  { name: "Banjara Hills", city: "Hyderabad", revenue: "₹8.4L", bookings: 512, rating: 4.9, trend: 55 },
-  { name: "CP", city: "Delhi", revenue: "₹9.7L", bookings: 604, rating: 4.6, trend: 60 },
-];
+// OWNER: Hemant | MODULE: Super Admin Dashboard
 
-export default function SuperAdminDashboardPage() {
+export default async function SuperAdminDashboardPage() {
+  const authUser = await getServerUser();
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const [branchCount, workerCount, customerCount, todayCount, branches] =
+    await Promise.all([
+      prisma.branch.count({ where: { isActive: true } }),
+      prisma.workerProfile.count({ where: { isActive: true } }),
+      prisma.customer.count(),
+      prisma.appointment.count({
+        where: { appointmentDate: { gte: today, lt: tomorrow } },
+      }),
+      prisma.branch.findMany({
+        where: { isActive: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: {
+          id: true, name: true, city: true, code: true, isActive: true,
+          _count: {
+            select: {
+              workerBranches: { where: { isActive: true } },
+              appointments: { where: { appointmentDate: { gte: today, lt: tomorrow } } },
+            },
+          },
+        },
+      }),
+    ]);
+
   return (
-    <>
-      <HeroBanner
-        eyebrow="Platform · July 2026"
-        title="Global"
-        highlight="Overview"
-        subtitle="Performance across all Renzo branches, in real time."
-        stats={[
-          { label: "Revenue", value: "₹41.6L" },
-          { label: "Bookings", value: "2,548" },
-          { label: "Customers", value: "9.1K" },
-        ]}
-      />
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Revenue" value="₹41.6L" delta={{ value: "11%", positive: true }} hint="MTD" icon={IndianRupee} />
-        <StatCard label="Total Bookings" value="2,548" delta={{ value: "7%", positive: true }} icon={CalendarDays} />
-        <StatCard label="Active Customers" value="9,120" delta={{ value: "4%", positive: true }} icon={Users} />
-        <StatCard label="Staff" value="118" hint="4 branches" icon={UserCog} />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
+        <p className="mt-0.5 text-sm text-gray-500">
+          {today.toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        </p>
       </div>
 
+      {/* Stats */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Active Branches" value={branchCount.toString()} icon={Building2} />
+        <StatCard label="Active Workers" value={workerCount.toString()} icon={Users} />
+        <StatCard label="Total Customers" value={customerCount.toString()} icon={UserCheck} />
+        <StatCard label="Today's Appointments" value={todayCount.toString()} icon={CalendarDays} />
+      </div>
+
+      {/* Branches */}
       <Card>
         <CardHeader>
-          <CardTitle>Branch Comparison</CardTitle>
-          <Link href="/super-admin/branches" className="text-xs font-medium text-primary hover:underline">All branches →</Link>
+          <CardTitle>Branches</CardTitle>
+          <Link href="/super-admin/branches" className="text-xs text-gray-500 hover:text-gray-800">
+            View all →
+          </Link>
         </CardHeader>
-        <CardBody className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {branches.map((b) => (
-            <Link key={b.name} href="/super-admin/branches/br_1" className="border border-border p-4 hover:bg-muted/40">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Building2 className="size-4 text-muted-foreground" />
-                  <span className="font-medium">{b.name}</span>
-                </div>
-                <Badge tone="neutral">★ {b.rating}</Badge>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">{b.city}</p>
-              <p className="mt-4 font-heading text-2xl font-semibold tabular-nums">{b.revenue}</p>
-              <p className="text-xs text-muted-foreground">{b.bookings} bookings</p>
-              <div className="mt-3 h-1.5 w-full bg-muted"><div className="h-full bg-primary" style={{ width: `${b.trend}%` }} /></div>
-            </Link>
-          ))}
-        </CardBody>
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 text-left text-xs font-medium text-gray-400">
+              <th className="px-4 py-2.5">Name</th>
+              <th className="px-4 py-2.5">City</th>
+              <th className="px-4 py-2.5">Code</th>
+              <th className="px-4 py-2.5">Workers</th>
+              <th className="px-4 py-2.5">Today</th>
+              <th className="px-4 py-2.5">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {branches.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-400">
+                  No branches yet.{" "}
+                  <Link href="/super-admin/branches" className="underline">
+                    Create one
+                  </Link>
+                </td>
+              </tr>
+            ) : (
+              branches.map((b) => (
+                <tr
+                  key={b.id}
+                  className="border-b border-gray-50 last:border-0 hover:bg-gray-50"
+                >
+                  <td className="px-4 py-3 font-medium text-gray-900">{b.name}</td>
+                  <td className="px-4 py-3 text-gray-500">{b.city}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-400">{b.code}</td>
+                  <td className="px-4 py-3 text-gray-700">{b._count.workerBranches}</td>
+                  <td className="px-4 py-3 text-gray-700">{b._count.appointments}</td>
+                  <td className="px-4 py-3">
+                    <Badge tone="success">Active</Badge>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </Card>
-    </>
+    </div>
   );
 }

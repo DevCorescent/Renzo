@@ -1,109 +1,117 @@
-// OWNER: Hemant | MODULE: Worker Booking Detail — Start / Complete / Reschedule / Notes
-import Link from "next/link";
-import { ArrowLeft, Play, Check, CalendarClock, Phone } from "lucide-react";
-import { PageHeader, Card, CardHeader, CardTitle, CardBody, Badge } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import { getServerUser } from "@/lib/server-session";
+import { redirect, notFound } from "next/navigation";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle, CardBody } from "@/components/shared/ui";
+
+// OWNER: Hemant | MODULE: Worker — Booking Detail
+
+const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info" | "primary"> = {
+  PENDING: "neutral", CONFIRMED: "info", CHECKED_IN: "warning",
+  STARTED: "primary", COMPLETED: "success", CANCELLED: "danger",
+  NO_SHOW: "danger", RESCHEDULED: "info",
+};
 
 export default async function WorkerBookingDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const authUser = await getServerUser();
+  if (!authUser?.workerId) redirect("/login");
   const { id } = await params;
 
-  const services = [
-    { name: "Balayage", price: "₹4,500", dur: "90m" },
-    { name: "Gloss Treatment", price: "₹1,800", dur: "30m" },
-  ];
+  const appointment = await prisma.appointment.findUnique({
+    where: { id },
+    include: {
+      customer: { select: { firstName: true, lastName: true, phone: true, email: true } },
+      branch: { select: { name: true, address: true, city: true, phone: true } },
+      services: { include: { service: { select: { name: true, duration: true } } } },
+      addOns: { include: { addOn: { select: { name: true, price: true } } } },
+      invoice: { select: { invoiceNo: true, status: true, totalAmount: true, paidAmount: true } },
+    },
+  });
+
+  if (!appointment || appointment.workerId !== authUser.workerId) notFound();
 
   return (
-    <>
-      <Link href="/worker/bookings" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" /> Back to bookings
-      </Link>
-
-      <PageHeader
-        eyebrow={`Appointment · ${id}`}
-        title="Sneha Kapoor"
-        subtitle="Today · 10:00 AM — 12:00 PM · Bandra Branch · Chair 3"
-        actions={
-          <>
-            <Button variant="outline" size="sm"><Phone /> Call</Button>
-            <Button variant="outline" size="sm"><CalendarClock /> Reschedule</Button>
-            <Button size="sm"><Play /> Start service</Button>
-          </>
-        }
-      />
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Services</CardTitle>
-              <Badge tone="info">In progress</Badge>
-            </CardHeader>
-            <CardBody className="p-0">
-              {services.map((s, i) => (
-                <div key={i} className="flex items-center justify-between border-b border-border/70 px-5 py-4 last:border-0">
-                  <div>
-                    <p className="font-medium">{s.name}</p>
-                    <p className="text-sm text-muted-foreground">{s.dur}</p>
-                  </div>
-                  <span className="font-semibold tabular-nums">{s.price}</span>
-                </div>
-              ))}
-              <div className="flex items-center justify-between px-5 py-4">
-                <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Total</span>
-                <span className="font-heading text-xl font-semibold tabular-nums">₹6,300</span>
-              </div>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader><CardTitle>Service Notes</CardTitle></CardHeader>
-            <CardBody className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Client prefers ash tones, avoid warmth. Allergic to ammonia — use ammonia-free colour.
-                Last visit: full head foils (12 Apr).
-              </p>
-              <textarea
-                rows={3}
-                placeholder="Add a note for this appointment…"
-                className="w-full resize-none border border-input bg-transparent px-3 py-2 text-sm outline-none focus:border-ring"
-              />
-              <div className="flex justify-end">
-                <Button size="sm" variant="outline">Save note</Button>
-              </div>
-            </CardBody>
-          </Card>
+    <div className="space-y-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Appointment #{appointment.appointmentNo}</h1>
+          <p className="mt-0.5 text-sm text-gray-500">
+            {new Date(appointment.appointmentDate).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+            {" · "}{appointment.startTime}–{appointment.endTime}
+          </p>
         </div>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader><CardTitle>Customer</CardTitle></CardHeader>
-            <CardBody className="space-y-3 text-sm">
-              <Field label="Name" value="Sneha Kapoor" />
-              <Field label="Phone" value="+91 98••• ••210" />
-              <Field label="Membership" value="Gold · 20% off" />
-              <Field label="Visits" value="14 (last 6 mo)" />
-              <Field label="Loyalty" value="2,340 pts" />
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
-            <CardBody className="flex flex-col gap-2">
-              <Button className="w-full justify-center"><Check /> Complete service</Button>
-              <Button variant="outline" className="w-full justify-center"><CalendarClock /> Request reschedule</Button>
-            </CardBody>
-          </Card>
-        </div>
+        <Badge tone={STATUS_TONE[appointment.status] ?? "neutral"}>{appointment.status.replace(/_/g, " ")}</Badge>
       </div>
-    </>
-  );
-}
 
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle>Customer</CardTitle></CardHeader>
+          <CardBody>
+            <p className="font-medium text-gray-900">{appointment.customer.firstName} {appointment.customer.lastName}</p>
+            <p className="text-sm text-gray-500">{appointment.customer.phone}</p>
+            {appointment.customer.email && <p className="text-xs text-gray-400">{appointment.customer.email}</p>}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Branch</CardTitle></CardHeader>
+          <CardBody>
+            <p className="font-medium text-gray-900">{appointment.branch.name}</p>
+            <p className="text-xs text-gray-500">{appointment.branch.address}, {appointment.branch.city}</p>
+            <p className="text-xs text-gray-400">{appointment.branch.phone}</p>
+          </CardBody>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle>Services</CardTitle></CardHeader>
+        <div className="divide-y divide-gray-50">
+          {appointment.services.map((s) => (
+            <div key={s.id} className="flex justify-between px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{s.service.name}</p>
+                <p className="text-xs text-gray-400">{s.service.duration} min</p>
+              </div>
+              <p className="text-sm text-gray-700">₹{Number(s.price).toLocaleString("en-IN")}</p>
+            </div>
+          ))}
+          {appointment.addOns.map((a) => (
+            <div key={a.id} className="flex justify-between px-4 py-3">
+              <p className="text-sm text-gray-600">{a.addOn.name} <span className="text-xs text-gray-400">(add-on)</span></p>
+              <p className="text-sm text-gray-700">₹{Number(a.price).toLocaleString("en-IN")}</p>
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-gray-100 px-4 py-3">
+          <div className="flex justify-between text-sm font-semibold text-gray-900">
+            <span>Total</span>
+            <span>₹{Number(appointment.totalAmount).toLocaleString("en-IN")}</span>
+          </div>
+        </div>
+      </Card>
+
+      {appointment.notes && (
+        <Card>
+          <CardHeader><CardTitle>Customer Notes</CardTitle></CardHeader>
+          <CardBody><p className="text-sm text-gray-700">{appointment.notes}</p></CardBody>
+        </Card>
+      )}
+
+      {appointment.invoice && (
+        <Card>
+          <CardHeader><CardTitle>Invoice</CardTitle></CardHeader>
+          <CardBody>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-mono text-sm text-gray-700">#{appointment.invoice.invoiceNo}</p>
+                <p className="text-xs text-gray-400">Paid: ₹{Number(appointment.invoice.paidAmount).toLocaleString("en-IN")} of ₹{Number(appointment.invoice.totalAmount).toLocaleString("en-IN")}</p>
+              </div>
+              <Badge tone={appointment.invoice.status === "PAID" ? "success" : appointment.invoice.status === "PARTIAL" ? "info" : "warning"}>
+                {appointment.invoice.status}
+              </Badge>
+            </div>
+          </CardBody>
+        </Card>
+      )}
     </div>
   );
 }

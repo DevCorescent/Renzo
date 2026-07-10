@@ -1,89 +1,139 @@
-// OWNER: Hemant | MODULE: Marketing — Campaigns, Coupons, Offers
-import { Plus, Megaphone, Ticket, Tag } from "lucide-react";
-import { PageHeader, StatCard, Card, CardHeader, CardTitle, Badge, Table, THead, TH, TR, TD } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import prisma from "@/lib/db";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-const campaigns = [
-  { name: "Monsoon Glow", channel: "WhatsApp", sent: "8,400", opened: "62%", status: "Live", tone: "success" as const },
-  { name: "Win-back Lapsed", channel: "Email", sent: "2,100", opened: "31%", status: "Live", tone: "success" as const },
-  { name: "Diwali Teaser", channel: "SMS", sent: "—", opened: "—", status: "Scheduled", tone: "info" as const },
-];
+// OWNER: Hemant | MODULE: Super Admin — Marketing
 
-const coupons = [
-  { code: "GLOW20", type: "20% off", uses: "312 / 1000", status: "Active", tone: "success" as const },
-  { code: "FIRST500", type: "₹500 off first visit", uses: "890 / ∞", status: "Active", tone: "success" as const },
-  { code: "SUMMER15", type: "15% off", uses: "500 / 500", status: "Exhausted", tone: "neutral" as const },
-];
+export default async function SuperAdminMarketingPage() {
+  const authUser = await getServerUser();
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
 
-const offers = [
-  { name: "Buy Facial, Get Threading Free", scope: "All branches", status: "Live", tone: "success" as const },
-  { name: "Weekday Hair Spa ₹999", scope: "Bandra, CP", status: "Live", tone: "success" as const },
-];
+  const [coupons, campaigns, offers] = await Promise.all([
+    prisma.coupon.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 30,
+      include: { _count: { select: { usages: true } } },
+    }),
+    prisma.campaign.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      include: { branch: { select: { name: true } } },
+    }),
+    prisma.offer.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { branch: { select: { name: true } } },
+    }),
+  ]);
 
-export default function SuperAdminMarketingPage() {
+  const activeCoupons = coupons.filter((c) => c.isActive && (!c.validUntil || c.validUntil > new Date()));
+
   return (
-    <>
-      <PageHeader eyebrow="Growth" title="Marketing" subtitle="Campaigns, coupons and promotional offers."
-        actions={<Button size="sm"><Plus /> New campaign</Button>} />
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Active Campaigns" value="2" icon={Megaphone} />
-        <StatCard label="Live Coupons" value="2" hint="1 exhausted" icon={Ticket} />
-        <StatCard label="Running Offers" value="2" icon={Tag} />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Marketing</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{activeCoupons.length} active coupons · {campaigns.length} campaigns · {offers.length} offers</p>
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Campaigns</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Coupons</CardTitle></CardHeader>
         <Table>
-          <THead><tr><TH>Campaign</TH><TH>Channel</TH><TH>Sent</TH><TH>Open Rate</TH><TH>Status</TH></tr></THead>
+          <THead>
+            <tr>
+              <TH>Code</TH>
+              <TH>Type</TH>
+              <TH>Value</TH>
+              <TH>Min Order</TH>
+              <TH>Used / Limit</TH>
+              <TH>Valid Until</TH>
+              <TH>Status</TH>
+            </tr>
+          </THead>
           <tbody>
-            {campaigns.map((c) => (
-              <TR key={c.name}>
-                <TD className="font-medium">{c.name}</TD>
-                <TD className="text-muted-foreground">{c.channel}</TD>
-                <TD className="tabular-nums">{c.sent}</TD>
-                <TD className="tabular-nums">{c.opened}</TD>
-                <TD><Badge tone={c.tone}>{c.status}</Badge></TD>
-              </TR>
-            ))}
+            {coupons.length === 0 ? (
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-gray-400">No coupons.</td></tr>
+            ) : (
+              coupons.map((c) => {
+                const expired = c.validUntil && c.validUntil < new Date();
+                return (
+                  <TR key={c.id}>
+                    <TD className="font-mono font-semibold text-gray-900">{c.code}</TD>
+                    <TD><Badge tone={c.type === "FLAT" ? "info" : "warning"}>{c.type}</Badge></TD>
+                    <TD className="text-gray-700">
+                      {c.type === "FLAT" ? `₹${c.value}` : `${c.value}%`}
+                      {c.maxDiscount && <span className="ml-1 text-[11px] text-gray-400">(max ₹{c.maxDiscount})</span>}
+                    </TD>
+                    <TD className="text-gray-500">₹{c.minOrderAmount}</TD>
+                    <TD className="text-gray-500">
+                      {c._count.usages} / {c.usageLimit ?? "∞"}
+                    </TD>
+                    <TD className="font-mono text-xs text-gray-500">
+                      {c.validUntil ? new Date(c.validUntil).toLocaleDateString("en-IN") : "No limit"}
+                    </TD>
+                    <TD>
+                      <Badge tone={expired ? "neutral" : c.isActive ? "success" : "danger"}>
+                        {expired ? "Expired" : c.isActive ? "Active" : "Off"}
+                      </Badge>
+                    </TD>
+                  </TR>
+                );
+              })
+            )}
           </tbody>
         </Table>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Coupons</CardTitle></CardHeader>
-          <Table>
-            <THead><tr><TH>Code</TH><TH>Benefit</TH><TH>Used</TH><TH>Status</TH></tr></THead>
-            <tbody>
-              {coupons.map((c) => (
-                <TR key={c.code}>
-                  <TD className="font-mono font-medium">{c.code}</TD>
-                  <TD className="text-muted-foreground">{c.type}</TD>
-                  <TD className="tabular-nums">{c.uses}</TD>
-                  <TD><Badge tone={c.tone}>{c.status}</Badge></TD>
+      <Card>
+        <CardHeader><CardTitle>Campaigns</CardTitle></CardHeader>
+        <Table>
+          <THead><tr><TH>Name</TH><TH>Channel</TH><TH>Branch</TH><TH>Sent</TH><TH>Status</TH><TH>Scheduled</TH></tr></THead>
+          <tbody>
+            {campaigns.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-400">No campaigns.</td></tr>
+            ) : (
+              campaigns.map((c) => (
+                <TR key={c.id}>
+                  <TD className="font-medium text-gray-900">{c.name}</TD>
+                  <TD><Badge tone="info">{c.channel}</Badge></TD>
+                  <TD className="text-gray-500">{c.branch?.name ?? "All branches"}</TD>
+                  <TD className="text-gray-500">{c.sentCount} / {c.recipientCount}</TD>
+                  <TD><Badge tone={c.status === "COMPLETED" ? "success" : c.status === "RUNNING" ? "primary" : c.status === "FAILED" ? "danger" : "neutral"}>{c.status}</Badge></TD>
+                  <TD className="font-mono text-xs text-gray-500">
+                    {c.scheduledAt ? new Date(c.scheduledAt).toLocaleDateString("en-IN") : "—"}
+                  </TD>
                 </TR>
-              ))}
-            </tbody>
-          </Table>
-        </Card>
+              ))
+            )}
+          </tbody>
+        </Table>
+      </Card>
 
-        <Card>
-          <CardHeader><CardTitle>Offers</CardTitle></CardHeader>
-          <Table>
-            <THead><tr><TH>Offer</TH><TH>Scope</TH><TH>Status</TH></tr></THead>
-            <tbody>
-              {offers.map((o) => (
-                <TR key={o.name}>
-                  <TD className="font-medium">{o.name}</TD>
-                  <TD className="text-muted-foreground">{o.scope}</TD>
-                  <TD><Badge tone={o.tone}>{o.status}</Badge></TD>
+      <Card>
+        <CardHeader><CardTitle>Offers</CardTitle></CardHeader>
+        <Table>
+          <THead><tr><TH>Title</TH><TH>Type</TH><TH>Branch</TH><TH>Discount</TH><TH>Valid Until</TH><TH>Status</TH></tr></THead>
+          <tbody>
+            {offers.length === 0 ? (
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-gray-400">No offers.</td></tr>
+            ) : (
+              offers.map((o) => (
+                <TR key={o.id}>
+                  <TD className="font-medium text-gray-900">{o.title}</TD>
+                  <TD><Badge tone="info">{o.type}</Badge></TD>
+                  <TD className="text-gray-500">{o.branch?.name ?? "All branches"}</TD>
+                  <TD className="text-gray-700">
+                    {o.discountPercent ? `${o.discountPercent}%` : o.discountAmount ? `₹${o.discountAmount}` : "—"}
+                  </TD>
+                  <TD className="font-mono text-xs text-gray-500">
+                    {o.validUntil ? new Date(o.validUntil).toLocaleDateString("en-IN") : "No limit"}
+                  </TD>
+                  <TD><Badge tone={o.isActive ? "success" : "neutral"}>{o.isActive ? "Active" : "Off"}</Badge></TD>
                 </TR>
-              ))}
-            </tbody>
-          </Table>
-        </Card>
-      </div>
-    </>
+              ))
+            )}
+          </tbody>
+        </Table>
+      </Card>
+    </div>
   );
 }

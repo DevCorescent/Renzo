@@ -1,47 +1,109 @@
-// OWNER: Hemant | MODULE: Customer Check-in
-import { Search, UserCheck } from "lucide-react";
-import { PageHeader, Card, CardHeader, CardTitle, Badge } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-const matches = [
-  { time: "10:45", customer: "Ritika Sharma", phone: "•••• 43210", worker: "Priya N.", service: "Haircut & Style", state: "arrive" },
-  { time: "11:30", customer: "Meera Iyer", phone: "•••• 88190", worker: "Zoya K.", service: "Keratin Treatment", state: "arrive" },
-  { time: "10:15", customer: "Karan Malhotra", phone: "•••• 20654", worker: "Arjun S.", service: "Haircut", state: "in" },
-];
+// OWNER: Hemant | MODULE: Reception Check-in
 
-export default function CheckinPage() {
+const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info" | "primary"> = {
+  PENDING: "neutral",
+  CONFIRMED: "info",
+  CHECKED_IN: "warning",
+  STARTED: "primary",
+  COMPLETED: "success",
+  CANCELLED: "danger",
+  NO_SHOW: "danger",
+  RESCHEDULED: "info",
+};
+
+export default async function ReceptionCheckinPage() {
+  const authUser = await getServerUser();
+  if (!authUser?.branchId) redirect("/login");
+  const branchId = authUser.branchId;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      branchId,
+      appointmentDate: { gte: today, lt: tomorrow },
+      status: { in: ["PENDING", "CONFIRMED", "CHECKED_IN", "STARTED"] },
+    },
+    orderBy: { startTime: "asc" },
+    include: {
+      customer: { select: { firstName: true, lastName: true, phone: true } },
+      worker: { select: { firstName: true, lastName: true } },
+      services: { include: { service: { select: { name: true, duration: true } } } },
+    },
+  });
+
   return (
-    <>
-      <PageHeader eyebrow="Front Desk" title="Check-in" subtitle="Find a booking and mark the customer as arrived." />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Check-in</h1>
+        <p className="mt-0.5 text-sm text-gray-500">
+          {today.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} — {appointments.length} active
+        </p>
+      </div>
 
       <Card>
-        <div className="p-5">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input autoFocus placeholder="Scan or search phone / name / booking ID…" className="w-full border border-input bg-transparent py-2.5 pl-9 pr-3 text-sm outline-none focus:border-ring" />
-          </div>
-        </div>
+        <CardHeader>
+          <CardTitle>Today's Arrivals</CardTitle>
+        </CardHeader>
+        <Table>
+          <THead>
+            <tr>
+              <TH>Appt #</TH>
+              <TH>Time</TH>
+              <TH>Customer</TH>
+              <TH>Service</TH>
+              <TH>Worker</TH>
+              <TH>Duration</TH>
+              <TH>Status</TH>
+            </tr>
+          </THead>
+          <tbody>
+            {appointments.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No active appointments today.
+                </td>
+              </tr>
+            ) : (
+              appointments.map((a) => {
+                const totalDuration = a.services.reduce((sum, s) => sum + s.service.duration, 0);
+                return (
+                  <TR key={a.id}>
+                    <TD className="font-mono text-xs text-gray-400">{a.appointmentNo}</TD>
+                    <TD className="font-mono text-xs text-gray-600">
+                      {a.startTime}–{a.endTime}
+                    </TD>
+                    <TD className="font-medium text-gray-900">
+                      {a.customer.firstName} {a.customer.lastName}
+                      <p className="text-[11px] font-normal text-gray-400">{a.customer.phone}</p>
+                    </TD>
+                    <TD className="text-gray-600 text-xs">
+                      {a.services.map((s) => s.service.name).join(", ") || "—"}
+                    </TD>
+                    <TD className="text-gray-500">
+                      {a.worker ? `${a.worker.firstName} ${a.worker.lastName}` : "—"}
+                    </TD>
+                    <TD className="text-gray-500">{totalDuration || a.totalDuration} min</TD>
+                    <TD>
+                      <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>
+                        {a.status.replace(/_/g, " ")}
+                      </Badge>
+                    </TD>
+                  </TR>
+                );
+              })
+            )}
+          </tbody>
+        </Table>
       </Card>
-
-      <Card>
-        <CardHeader><CardTitle>Today's Bookings</CardTitle></CardHeader>
-        <div className="p-0">
-          {matches.map((m, i) => (
-            <div key={i} className="flex items-center gap-4 border-b border-border/70 px-5 py-4 last:border-0">
-              <span className="font-heading text-lg font-semibold tabular-nums">{m.time}</span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{m.customer} <span className="ml-1 text-xs font-normal text-muted-foreground">{m.phone}</span></p>
-                <p className="truncate text-sm text-muted-foreground">{m.service} · {m.worker}</p>
-              </div>
-              {m.state === "in" ? (
-                <Badge tone="success">Checked in</Badge>
-              ) : (
-                <Button size="sm"><UserCheck /> Check in</Button>
-              )}
-            </div>
-          ))}
-        </div>
-      </Card>
-    </>
+    </div>
   );
 }

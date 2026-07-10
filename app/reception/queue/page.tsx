@@ -1,60 +1,111 @@
-// OWNER: Hemant | MODULE: Queue Management — live salon queue
-import { PageHeader, Card, CardHeader, CardTitle, Badge } from "@/components/shared/ui";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import prisma from "@/lib/db";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
-const columns = [
-  {
-    title: "Waiting",
-    tone: "warning" as const,
-    people: [
-      { name: "Ritika Sharma", service: "Haircut & Style", wait: "8m", worker: "Priya N." },
-      { name: "Aisha Khan", service: "Manicure", wait: "3m", worker: "Any" },
-      { name: "Pooja Reddy", service: "Threading", wait: "1m", worker: "Zoya K." },
-    ],
-  },
-  {
-    title: "In Service",
-    tone: "info" as const,
-    people: [
-      { name: "Sneha Kapoor", service: "Balayage", wait: "42m elapsed", worker: "Priya N." },
-      { name: "Karan Malhotra", service: "Haircut", wait: "12m elapsed", worker: "Arjun S." },
-    ],
-  },
-  {
-    title: "Done · To Bill",
-    tone: "success" as const,
-    people: [
-      { name: "Farah Ali", service: "Pedicure", wait: "ready", worker: "Zoya K." },
-    ],
-  },
-];
+// OWNER: Hemant | MODULE: Reception Queue
 
-export default function QueuePage() {
+const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info" | "primary"> = {
+  PENDING: "neutral",
+  CONFIRMED: "info",
+  CHECKED_IN: "warning",
+  STARTED: "primary",
+  COMPLETED: "success",
+  CANCELLED: "danger",
+  NO_SHOW: "danger",
+  RESCHEDULED: "info",
+};
+
+const STATUSES = ["PENDING", "CONFIRMED", "CHECKED_IN", "STARTED", "COMPLETED"];
+
+export default async function ReceptionQueuePage() {
+  const authUser = await getServerUser();
+  if (!authUser?.branchId) redirect("/login");
+  const branchId = authUser.branchId;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      branchId,
+      appointmentDate: { gte: today, lt: tomorrow },
+    },
+    orderBy: { startTime: "asc" },
+    include: {
+      customer: { select: { firstName: true, lastName: true, phone: true } },
+      worker: { select: { firstName: true, lastName: true } },
+      services: { include: { service: { select: { name: true } } } },
+    },
+  });
+
+  const grouped = STATUSES.reduce<Record<string, typeof appointments>>((acc, s) => {
+    acc[s] = appointments.filter((a) => a.status === s);
+    return acc;
+  }, {});
+
   return (
-    <>
-      <PageHeader eyebrow="Live · auto-refreshing" title="Queue" subtitle="Bandra branch — real-time floor status." />
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        {columns.map((col) => (
-          <Card key={col.title} className="bg-muted/30">
-            <CardHeader className="bg-card">
-              <CardTitle>{col.title}</CardTitle>
-              <Badge tone={col.tone}>{col.people.length}</Badge>
-            </CardHeader>
-            <div className="space-y-3 p-3">
-              {col.people.map((p, i) => (
-                <div key={i} className="border border-border bg-card p-4">
-                  <div className="flex items-start justify-between">
-                    <p className="font-medium">{p.name}</p>
-                    <span className="text-xs text-muted-foreground tabular-nums">{p.wait}</span>
-                  </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{p.service}</p>
-                  <p className="mt-2 text-xs uppercase tracking-wider text-muted-foreground">{p.worker}</p>
-                </div>
-              ))}
-            </div>
-          </Card>
-        ))}
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Queue</h1>
+        <p className="mt-0.5 text-sm text-gray-500">
+          {today.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+        </p>
       </div>
-    </>
+
+      {STATUSES.map((status) => {
+        const list = grouped[status] ?? [];
+        if (list.length === 0) return null;
+        return (
+          <Card key={status}>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Badge tone={STATUS_TONE[status] ?? "neutral"}>{status.replace(/_/g, " ")}</Badge>
+                <CardTitle className="text-gray-500">— {list.length}</CardTitle>
+              </div>
+            </CardHeader>
+            <Table>
+              <THead>
+                <tr>
+                  <TH>Time</TH>
+                  <TH>Customer</TH>
+                  <TH>Service</TH>
+                  <TH>Worker</TH>
+                  <TH>Amount</TH>
+                </tr>
+              </THead>
+              <tbody>
+                {list.map((a) => (
+                  <TR key={a.id}>
+                    <TD className="font-mono text-xs text-gray-600">
+                      {a.startTime}–{a.endTime}
+                    </TD>
+                    <TD className="font-medium text-gray-900">
+                      {a.customer.firstName} {a.customer.lastName}
+                      <p className="text-[11px] font-normal text-gray-400">{a.customer.phone}</p>
+                    </TD>
+                    <TD className="text-gray-600 text-xs">
+                      {a.services.map((s) => s.service.name).join(", ") || "—"}
+                    </TD>
+                    <TD className="text-gray-500">
+                      {a.worker ? `${a.worker.firstName} ${a.worker.lastName}` : "—"}
+                    </TD>
+                    <TD className="text-gray-700">₹{Number(a.totalAmount).toLocaleString("en-IN")}</TD>
+                  </TR>
+                ))}
+              </tbody>
+            </Table>
+          </Card>
+        );
+      })}
+
+      {appointments.length === 0 && (
+        <Card>
+          <p className="px-4 py-8 text-center text-sm text-gray-400">No appointments today.</p>
+        </Card>
+      )}
+    </div>
   );
 }

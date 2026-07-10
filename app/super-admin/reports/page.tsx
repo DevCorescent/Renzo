@@ -1,65 +1,96 @@
-// OWNER: Hemant | MODULE: Reports & Analytics Dashboard
-import { IndianRupee, TrendingUp, Users, Repeat } from "lucide-react";
-import { PageHeader, StatCard, Card, CardHeader, CardTitle, CardBody, Table, THead, TH, TR, TD } from "@/components/shared/ui";
-import { Button } from "@/components/ui/button";
+import prisma from "@/lib/db";
+import { getServerUser } from "@/lib/server-session";
+import { redirect } from "next/navigation";
+import { StatCard, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { IndianRupee, CalendarDays, Users, TrendingUp } from "lucide-react";
 
-const months = [
-  { m: "Feb", v: 58 }, { m: "Mar", v: 64 }, { m: "Apr", v: 61 }, { m: "May", v: 75 },
-  { m: "Jun", v: 82 }, { m: "Jul", v: 100 },
-];
+// OWNER: Hemant | MODULE: Super Admin — Reports
 
-const branchRows = [
-  { name: "Bandra", revenue: "₹12.6L", bookings: 742, growth: "+14%", pos: true },
-  { name: "Koramangala", revenue: "₹10.9L", bookings: 690, growth: "+9%", pos: true },
-  { name: "CP", revenue: "₹9.7L", bookings: 604, growth: "+2%", pos: true },
-  { name: "Banjara Hills", revenue: "₹8.4L", bookings: 512, growth: "-3%", pos: false },
-];
+export default async function SuperAdminReportsPage() {
+  const authUser = await getServerUser();
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
 
-export default function SuperAdminReportsPage() {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+  const [
+    monthRevenue, lastMonthRevenue,
+    monthAppts, lastMonthAppts,
+    completedThisMonth, newCustomers,
+    branchStats,
+  ] = await Promise.all([
+    prisma.invoice.aggregate({ _sum: { paidAmount: true }, where: { createdAt: { gte: startOfMonth } } }),
+    prisma.invoice.aggregate({ _sum: { paidAmount: true }, where: { createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
+    prisma.appointment.count({ where: { createdAt: { gte: startOfMonth } } }),
+    prisma.appointment.count({ where: { createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } } }),
+    prisma.appointment.count({ where: { status: "COMPLETED", createdAt: { gte: startOfMonth } } }),
+    prisma.customer.count({ where: { createdAt: { gte: startOfMonth } } }),
+    prisma.branch.findMany({
+      where: { isActive: true },
+      select: {
+        id: true, name: true, city: true,
+        _count: { select: { appointments: true, workerBranches: true } },
+      },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  const thisRev = Number(monthRevenue._sum.paidAmount ?? 0);
+  const lastRev = Number(lastMonthRevenue._sum.paidAmount ?? 0);
+  const revChange = lastRev > 0 ? (((thisRev - lastRev) / lastRev) * 100).toFixed(1) : null;
+  const apptChange = lastMonthAppts > 0 ? (((monthAppts - lastMonthAppts) / lastMonthAppts) * 100).toFixed(1) : null;
+
   return (
-    <>
-      <PageHeader eyebrow="Analytics" title="Reports" subtitle="Platform-wide performance and trends."
-        actions={<><Button variant="outline" size="sm">Last 6 months</Button><Button size="sm">Export</Button></>} />
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">Reports</h1>
+        <p className="mt-0.5 text-sm text-gray-500">
+          {now.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
+        </p>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Revenue YTD" value="₹2.4Cr" delta={{ value: "18%", positive: true }} icon={IndianRupee} />
-        <StatCard label="Bookings YTD" value="16,204" delta={{ value: "11%", positive: true }} icon={TrendingUp} />
-        <StatCard label="New Customers" value="3,110" delta={{ value: "8%", positive: true }} icon={Users} />
-        <StatCard label="Retention" value="61%" delta={{ value: "2%", positive: true }} icon={Repeat} />
+        <StatCard
+          label="Revenue This Month"
+          value={`₹${thisRev.toLocaleString("en-IN")}`}
+          icon={IndianRupee}
+          delta={revChange ? { value: `${revChange}%`, positive: Number(revChange) >= 0 } : undefined}
+          hint="vs last month"
+        />
+        <StatCard
+          label="Appointments"
+          value={monthAppts.toString()}
+          icon={CalendarDays}
+          delta={apptChange ? { value: `${apptChange}%`, positive: Number(apptChange) >= 0 } : undefined}
+          hint="vs last month"
+        />
+        <StatCard label="Completed" value={completedThisMonth.toString()} icon={TrendingUp}
+          hint={monthAppts > 0 ? `${Math.round((completedThisMonth / monthAppts) * 100)}% rate` : undefined}
+        />
+        <StatCard label="New Customers" value={newCustomers.toString()} icon={Users} />
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Revenue Trend</CardTitle><span className="text-xs text-muted-foreground">All branches</span></CardHeader>
-        <CardBody>
-          <div className="flex h-56 items-end gap-4">
-            {months.map((b) => (
-              <div key={b.m} className="flex flex-1 flex-col items-center gap-2">
-                <div className="flex w-full flex-1 items-end">
-                  <div className="w-full bg-primary/80 hover:bg-primary" style={{ height: `${b.v}%` }} />
-                </div>
-                <span className="text-xs text-muted-foreground">{b.m}</span>
-              </div>
-            ))}
-          </div>
-        </CardBody>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>Branch Leaderboard</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Branch Performance</CardTitle></CardHeader>
         <Table>
-          <THead><tr><TH>Branch</TH><TH>Revenue MTD</TH><TH>Bookings</TH><TH>MoM Growth</TH></tr></THead>
+          <THead><tr><TH>Branch</TH><TH>City</TH><TH>Total Appts</TH><TH>Workers</TH></tr></THead>
           <tbody>
-            {branchRows.map((r) => (
-              <TR key={r.name}>
-                <TD className="font-medium">{r.name}</TD>
-                <TD className="tabular-nums">{r.revenue}</TD>
-                <TD className="tabular-nums">{r.bookings}</TD>
-                <TD className={`tabular-nums font-medium ${r.pos ? "text-emerald-600 dark:text-emerald-500" : "text-destructive"}`}>{r.growth}</TD>
+            {branchStats.map((b) => (
+              <TR key={b.id}>
+                <TD className="font-medium text-gray-900">{b.name}</TD>
+                <TD className="text-gray-500">{b.city}</TD>
+                <TD className="text-gray-700">{b._count.appointments}</TD>
+                <TD className="text-gray-500">{b._count.workerBranches}</TD>
               </TR>
             ))}
+            {branchStats.length === 0 && (
+              <tr><td colSpan={4} className="px-4 py-6 text-center text-sm text-gray-400">No branches.</td></tr>
+            )}
           </tbody>
         </Table>
       </Card>
-    </>
+    </div>
   );
 }
