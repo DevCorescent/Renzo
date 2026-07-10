@@ -6,14 +6,21 @@ import prisma from "@/lib/db";
 
 // OWNER: Shalmon | MODULE: Staff Management — Reset password
 // POST /api/v1/admin/staff/[id]/reset-password
-// Allows Super Admin / Owner to set a new password for any staff member.
+//
+// SUPER_ADMIN   → can reset anyone's password
+// OWNER / BRANCH_ADMIN → can only reset their own branch's staff passwords
 // Body: { password: string }
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER");
+  const { user, error } = await requireAuth(
+    req,
+    "SUPER_ADMIN",
+    "OWNER",
+    "BRANCH_ADMIN"
+  );
   if (error) return error;
 
   try {
@@ -27,15 +34,22 @@ export async function POST(
 
     const staff = await prisma.staffProfile.findUnique({
       where: { id },
-      select: { userId: true },
+      select: { userId: true, branchId: true },
     });
     if (!staff) return err("Staff member not found", 404);
+
+    // Branch admins / owners can only reset passwords for their own branch staff.
+    if (
+      (user.userType === "OWNER" || user.userType === "BRANCH_ADMIN") &&
+      staff.branchId !== user.branchId
+    ) {
+      return err("Forbidden", 403);
+    }
 
     const passwordHash = await hashPassword(body.password as string);
 
     await prisma.$transaction([
       prisma.user.update({ where: { id: staff.userId }, data: { passwordHash } }),
-      // Revoke existing sessions — they must login again with the new password.
       prisma.session.deleteMany({ where: { userId: staff.userId } }),
     ]);
 

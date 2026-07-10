@@ -6,38 +6,58 @@ import prisma from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 
 // OWNER: Shalmon | MODULE: Staff Management
-// Manages non-worker admin staff: Branch Admins, Receptionists, Inventory
-// Managers, Marketing Managers, Accountants.
-// Super Admin / Owner only — these accounts have privileged access.
+//
+// Role split:
+//   SUPER_ADMIN  — creates saloon owners (OWNER, BRANCH_ADMIN)
+//   OWNER / BRANCH_ADMIN — creates their own branch's operational staff
+//                          (RECEPTIONIST, INVENTORY_MANAGER, MARKETING_MANAGER, ACCOUNTANT)
 
-const STAFF_ROLES = [
-  "BRANCH_ADMIN",
+// Roles only SUPER_ADMIN can create — these have branch-level authority.
+const SUPER_ONLY_ROLES = ["OWNER", "BRANCH_ADMIN"] as const;
+
+// Roles a branch admin/owner can create for their own branch.
+const BRANCH_STAFF_ROLES = [
   "RECEPTIONIST",
   "INVENTORY_MANAGER",
   "MARKETING_MANAGER",
   "ACCOUNTANT",
 ] as const;
 
-// Roles that must be tied to a specific branch.
-const BRANCH_SCOPED_ROLES = ["BRANCH_ADMIN", "RECEPTIONIST", "INVENTORY_MANAGER", "ACCOUNTANT"];
+const ALL_STAFF_ROLES = [...SUPER_ONLY_ROLES, ...BRANCH_STAFF_ROLES] as const;
+type StaffRole = (typeof ALL_STAFF_ROLES)[number];
 
 // ─── GET /api/v1/admin/staff ─────────────────────────────────────────────────
-// List all staff; filterable by branchId and userType.
+// SUPER_ADMIN → all staff across all branches
+// OWNER / BRANCH_ADMIN → only their own branch's staff
 export async function GET(req: NextRequest) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER");
+  const { user, error } = await requireAuth(
+    req,
+    "SUPER_ADMIN",
+    "OWNER",
+    "BRANCH_ADMIN"
+  );
   if (error) return error;
 
   try {
     const url = new URL(req.url);
     const { page, limit, skip, search } = parsePagination(url);
-    const branchId = url.searchParams.get("branchId") ?? undefined;
     const userType = url.searchParams.get("userType") ?? undefined;
 
     const where: Prisma.StaffProfileWhereInput = {};
-    if (branchId) where.branchId = branchId;
-    if (userType && STAFF_ROLES.includes(userType as (typeof STAFF_ROLES)[number])) {
-      where.user = { userType: userType as (typeof STAFF_ROLES)[number] };
+
+    // Branch admins / owners are scoped to their own branch automatically.
+    if (user.userType === "BRANCH_ADMIN" || user.userType === "OWNER") {
+      where.branchId = user.branchId ?? undefined;
+    } else {
+      // Super admin can optionally filter by branch.
+      const branchId = url.searchParams.get("branchId") ?? undefined;
+      if (branchId) where.branchId = branchId;
     }
+
+    if (userType && ALL_STAFF_ROLES.includes(userType as StaffRole)) {
+      where.user = { userType: userType as StaffRole };
+    }
+
     if (search) {
       where.OR = [
         { firstName: { contains: search, mode: "insensitive" } },
@@ -77,17 +97,20 @@ export async function GET(req: NextRequest) {
 }
 
 // ─── POST /api/v1/admin/staff ────────────────────────────────────────────────
-// Create a staff member and issue them a login account.
 // Body: { firstName, lastName, userType, password, email?, phone?, branchId?, profilePhoto? }
 export async function POST(req: NextRequest) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER");
+  const { user, error } = await requireAuth(
+    req,
+    "SUPER_ADMIN",
+    "OWNER",
+    "BRANCH_ADMIN"
+  );
   if (error) return error;
 
   try {
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") return err("Invalid JSON body", 400);
 
-    // Validate required fields.
     const errors: Record<string, string[]> = {};
     if (!body.firstName?.trim()) errors.firstName = ["First name is required"];
     if (!body.lastName?.trim()) errors.lastName = ["Last name is required"];
@@ -96,32 +119,46 @@ export async function POST(req: NextRequest) {
       errors.password = ["Password must be at least 6 characters"];
     if (!body.email?.trim() && !body.phone?.trim())
       errors.email = ["Email or phone is required"];
-
     if (Object.keys(errors).length) return err("Validation failed", 422, errors);
 
-    if (!STAFF_ROLES.includes(body.userType)) {
-      return err(
-        `userType must be one of: ${STAFF_ROLES.join(", ")}`,
-        422
-      );
+    const role = body.userType as string;
+
+    // OWNER / BRANCH_ADMIN can only create operational roles, not other admins.
+    if (
+      (user.userType === "OWNER" || user.userType === "BRANCH_ADMIN") &&
+      SUPER_ONLY_ROLES.includes(role as (typeof SUPER_ONLY_ROLES)[number])
+    ) {
+      return err("Only Super Admin can create Owner or Branch Admin accounts", 403);
     }
 
-    if (BRANCH_SCOPED_ROLES.includes(body.userType) && !body.branchId) {
-      return err(
-        `branchId is required for the ${body.userType} role`,
-        422
-      );
+    if (!ALL_STAFF_ROLES.includes(role as StaffRole)) {
+      return err(`userType must be one of: ${ALL_STAFF_ROLES.join(", ")}`, 422);
+    }
+
+    // Resolve branchId:
+    // — SUPER_ADMIN must supply it explicitly for branch-scoped roles.
+    // — OWNER / BRANCH_ADMIN: always use their own branch.
+    let branchId: string | null = body.branchId ?? null;
+    if (user.userType === "OWNER" || user.userType === "BRANCH_ADMIN") {
+      branchId = user.branchId ?? null;
+    }
+
+    const branchRequired = [...SUPER_ONLY_ROLES, ...BRANCH_STAFF_ROLES].includes(
+      role as StaffRole
+    );
+    if (branchRequired && role !== "MARKETING_MANAGER" && !branchId) {
+      return err("branchId is required for this role", 422);
     }
 
     const passwordHash = await hashPassword(body.password as string);
 
     const staff = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
+      const account = await tx.user.create({
         data: {
           email: body.email?.trim().toLowerCase() ?? null,
           phone: body.phone?.trim() ?? null,
           passwordHash,
-          userType: body.userType,
+          userType: role as StaffRole,
           isActive: true,
           isVerified: true,
         },
@@ -129,8 +166,8 @@ export async function POST(req: NextRequest) {
 
       return tx.staffProfile.create({
         data: {
-          userId: user.id,
-          branchId: body.branchId ?? null,
+          userId: account.id,
+          branchId,
           firstName: body.firstName.trim(),
           lastName: body.lastName.trim(),
           phone: body.phone?.trim() ?? null,
@@ -152,7 +189,7 @@ export async function POST(req: NextRequest) {
       });
     });
 
-    return created(staff, `${body.userType.replace(/_/g, " ")} created successfully`);
+    return created(staff, `${role.replace(/_/g, " ")} created successfully`);
   } catch (e: unknown) {
     const code = (e as { code?: string })?.code;
     if (code === "P2002") return err("A user with that email or phone already exists", 409);

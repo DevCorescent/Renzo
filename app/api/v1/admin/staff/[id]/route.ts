@@ -4,13 +4,21 @@ import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
 
 // OWNER: Shalmon | MODULE: Staff Management — Single staff member
+//
+// SUPER_ADMIN   → full access to any staff record
+// OWNER / BRANCH_ADMIN → only their own branch's staff
 
 // ─── GET /api/v1/admin/staff/[id] ────────────────────────────────────────────
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
+  const { user, error } = await requireAuth(
+    req,
+    "SUPER_ADMIN",
+    "OWNER",
+    "BRANCH_ADMIN"
+  );
   if (error) return error;
 
   try {
@@ -34,6 +42,15 @@ export async function GET(
     });
 
     if (!staff) return err("Staff member not found", 404);
+
+    // Branch-scoped roles can only view staff from their own branch.
+    if (
+      (user.userType === "OWNER" || user.userType === "BRANCH_ADMIN") &&
+      staff.branchId !== user.branchId
+    ) {
+      return err("Forbidden", 403);
+    }
+
     return ok(staff);
   } catch {
     return err("Internal server error", 500);
@@ -41,12 +58,16 @@ export async function GET(
 }
 
 // ─── PATCH /api/v1/admin/staff/[id] ──────────────────────────────────────────
-// Update profile fields + optionally move to a different branch or toggle active.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER");
+  const { user, error } = await requireAuth(
+    req,
+    "SUPER_ADMIN",
+    "OWNER",
+    "BRANCH_ADMIN"
+  );
   if (error) return error;
 
   try {
@@ -56,18 +77,28 @@ export async function PATCH(
 
     const staff = await prisma.staffProfile.findUnique({
       where: { id },
-      select: { userId: true },
+      select: { userId: true, branchId: true },
     });
     if (!staff) return err("Staff member not found", 404);
 
-    // Fields allowed on StaffProfile itself.
+    // Branch admins / owners can only update staff in their own branch.
+    if (
+      (user.userType === "OWNER" || user.userType === "BRANCH_ADMIN") &&
+      staff.branchId !== user.branchId
+    ) {
+      return err("Forbidden", 403);
+    }
+
     const profileAllowed = ["firstName", "lastName", "phone", "email", "profilePhoto"];
     const profileData: Record<string, unknown> = Object.fromEntries(
       Object.entries(body).filter(([k]) => profileAllowed.includes(k))
     );
-    if ("branchId" in body) profileData.branchId = body.branchId ?? null;
 
-    // User-level fields.
+    // Only Super Admin can reassign someone to a different branch.
+    if (user.userType === "SUPER_ADMIN" && "branchId" in body) {
+      profileData.branchId = body.branchId ?? null;
+    }
+
     const userAllowed = ["isActive"];
     const userData: Record<string, unknown> = Object.fromEntries(
       Object.entries(body).filter(([k]) => userAllowed.includes(k))
@@ -106,26 +137,38 @@ export async function PATCH(
 }
 
 // ─── DELETE /api/v1/admin/staff/[id] ─────────────────────────────────────────
-// Soft-deactivate — preserves audit trail.
+// Soft-deactivate — preserves audit trail, revokes sessions immediately.
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER");
+  const { user, error } = await requireAuth(
+    req,
+    "SUPER_ADMIN",
+    "OWNER",
+    "BRANCH_ADMIN"
+  );
   if (error) return error;
 
   try {
     const { id } = await params;
     const staff = await prisma.staffProfile.findUnique({
       where: { id },
-      select: { userId: true },
+      select: { userId: true, branchId: true },
     });
     if (!staff) return err("Staff member not found", 404);
+
+    // Branch admins / owners can only deactivate staff in their own branch.
+    if (
+      (user.userType === "OWNER" || user.userType === "BRANCH_ADMIN") &&
+      staff.branchId !== user.branchId
+    ) {
+      return err("Forbidden", 403);
+    }
 
     await prisma.$transaction([
       prisma.staffProfile.update({ where: { id }, data: { isActive: false } }),
       prisma.user.update({ where: { id: staff.userId }, data: { isActive: false } }),
-      // Revoke all active sessions so they're immediately logged out.
       prisma.session.deleteMany({ where: { userId: staff.userId } }),
     ]);
 
