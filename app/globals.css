@@ -140,3 +140,33 @@
     @apply font-sans;
   }
 }
+
+/* ── Super Admin dashboard theme tokens ──────────────────────────────────────
+   Scoped to `.sa-dash` (the dashboard root only) so no other page/role is
+   affected. Light values equal the existing hard-coded chart colours, so the
+   light theme is unchanged; the `.sa-dash.dark` block is the new luxury dark
+   theme. Components reference these via `dark:*-[var(--sa-*)]` utilities. */
+.sa-dash {
+  --sa-axis: #94a3b8;
+  --sa-grid: #eef2f6;
+  --sa-ink: #0f172a;
+}
+.sa-dash.dark {
+  --sa-bg: #0c0c0c;
+  --sa-surface: #18181b;
+  --sa-surface-2: #141417;
+  --sa-elevated: #202124;
+  --sa-border: rgba(255, 255, 255, 0.08);
+  --sa-text: #fafafa;
+  --sa-text-2: #a1a1aa;
+  --sa-muted: #71717a;
+  --sa-hover: #2a2a2a;
+  --sa-tile: rgba(255, 255, 255, 0.05);
+  --sa-axis: #8a8a8a;
+  --sa-grid: rgba(255, 255, 255, 0.07);
+  --sa-ink: #fafafa;
+
+  color-scheme: dark;
+  background-color: var(--sa-bg);
+  color: var(--sa-text);
+}
