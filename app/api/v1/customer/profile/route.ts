@@ -37,7 +37,7 @@ export async function PATCH(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const parsed = UpdateSchema.safeParse(body);
-  if (!parsed.success) return err(parsed.error.flatten().fieldErrors, 422);
+  if (!parsed.success) return err("Validation failed", 422, parsed.error.flatten().fieldErrors);
 
   const { firstName, lastName, gender, dateOfBirth, anniversary } = parsed.data;
 

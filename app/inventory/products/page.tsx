@@ -77,7 +77,7 @@ export default async function InventoryProductsPage() {
                   <TD className="font-mono text-xs text-gray-400">{p.sku}</TD>
                   <TD className="text-gray-500">{p.category?.name ?? "—"}</TD>
                   <TD className="text-gray-500">{p.supplier?.name ?? "—"}</TD>
-                  <TD className="text-gray-700">₹{Number(p.costPrice).toLocaleString("en-IN")}</TD>
+                  <TD className="text-gray-700">₹{Number(p.purchasePrice).toLocaleString("en-IN")}</TD>
                   <TD className="text-gray-700">₹{Number(p.sellingPrice).toLocaleString("en-IN")}</TD>
                   <TD className={isLow ? "font-medium text-red-600" : "text-gray-700"}>
                     {total.toLocaleString()}{isLow && <span className="ml-1 text-[10px]">⚠ low</span>}
