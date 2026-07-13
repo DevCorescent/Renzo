@@ -35,13 +35,13 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
 
   // Group service pricings by category
   type ServicePricing = (typeof branch.servicePricings)[number];
-  type PricingGroup = Record<string, { catName: string; items: ServicePricing[] }>;
-  const servicesByCategory = branch.servicePricings.reduce<PricingGroup>((acc: PricingGroup, sp: ServicePricing) => {
+  const catMap = new Map<string, { catName: string; items: ServicePricing[] }>();
+  for (const sp of branch.servicePricings) {
     const cat = sp.service.category.name;
-    if (!acc[cat]) acc[cat] = { catName: cat, items: [] };
-    acc[cat].items.push(sp);
-    return acc;
-  }, {});
+    if (!catMap.has(cat)) catMap.set(cat, { catName: cat, items: [] });
+    catMap.get(cat)!.items.push(sp);
+  }
+  const servicesByCategory = Array.from(catMap.values());
 
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100">
@@ -86,7 +86,7 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
               <p className="text-stone-500">No services listed yet.</p>
             ) : (
               <div className="space-y-6">
-                {Object.values(servicesByCategory).map(({ catName, items }) => (
+                {servicesByCategory.map(({ catName, items }) => (
                   <div key={catName}>
                     <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-stone-500">{catName}</p>
                     <div className="divide-y divide-white/5 overflow-hidden rounded-xl border border-white/8 bg-stone-900">

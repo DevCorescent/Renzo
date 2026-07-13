@@ -203,12 +203,12 @@ function ServiceStep({ branchId, onSelect }: { branchId: string; onSelect: (s: P
   }, [branchId]);
 
   // Group by category
-  const grouped = services.reduce<Record<string, { name: string; items: ApiService[] }>>((acc, s) => {
-    const cat = s.category.name;
-    if (!acc[cat]) acc[cat] = { name: cat, items: [] };
-    acc[cat].items.push(s);
-    return acc;
-  }, {});
+  const groupMap = new Map<string, { name: string; items: ApiService[] }>();
+  for (const s of services) {
+    if (!groupMap.has(s.category.name)) groupMap.set(s.category.name, { name: s.category.name, items: [] });
+    groupMap.get(s.category.name)!.items.push(s);
+  }
+  const grouped = Array.from(groupMap.values());
 
   return (
     <div>
@@ -220,7 +220,7 @@ function ServiceStep({ branchId, onSelect }: { branchId: string; onSelect: (s: P
         <p className="py-16 text-center text-stone-500">No services listed at this branch yet.</p>
       ) : (
         <div className="space-y-5">
-          {Object.values(grouped).map(({ name: cat, items }) => (
+          {grouped.map(({ name: cat, items }) => (
             <div key={cat}>
               <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-500">{cat}</p>
               <div className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/8 bg-stone-900">
