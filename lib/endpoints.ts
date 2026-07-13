@@ -4,6 +4,8 @@
 const BASE = "/api/v1";
 
 export const API = {
+  upload: `${BASE}/upload`,
+
   // ── Auth (Aman) ────────────────────────────────────────────────────────────
   auth: {
     login:        `${BASE}/auth/login`,
@@ -28,6 +30,7 @@ export const API = {
 
   // ── Customer portal (Gauransh + Shalmon) ──────────────────────────────────
   customer: {
+    profile:      `${BASE}/customer/profile`,
     appointments: `${BASE}/customer/appointments`,
     appointment:  (id: string) => `${BASE}/customer/appointments/${id}`,
     reschedule:   (id: string) => `${BASE}/customer/appointments/${id}/reschedule`,
@@ -62,6 +65,7 @@ export const API = {
     billing:      `${BASE}/reception/billing`,
     bill:         (id: string) => `${BASE}/reception/billing/${id}`,
     payment:      (id: string) => `${BASE}/reception/billing/${id}/payment`,
+    applyCoupon:  (id: string) => `${BASE}/reception/billing/${id}/coupon`,
   },
 
   // ── Admin — Branches & Workers (Aman) ─────────────────────────────────────
@@ -71,8 +75,14 @@ export const API = {
     branchTimings:    (id: string) => `${BASE}/admin/branches/${id}/timings`,
     branchHolidays:   (id: string) => `${BASE}/admin/branches/${id}/holidays`,
     branchSettings:   (id: string) => `${BASE}/admin/branches/${id}/settings`,
+    branchStaff:      (id: string) => `${BASE}/admin/branches/${id}/staff`,
+    // Admin — Staff / Admin Appointment (Shalmon)
+    staff:            `${BASE}/admin/staff`,
+    staffMember:      (id: string) => `${BASE}/admin/staff/${id}`,
+    staffResetPwd:    (id: string) => `${BASE}/admin/staff/${id}/reset-password`,
     workers:          `${BASE}/admin/workers`,
     worker:           (id: string) => `${BASE}/admin/workers/${id}`,
+    workerSetPassword:(id: string) => `${BASE}/admin/workers/${id}/set-password`,
     workerSkills:     (id: string) => `${BASE}/admin/workers/${id}/skills`,
     workerServices:   (id: string) => `${BASE}/admin/workers/${id}/services`,
     workerPortfolio:  (id: string) => `${BASE}/admin/workers/${id}/portfolio`,
@@ -104,9 +114,15 @@ export const API = {
     products:         `${BASE}/admin/inventory/products`,
     product:          (id: string) => `${BASE}/admin/inventory/products/${id}`,
     stock:            `${BASE}/admin/inventory/stock`,
+    stockAdjust:      `${BASE}/admin/inventory/stock/adjust`,
     purchases:        `${BASE}/admin/inventory/purchases`,
     purchase:         (id: string) => `${BASE}/admin/inventory/purchases/${id}`,
     transfers:        `${BASE}/admin/inventory/transfers`,
+    transfer:         (id: string) => `${BASE}/admin/inventory/transfers/${id}`,
+    suppliers:        `${BASE}/admin/inventory/suppliers`,
+    supplier:         (id: string) => `${BASE}/admin/inventory/suppliers/${id}`,
+    productCategories:`${BASE}/admin/inventory/categories`,
+    productCategory:  (id: string) => `${BASE}/admin/inventory/categories/${id}`,
 
     // Admin — Memberships (Shalmon)
     membershipPlans:  `${BASE}/admin/memberships/plans`,
@@ -121,6 +137,9 @@ export const API = {
     offer:            (id: string) => `${BASE}/admin/offers/${id}`,
     giftCards:        `${BASE}/admin/gift-cards`,
     giftCard:         (id: string) => `${BASE}/admin/gift-cards/${id}`,
+
+    // Admin — Branch service pricing (Gauransh)
+    branchServices:   `${BASE}/admin/branch-services`,
 
     // Admin — Reviews (Shalmon)
     reviews:          `${BASE}/admin/reviews`,
