@@ -28,19 +28,22 @@ export default async function AccountantInvoicesPage() {
     },
   });
 
-  const custIds = [...new Set(invoices.map((i) => i.customerId))];
-  const customers = custIds.length
+  type InvoiceRaw = (typeof invoices)[number];
+  type CustomerRaw = { id: string; firstName: string; lastName: string | null };
+
+  const custIds = [...new Set(invoices.map((i: InvoiceRaw) => i.customerId))];
+  const customers: CustomerRaw[] = custIds.length
     ? await prisma.customer.findMany({
         where: { id: { in: custIds } },
         select: { id: true, firstName: true, lastName: true },
       })
     : [];
-  const custMap = new Map(customers.map((c) => [c.id, fullName(c.firstName, c.lastName)]));
+  const custMap = new Map(customers.map((c: CustomerRaw) => [c.id, fullName(c.firstName, c.lastName)]));
 
-  const totalRevenue = invoices.reduce((sum, i) => sum + Number(i.paidAmount), 0);
+  const totalRevenue = invoices.reduce((sum: number, i: InvoiceRaw) => sum + Number(i.paidAmount), 0);
   const outstanding = invoices
-    .filter((i) => ["UNPAID", "PARTIAL"].includes(i.status))
-    .reduce((sum, i) => sum + Number(i.balanceDue), 0);
+    .filter((i: InvoiceRaw) => ["UNPAID", "PARTIAL"].includes(i.status))
+    .reduce((sum: number, i: InvoiceRaw) => sum + Number(i.balanceDue), 0);
 
   return (
     <div className="space-y-6">
@@ -54,7 +57,7 @@ export default async function AccountantInvoicesPage() {
       <div className="grid gap-4 sm:grid-cols-4">
         {[
           { label: "Total Invoices", value: invoices.length },
-          { label: "Paid", value: invoices.filter((i) => i.status === "PAID").length },
+          { label: "Paid", value: invoices.filter((i: InvoiceRaw) => i.status === "PAID").length },
           { label: "Outstanding", value: `₹${Math.round(outstanding).toLocaleString("en-IN")}` },
           { label: "Revenue Collected", value: `₹${Math.round(totalRevenue).toLocaleString("en-IN")}` },
         ].map((s) => (
@@ -82,7 +85,7 @@ export default async function AccountantInvoicesPage() {
           <tbody>
             {invoices.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">No invoices yet.</td></tr>
-            ) : invoices.map((i) => (
+            ) : invoices.map((i: InvoiceRaw) => (
               <TR key={i.id}>
                 <TD className="font-mono text-xs font-medium text-gray-700">{i.invoiceNo}</TD>
                 <TD className="text-gray-700">{custMap.get(i.customerId) ?? "—"}</TD>

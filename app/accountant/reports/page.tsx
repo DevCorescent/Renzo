@@ -29,12 +29,16 @@ export default async function AccountantReportsPage() {
       : prisma.invoice.groupBy({ by: ["branchId"], _sum: { paidAmount: true }, where: { createdAt: { gte: d30 } }, orderBy: { _sum: { paidAmount: "desc" } }, take: 5 }),
   ]);
 
+  type ByMethodRaw = (typeof byMethod)[number];
+  type ByBranchRaw = NonNullable<typeof byBranch>[number];
+  type BranchRaw = { id: string; name: string };
+
   // branch names for cross-branch view
-  const branchIds = byBranch?.map((b) => b.branchId).filter(Boolean) as string[] | undefined;
-  const branches = branchIds?.length
+  const branchIds = byBranch?.map((b: ByBranchRaw) => b.branchId).filter(Boolean) as string[] | undefined;
+  const branches: BranchRaw[] = branchIds?.length
     ? await prisma.branch.findMany({ where: { id: { in: branchIds } }, select: { id: true, name: true } })
     : [];
-  const branchMap = new Map(branches.map((b) => [b.id, b.name]));
+  const branchMap = new Map(branches.map((b: BranchRaw) => [b.id, b.name]));
 
   const revenue7 = Math.round(Number(rev7._sum.paidAmount ?? 0));
   const revenue30 = Math.round(Number(rev30._sum.paidAmount ?? 0));
@@ -89,7 +93,7 @@ export default async function AccountantReportsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {byMethod.map((m) => (
+                {byMethod.map((m: ByMethodRaw) => (
                   <tr key={m.method}>
                     <td className="px-4 py-2.5 font-medium text-gray-700">{m.method}</td>
                     <td className="px-4 py-2.5 text-right font-medium text-gray-900">
@@ -116,7 +120,7 @@ export default async function AccountantReportsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {byBranch.map((b) => (
+                {byBranch.map((b: ByBranchRaw) => (
                   <tr key={b.branchId}>
                     <td className="px-4 py-2.5 font-medium text-gray-700">
                       {b.branchId ? branchMap.get(b.branchId) ?? b.branchId : "Unknown"}
