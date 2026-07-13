@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { requireAuth } from "@/lib/auth";
-import { ok, err } from "@/lib/api-response";
+import { requireAuth } from "@/lib/auth-guard";
+import { ok, err } from "@/lib/response";
 import prisma from "@/lib/db";
 import { z } from "zod";
 
