@@ -79,10 +79,18 @@ export function Hero() {
               <p className="text-sm leading-relaxed text-stone-200 sm:text-base">
                 Discover luxury hair &amp; beauty services designed to bring out your natural glow.
               </p>
-              <Link href="/book" className={cn(buttonVariants({ size: "lg" }), PILL_SOLID)}>
-                Book Now
-                <ArrowRight className="size-4" />
-              </Link>
+              <div className="flex flex-wrap gap-3">
+                <Link href="/book" className={cn(buttonVariants({ size: "lg" }), PILL_SOLID)}>
+                  Book Now
+                  <ArrowRight className="size-4" />
+                </Link>
+                <Link
+                  href="/login"
+                  className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-5 py-2.5 text-sm font-medium text-stone-200 backdrop-blur transition hover:bg-white/10 hover:text-white"
+                >
+                  Sign in
+                </Link>
+              </div>
             </div>
 
             {/* Social-proof chip */}

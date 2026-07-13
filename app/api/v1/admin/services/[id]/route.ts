@@ -111,7 +111,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
 
   try {
@@ -128,6 +128,20 @@ export async function PATCH(
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") {
       return err("Invalid request body");
+    }
+
+    // Branch admins may only update image and description
+    if (user.userType === "BRANCH_ADMIN") {
+      const { image, description } = body as Record<string, unknown>;
+      const updated = await prisma.service.update({
+        where: { id },
+        data: {
+          image: image !== undefined ? (optionalTrimmedString(image) ?? null) : existingService.image,
+          description: description !== undefined ? (optionalTrimmedString(description) ?? null) : existingService.description,
+        },
+        include: { category: { select: { id: true, name: true, slug: true } } },
+      });
+      return ok(updated, "Service updated successfully");
     }
 
     const {

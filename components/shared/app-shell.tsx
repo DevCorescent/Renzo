@@ -10,7 +10,9 @@ import {
   UserCheck, Receipt, Users, Boxes, Star, BarChart3, Building2,
   Scissors, Package, Megaphone, ScrollText, Settings, PlusCircle,
   LayoutTemplate, Menu, X, LogOut, ChevronRight,
+  Truck, Tag, Percent, Gift, ArrowLeftRight, ShoppingCart,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 
 type Role = "worker" | "reception" | "branch-admin" | "super-admin" | "inventory" | "marketing" | "accountant";
 type Icon = React.ComponentType<{ className?: string }>;
@@ -44,6 +46,7 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
       { label: "Dashboard",    href: "/branch-admin/dashboard",    icon: LayoutDashboard },
       { label: "Appointments", href: "/branch-admin/appointments", icon: CalendarDays },
       { label: "Workers",      href: "/branch-admin/workers",      icon: Users },
+      { label: "Services",     href: "/branch-admin/services",     icon: Scissors },
       { label: "Schedule",     href: "/branch-admin/schedule",     icon: Clock },
       { label: "Inventory",    href: "/branch-admin/inventory",    icon: Boxes },
       { label: "Reviews",      href: "/branch-admin/reviews",      icon: Star },
@@ -71,19 +74,31 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
   inventory: {
     brand: "Renzo", label: "Inventory",
     items: [
-      { label: "Dashboard", href: "/inventory/dashboard", icon: LayoutDashboard },
+      { label: "Dashboard",  href: "/inventory/dashboard",  icon: LayoutDashboard },
+      { label: "Products",   href: "/inventory/products",   icon: Package },
+      { label: "Stock",      href: "/inventory/stock",      icon: Boxes },
+      { label: "Suppliers",  href: "/inventory/suppliers",  icon: Truck },
+      { label: "Purchases",  href: "/inventory/purchases",  icon: ShoppingCart },
+      { label: "Transfers",  href: "/inventory/transfers",  icon: ArrowLeftRight },
     ],
   },
   marketing: {
     brand: "Renzo", label: "Marketing",
     items: [
-      { label: "Dashboard", href: "/marketing/dashboard", icon: LayoutDashboard },
+      { label: "Dashboard",   href: "/marketing/dashboard",   icon: LayoutDashboard },
+      { label: "Coupons",     href: "/marketing/coupons",     icon: Tag },
+      { label: "Campaigns",   href: "/marketing/campaigns",   icon: Megaphone },
+      { label: "Offers",      href: "/marketing/offers",      icon: Percent },
+      { label: "Gift Cards",  href: "/marketing/gift-cards",  icon: Gift },
+      { label: "Reviews",     href: "/marketing/reviews",     icon: Star },
     ],
   },
   accountant: {
     brand: "Renzo", label: "Accounts",
     items: [
-      { label: "Dashboard", href: "/accountant/dashboard", icon: LayoutDashboard },
+      { label: "Dashboard",  href: "/accountant/dashboard",  icon: LayoutDashboard },
+      { label: "Invoices",   href: "/accountant/invoices",   icon: Receipt },
+      { label: "Reports",    href: "/accountant/reports",    icon: BarChart3 },
     ],
   },
 };
@@ -204,6 +219,9 @@ export function AppShell({
             <Menu className="size-5 text-gray-500" />
           </button>
           <span className="text-sm font-medium text-gray-700">{cfg.label}</span>
+          <div className="ml-auto">
+            <ThemeToggle />
+          </div>
         </header>
 
         <main className="flex-1 p-6">{children}</main>

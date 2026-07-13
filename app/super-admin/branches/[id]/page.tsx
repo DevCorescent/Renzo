@@ -3,6 +3,7 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect, notFound } from "next/navigation";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 import { AssignStaffForm } from "./assign-staff-form";
+import { BranchCoverUpload } from "./branch-cover-upload";
 
 // OWNER: Hemant | MODULE: Super Admin — Branch Detail
 
@@ -40,7 +41,10 @@ export default async function SuperAdminBranchDetailPage({ params }: { params: P
           <h1 className="text-xl font-semibold text-gray-900">{branch.name}</h1>
           <p className="mt-0.5 text-sm text-gray-500">{branch.address}, {branch.city}, {branch.state} — {branch.pincode}</p>
         </div>
-        <Badge tone={branch.isActive ? "success" : "danger"}>{branch.isActive ? "Active" : "Inactive"}</Badge>
+        <div className="flex items-start gap-4">
+          <BranchCoverUpload branchId={id} currentImage={branch.coverImage ?? null} />
+          <Badge tone={branch.isActive ? "success" : "danger"}>{branch.isActive ? "Active" : "Inactive"}</Badge>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-4">

@@ -28,7 +28,15 @@ function subscribe(cb: () => void) {
 
 function getSnapshot(): DashTheme {
   if (typeof document === "undefined") return "light";
-  return document.getElementById(THEME_ROOT_ID)?.classList.contains("dark") ? "dark" : "light";
+  const el = document.getElementById(THEME_ROOT_ID);
+  if (el) return el.classList.contains("dark") ? "dark" : "light";
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored) return stored as DashTheme;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  } catch {
+    return "light";
+  }
 }
 
 function getServerSnapshot(): DashTheme {
@@ -41,9 +49,11 @@ export function useDashTheme(): DashTheme {
 
 export function toggleDashTheme() {
   const el = document.getElementById(THEME_ROOT_ID);
-  if (!el) return;
-  const next: DashTheme = el.classList.contains("dark") ? "light" : "dark";
-  el.classList.toggle("dark", next === "dark");
+  const current = el
+    ? el.classList.contains("dark")
+    : (() => { try { return localStorage.getItem(THEME_KEY) === "dark"; } catch { return false; } })();
+  const next: DashTheme = current ? "light" : "dark";
+  if (el) el.classList.toggle("dark", next === "dark");
   try {
     localStorage.setItem(THEME_KEY, next);
   } catch {

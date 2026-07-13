@@ -4,25 +4,28 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Scissors, Menu, X } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { Scissors, Menu, X, LayoutDashboard, LogIn, UserPlus } from "lucide-react";
 import { useScrolled } from "@/lib/hooks/use-scrolled";
-import { PILL_SOLID } from "@/components/public/home/home-ui";
 import { cn } from "@/lib/utils";
 
 export const PUBLIC_NAV_LINKS = [
-  { label: "Home", href: "/" },
-  { label: "About Us", href: "/#about" },
+  { label: "Home",     href: "/" },
   { label: "Services", href: "/services" },
-  { label: "Gallery", href: "/gallery" },
-  { label: "Pricing", href: "/packages" },
+  { label: "Branches", href: "/branches" },
+  { label: "Gallery",  href: "/gallery" },
+  { label: "Pricing",  href: "/packages" },
 ];
 
 function isActiveLink(pathname: string, href: string): boolean {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
-export function SiteHeader() {
+interface SiteHeaderProps {
+  /** Passed from a Server Component — non-null means user is already logged in */
+  dashboardHref?: string | null;
+}
+
+export function SiteHeader({ dashboardHref }: SiteHeaderProps = {}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const scrolled = useScrolled(12);
@@ -50,7 +53,7 @@ export function SiteHeader() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden items-center gap-8 lg:flex">
+        <nav className="hidden items-center gap-7 lg:flex">
           {PUBLIC_NAV_LINKS.map((link) => {
             const active = isActiveLink(pathname, link.href);
             return (
@@ -75,11 +78,48 @@ export function SiteHeader() {
           })}
         </nav>
 
-        {/* Desktop actions */}
-        <div className="hidden items-center lg:flex">
-          <Link href="/contact" className={cn(buttonVariants({ size: "sm" }), PILL_SOLID, "px-6")}>
-            Contact
-          </Link>
+        {/* Desktop auth actions */}
+        <div className="hidden items-center gap-2 lg:flex">
+          {dashboardHref ? (
+            <>
+              <Link
+                href={dashboardHref}
+                className="flex items-center gap-1.5 rounded-full bg-gold/10 px-4 py-2 text-sm font-medium text-gold ring-1 ring-gold/25 transition hover:bg-gold/20"
+              >
+                <LayoutDashboard className="size-3.5" />
+                Dashboard
+              </Link>
+              <Link
+                href="/book"
+                className="flex items-center gap-1.5 rounded-full bg-gold px-4 py-2 text-sm font-semibold text-stone-950 transition hover:bg-amber-400"
+              >
+                Book Now
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-stone-300 transition hover:text-white"
+              >
+                <LogIn className="size-3.5" />
+                Sign in
+              </Link>
+              <Link
+                href="/signup"
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-stone-200 transition hover:bg-white/10"
+              >
+                <UserPlus className="size-3.5" />
+                Sign up
+              </Link>
+              <Link
+                href="/book"
+                className="flex items-center gap-1.5 rounded-full bg-gold px-4 py-2 text-sm font-semibold text-stone-950 transition hover:bg-amber-400"
+              >
+                Book Now
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -112,22 +152,50 @@ export function SiteHeader() {
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "border-b border-white/10 py-3 text-sm font-medium transition-colors",
-                    active
-                      ? "text-white"
-                      : "text-stone-300 hover:text-white",
+                    active ? "text-white" : "text-stone-300 hover:text-white",
                   )}
                 >
                   {link.label}
                 </Link>
               );
             })}
+
             <div className="mt-4 flex flex-col gap-2">
+              {dashboardHref ? (
+                <Link
+                  href={dashboardHref}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-center gap-2 rounded-full bg-gold/10 py-2.5 text-sm font-medium text-gold ring-1 ring-gold/25"
+                >
+                  <LayoutDashboard className="size-4" />
+                  Go to Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/signup"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center justify-center gap-2 rounded-full bg-white py-2.5 text-sm font-semibold text-stone-900"
+                  >
+                    <UserPlus className="size-4" />
+                    Create account
+                  </Link>
+                  <Link
+                    href="/login"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center justify-center gap-2 rounded-full border border-white/10 py-2.5 text-sm font-medium text-stone-300"
+                  >
+                    <LogIn className="size-4" />
+                    Sign in
+                  </Link>
+                </>
+              )}
               <Link
-                href="/contact"
+                href="/book"
                 onClick={() => setOpen(false)}
-                className={cn(buttonVariants(), PILL_SOLID)}
+                className="mt-1 flex items-center justify-center gap-2 rounded-full bg-gold py-2.5 text-sm font-semibold text-stone-950"
               >
-                Contact
+                Book Now →
               </Link>
             </div>
           </nav>

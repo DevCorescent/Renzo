@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
 ============================================================================ */
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
 
   try {
@@ -281,6 +281,13 @@ export async function POST(req: NextRequest) {
         subCategory: { select: { id: true, name: true, slug: true } },
       },
     });
+
+    // Branch admin: auto-enable the newly created service at their branch
+    if (user.userType === "BRANCH_ADMIN" && user.branchId) {
+      await prisma.serviceBranchPricing.create({
+        data: { serviceId: service.id, branchId: user.branchId, price: parsedBasePrice, isActive: true },
+      });
+    }
 
     return created(service, "Service created successfully");
   } catch (error) {

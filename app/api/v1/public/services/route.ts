@@ -30,12 +30,18 @@ export async function GET(req: NextRequest) {
     const categoryId = url.searchParams.get("categoryId");
     const gender = url.searchParams.get("gender");
     const isPopular = url.searchParams.get("isPopular");
+    const branchId = url.searchParams.get("branchId")?.trim();
 
     const where: Prisma.ServiceWhereInput = {
       isActive: true,
       // Don't surface services whose category has been soft-deleted/deactivated,
       // even if the service row itself is still marked active.
       category: { isActive: true },
+      // When branchId is supplied, restrict to services that have an active
+      // branch-level pricing entry (i.e. the branch has opted this service in).
+      ...(branchId
+        ? { branchPricings: { some: { branchId, isActive: true } } }
+        : {}),
     };
 
     // ------------------------------------------------------------------------
@@ -100,6 +106,12 @@ export async function GET(req: NextRequest) {
           },
           _count: {
             select: { variants: true },
+          },
+          // Only populated when branchId query param is supplied;
+          // otherwise the impossible fallback string ensures 0 rows returned.
+          branchPricings: {
+            where: { branchId: branchId ?? "__none__", isActive: true },
+            select: { price: true },
           },
         },
       }),

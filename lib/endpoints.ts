@@ -4,6 +4,8 @@
 const BASE = "/api/v1";
 
 export const API = {
+  upload: `${BASE}/upload`,
+
   // ── Auth (Aman) ────────────────────────────────────────────────────────────
   auth: {
     login:        `${BASE}/auth/login`,
@@ -28,6 +30,7 @@ export const API = {
 
   // ── Customer portal (Gauransh + Shalmon) ──────────────────────────────────
   customer: {
+    profile:      `${BASE}/customer/profile`,
     appointments: `${BASE}/customer/appointments`,
     appointment:  (id: string) => `${BASE}/customer/appointments/${id}`,
     reschedule:   (id: string) => `${BASE}/customer/appointments/${id}/reschedule`,
@@ -134,6 +137,9 @@ export const API = {
     offer:            (id: string) => `${BASE}/admin/offers/${id}`,
     giftCards:        `${BASE}/admin/gift-cards`,
     giftCard:         (id: string) => `${BASE}/admin/gift-cards/${id}`,
+
+    // Admin — Branch service pricing (Gauransh)
+    branchServices:   `${BASE}/admin/branch-services`,
 
     // Admin — Reviews (Shalmon)
     reviews:          `${BASE}/admin/reviews`,

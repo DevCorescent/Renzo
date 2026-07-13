@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { ServiceImageUpload } from "./service-image-upload";
 
 // OWNER: Hemant | MODULE: Super Admin — Services
 
@@ -16,7 +17,15 @@ export default async function SuperAdminServicesPage() {
     }),
     prisma.service.findMany({
       orderBy: [{ categoryId: "asc" }, { sortOrder: "asc" }],
-      include: {
+      select: {
+        id: true,
+        name: true,
+        image: true,
+        basePrice: true,
+        duration: true,
+        gender: true,
+        isPopular: true,
+        isActive: true,
         category: { select: { name: true } },
         _count: { select: { variants: true, workerServices: true } },
       },
@@ -47,6 +56,7 @@ export default async function SuperAdminServicesPage() {
         <Table>
           <THead>
             <tr>
+              <TH>Photo</TH>
               <TH>Name</TH>
               <TH>Category</TH>
               <TH>Base Price</TH>
@@ -59,10 +69,11 @@ export default async function SuperAdminServicesPage() {
           </THead>
           <tbody>
             {services.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">No services yet.</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-400">No services yet.</td></tr>
             ) : (
               services.map((s) => (
                 <TR key={s.id}>
+                  <TD><ServiceImageUpload serviceId={s.id} currentImage={s.image ?? null} /></TD>
                   <TD className="font-medium text-gray-900">
                     {s.name}
                     {s.isPopular && <span className="ml-1 text-[10px] text-yellow-600">★ Popular</span>}
