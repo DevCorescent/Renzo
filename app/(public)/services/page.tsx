@@ -53,12 +53,13 @@ export default async function ServicesPage({
   ]);
 
   // Group services by category
-  const byCategory = services.reduce<Record<string, { catName: string; catId: string; items: typeof services }>>((acc, s) => {
-    const cid = s.category.id;
-    if (!acc[cid]) acc[cid] = { catName: s.category.name, catId: cid, items: [] };
-    acc[cid].items.push(s);
-    return acc;
-  }, {});
+  type ServiceItem = (typeof services)[number];
+  const catMap2 = new Map<string, { catName: string; catId: string; items: ServiceItem[] }>();
+  for (const s of services) {
+    if (!catMap2.has(s.category.id)) catMap2.set(s.category.id, { catName: s.category.name, catId: s.category.id, items: [] });
+    catMap2.get(s.category.id)!.items.push(s);
+  }
+  const byCategory = Array.from(catMap2.values());
 
   const GENDERS = [
     { value: "", label: "All" },
@@ -127,7 +128,7 @@ export default async function ServicesPage({
           <p className="py-20 text-center text-stone-500">No services found.</p>
         ) : (
           <div className="space-y-10">
-            {Object.values(byCategory).map(({ catName, catId, items }) => (
+            {byCategory.map(({ catName, catId, items }) => (
               <div key={catId}>
                 <h2 className="mb-4 text-lg font-semibold text-stone-200">{catName}</h2>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
