@@ -112,10 +112,11 @@ export default async function AccountantDashboardPage() {
   }));
 
   // revenue by payment method (bar)
-  const methodBars = paymentsByMethod
-    .map((p: PaymentRaw) => ({ label: p.method, value: Math.round(Number(p._sum.amount ?? 0)) }))
-    .filter((b) => b.value > 0)
-    .sort((a, b) => b.value - a.value);
+  type MethodBar = { label: string; value: number };
+  const methodBars: MethodBar[] = paymentsByMethod
+    .map((p: PaymentRaw): MethodBar => ({ label: p.method, value: Math.round(Number(p._sum.amount ?? 0)) }))
+    .filter((b: MethodBar) => b.value > 0)
+    .sort((a: MethodBar, b: MethodBar) => b.value - a.value);
 
   const invoiceRows: InvoiceRow[] = recentInvoices.map((i: InvoiceRaw) => ({
     id: i.id,
