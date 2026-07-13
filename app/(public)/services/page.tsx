@@ -53,6 +53,7 @@ export default async function ServicesPage({
   ]);
 
   // Group services by category
+  type CategoryRow = (typeof categories)[number];
   type ServiceItem = (typeof services)[number];
   const catMap2 = new Map<string, { catName: string; catId: string; items: ServiceItem[] }>();
   for (const s of services) {
@@ -91,7 +92,7 @@ export default async function ServicesPage({
             >
               All
             </Link>
-            {categories.map((c) => (
+            {categories.map((c: CategoryRow) => (
               <Link
                 key={c.id}
                 href={`/services?categoryId=${c.id}${gender ? `&gender=${gender}` : ""}`}

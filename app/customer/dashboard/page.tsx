@@ -76,6 +76,10 @@ export default async function CustomerDashboardPage() {
     }),
   ]);
 
+  type ApptRow = (typeof upcomingAppointments)[number];
+  type RecentRow = (typeof recentAppointments)[number];
+  type ApptSvc = ApptRow["services"][number];
+
   const stats = [
     {
       label: "Loyalty Points",
@@ -147,11 +151,11 @@ export default async function CustomerDashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-white/5">
-            {upcomingAppointments.map((a) => (
+            {upcomingAppointments.map((a: ApptRow) => (
               <div key={a.id} className="flex items-start justify-between px-4 py-3">
                 <div>
                   <p className="text-sm font-medium text-stone-100">
-                    {a.services.map((s) => s.service.name).join(", ") || "Appointment"}
+                    {a.services.map((s: ApptSvc) => s.service.name).join(", ") || "Appointment"}
                   </p>
                   <p className="text-xs text-stone-500">
                     {new Date(a.appointmentDate).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
@@ -175,11 +179,11 @@ export default async function CustomerDashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-white/5">
-            {recentAppointments.map((a) => (
+            {recentAppointments.map((a: RecentRow) => (
               <div key={a.id} className="flex items-center justify-between px-4 py-3">
                 <div>
                   <p className="text-sm font-medium text-stone-100">
-                    {a.services.map((s) => s.service.name).join(", ") || "Visit"}
+                    {a.services.map((s: ApptSvc) => s.service.name).join(", ") || "Visit"}
                   </p>
                   <p className="text-xs text-stone-500">
                     {new Date(a.appointmentDate).toLocaleDateString("en-IN")} · {a.branch.name}

@@ -90,7 +90,7 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
                   <div key={catName}>
                     <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-stone-500">{catName}</p>
                     <div className="divide-y divide-white/5 overflow-hidden rounded-xl border border-white/8 bg-stone-900">
-                      {items.map((sp) => (
+                      {items.map((sp: ServicePricing) => (
                         <Link
                           key={sp.id}
                           href={`/book?branchId=${branch.id}&serviceId=${sp.service.id}`}
