@@ -31,7 +31,7 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
     },
   });
 
-  if (!branch) notFound();
+  if (!branch) return notFound();
 
   // Group service pricings by category
   type ServicePricing = (typeof branch.servicePricings)[number];

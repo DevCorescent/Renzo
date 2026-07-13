@@ -31,7 +31,7 @@ export default async function CustomerBookingDetailPage({ params }: { params: Pr
     },
   });
 
-  if (!appointment || appointment.customerId !== authUser.customerId) notFound();
+  if (!appointment || appointment.customerId !== authUser.customerId) return notFound();
 
   const canCancel = ["PENDING", "CONFIRMED"].includes(appointment.status);
 

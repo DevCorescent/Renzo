@@ -30,7 +30,7 @@ export default async function SuperAdminBranchDetailPage({ params }: { params: P
     },
   });
 
-  if (!branch) notFound();
+  if (!branch) return notFound();
 
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
