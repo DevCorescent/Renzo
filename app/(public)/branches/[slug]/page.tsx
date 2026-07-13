@@ -33,8 +33,8 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
 
   if (!branch) return notFound();
 
-  // Group service pricings by category
-  type ServicePricing = (typeof branch.servicePricings)[number];
+  type BranchTiming = (typeof branch)["timings"][number];
+  type ServicePricing = (typeof branch)["servicePricings"][number];
   const catMap = new Map<string, { catName: string; items: ServicePricing[] }>();
   for (const sp of branch.servicePricings) {
     const cat = sp.service.category.name;
@@ -160,7 +160,7 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
                   <Clock className="size-4 text-amber-500/70" /> Hours
                 </h3>
                 <div className="space-y-1.5">
-                  {branch.timings.map((t) => (
+                  {branch.timings.map((t: BranchTiming) => (
                     <div key={t.id} className="flex justify-between text-xs">
                       <span className="text-stone-400">{DAYS[t.dayOfWeek]}</span>
                       {t.isOpen ? (
