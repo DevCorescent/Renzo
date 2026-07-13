@@ -34,9 +34,8 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
   if (!branch) notFound();
 
   // Group service pricings by category
-  const servicesByCategory = branch.servicePricings.reduce<
-    Record<string, { catName: string; items: typeof branch.servicePricings }>
-  >((acc, sp) => {
+  type PricingGroup = Record<string, { catName: string; items: typeof branch.servicePricings }>;
+  const servicesByCategory = branch.servicePricings.reduce<PricingGroup>((acc: PricingGroup, sp) => {
     const cat = sp.service.category.name;
     if (!acc[cat]) acc[cat] = { catName: cat, items: [] };
     acc[cat].items.push(sp);
