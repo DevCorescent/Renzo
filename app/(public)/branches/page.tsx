@@ -51,6 +51,9 @@ export default async function BranchesPage({
     orderBy: { city: "asc" },
   });
 
+  type BranchRow = (typeof branches)[number];
+  type CityRow  = (typeof cities)[number];
+
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100">
       {/* Hero */}
@@ -71,7 +74,7 @@ export default async function BranchesPage({
             >
               All cities
             </Link>
-            {cities.map((c) => (
+            {cities.map((c: CityRow) => (
               <Link
                 key={c.city}
                 href={`/branches?city=${encodeURIComponent(c.city)}`}
@@ -94,7 +97,7 @@ export default async function BranchesPage({
           <p className="py-20 text-center text-stone-500">No branches found.</p>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {branches.map((b) => (
+            {branches.map((b: BranchRow) => (
               <Link
                 key={b.id}
                 href={`/branches/${b.slug}`}
