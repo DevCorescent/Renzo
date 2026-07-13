@@ -75,12 +75,16 @@ export default async function AccountantDashboardPage() {
       }),
     ]);
 
+  type InvoiceRaw = (typeof recentInvoices)[number];
+  type PaymentRaw = (typeof paymentsByMethod)[number];
+  type CustomerRaw = { id: string; firstName: string; lastName: string | null };
+
   // Invoice has no `customer` relation — resolve names in one lookup.
-  const custIds = [...new Set(recentInvoices.map((i) => i.customerId))];
-  const customers = custIds.length
+  const custIds = [...new Set(recentInvoices.map((i: InvoiceRaw) => i.customerId))];
+  const customers: CustomerRaw[] = custIds.length
     ? await prisma.customer.findMany({ where: { id: { in: custIds } }, select: { id: true, firstName: true, lastName: true } })
     : [];
-  const custMap = new Map(customers.map((c) => [c.id, fullName(c.firstName, c.lastName)]));
+  const custMap = new Map(customers.map((c: CustomerRaw) => [c.id, fullName(c.firstName, c.lastName)]));
 
   /* ── derive ─────────────────────────────────────────────────────────────── */
   const userName = "Accounts";
@@ -109,11 +113,11 @@ export default async function AccountantDashboardPage() {
 
   // revenue by payment method (bar)
   const methodBars = paymentsByMethod
-    .map((p) => ({ label: p.method, value: Math.round(Number(p._sum.amount ?? 0)) }))
+    .map((p: PaymentRaw) => ({ label: p.method, value: Math.round(Number(p._sum.amount ?? 0)) }))
     .filter((b) => b.value > 0)
     .sort((a, b) => b.value - a.value);
 
-  const invoiceRows: InvoiceRow[] = recentInvoices.map((i) => ({
+  const invoiceRows: InvoiceRow[] = recentInvoices.map((i: InvoiceRaw) => ({
     id: i.id,
     invoiceNo: i.invoiceNo,
     customer: custMap.get(i.customerId) ?? "—",
@@ -124,7 +128,7 @@ export default async function AccountantDashboardPage() {
     status: i.status,
   }));
 
-  const activity: ActivityItem[] = recentInvoices.slice(0, 6).map((i) => ({
+  const activity: ActivityItem[] = recentInvoices.slice(0, 6).map((i: InvoiceRaw) => ({
     id: i.id,
     title: (
       <span>
