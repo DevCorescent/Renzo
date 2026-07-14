@@ -33,7 +33,7 @@ export function SiteFooter() {
           {/* Brand */}
           <div className="space-y-4">
             <Link href="/" className="flex items-center gap-2.5">
-              <span className="inline-flex size-9 items-center justify-center rounded-full bg-gold/15 text-gold ring-1 ring-gold/30">
+              <span className="inline-flex size-9 items-center justify-center rounded-full bg-[#C4C9D1]/15 text-[#C4C9D1] ring-1 ring-[#C4C9D1]/30">
                 <Scissors className="size-4.5" />
               </span>
               <span className="font-heading text-2xl font-bold tracking-tight text-white">Renzo</span>
@@ -47,7 +47,7 @@ export function SiteFooter() {
                   key={label}
                   href="#"
                   aria-label={label}
-                  className="inline-flex size-9 items-center justify-center rounded-lg border border-white/10 text-stone-400 transition-colors hover:border-gold/40 hover:text-gold"
+                  className="inline-flex size-9 items-center justify-center rounded-lg border border-white/10 text-stone-400 transition-colors hover:border-[#C4C9D1]/40 hover:text-[#C4C9D1]"
                 >
                   <Icon className="size-4" />
                 </a>
@@ -66,7 +66,7 @@ export function SiteFooter() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-stone-400 transition-colors hover:text-gold"
+                      className="text-sm text-stone-400 transition-colors hover:text-[#C4C9D1]"
                     >
                       {link.label}
                     </Link>
@@ -83,15 +83,15 @@ export function SiteFooter() {
             </h4>
             <ul className="space-y-3 text-sm text-stone-400">
               <li className="flex items-start gap-2">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-gold" />
+                <MapPin className="mt-0.5 size-4 shrink-0 text-[#C4C9D1]" />
                 <span>12 Rosewood Avenue, Bandra West, Mumbai 400050</span>
               </li>
               <li className="flex items-center gap-2">
-                <Phone className="size-4 shrink-0 text-gold" />
+                <Phone className="size-4 shrink-0 text-[#C4C9D1]" />
                 <span>+91 98765 43210</span>
               </li>
               <li className="flex items-center gap-2">
-                <Mail className="size-4 shrink-0 text-gold" />
+                <Mail className="size-4 shrink-0 text-[#C4C9D1]" />
                 <span>hello@renzo.salon</span>
               </li>
             </ul>
@@ -101,8 +101,8 @@ export function SiteFooter() {
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-8 text-xs text-stone-500 sm:flex-row">
           <p>&copy; {new Date().getFullYear()} Renzo Salon. All rights reserved.</p>
           <div className="flex gap-6">
-            <Link href="#" className="transition-colors hover:text-gold">Privacy Policy</Link>
-            <Link href="#" className="transition-colors hover:text-gold">Terms of Service</Link>
+            <Link href="#" className="transition-colors hover:text-[#C4C9D1]">Privacy Policy</Link>
+            <Link href="#" className="transition-colors hover:text-[#C4C9D1]">Terms of Service</Link>
           </div>
         </div>
       </div>

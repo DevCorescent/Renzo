@@ -28,7 +28,7 @@ export default async function PublicLayout({ children }: { children: React.React
   const dashboardHref = user ? (DASHBOARD_FOR[user.userType] ?? null) : null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-stone-950">
+    <div className="renzo-luxe flex min-h-screen flex-col bg-stone-950">
       <SiteHeader dashboardHref={dashboardHref} />
       <div className="flex-1">{children}</div>
       <SiteFooter />
