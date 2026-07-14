@@ -22,6 +22,7 @@ export const API = {
     branch:       (slug: string) => `${BASE}/public/branches/${slug}`,
     workers:      `${BASE}/public/workers`,
     worker:       (id: string)   => `${BASE}/public/workers/${id}`,
+    workerReviews:(id: string)   => `${BASE}/public/workers/${id}/reviews`,
     services:     `${BASE}/public/services`,
     service:      (slug: string) => `${BASE}/public/services/${slug}`,
     packages:     `${BASE}/public/packages`,
@@ -42,6 +43,7 @@ export const API = {
     loyaltyRedeem:`${BASE}/customer/loyalty/redeem`,
     membership:   `${BASE}/customer/membership`,
     reviews:      `${BASE}/customer/reviews`,
+    review:       (id: string) => `${BASE}/customer/reviews/${id}`,
     giftCards:    `${BASE}/customer/gift-cards`,
   },
 

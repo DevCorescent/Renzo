@@ -1777,6 +1777,11 @@ model Review {
   worker   WorkerProfile? @relation(fields: [workerId], references: [id])
   appointment Appointment? @relation(fields: [appointmentId], references: [id])
 
+  // One review per booking. The route already checks this, but two concurrent
+  // submits could both pass that check — the DB is the only real guarantee.
+  // appointmentId is nullable and Postgres treats NULLs as distinct, so
+  // walk-in reviews with no appointment are unaffected.
+  @@unique([appointmentId])
   @@index([branchId, status])
   @@index([workerId, status])
   @@map("reviews")
