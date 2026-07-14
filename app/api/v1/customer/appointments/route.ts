@@ -316,6 +316,31 @@ export async function POST(req: NextRequest) {
       return err("One or more services are invalid");
     }
 
+    // ------------------------------------------------------------------------
+    // Worker ↔ Service qualification
+    //
+    // The stylist picker only lists workers qualified for the chosen service,
+    // but the API is the real gate: a hand-crafted request must not be able to
+    // book a stylist for a service they do not perform.
+    // ------------------------------------------------------------------------
+
+    if (worker) {
+      const qualified = await prisma.workerService.count({
+        where: {
+          workerId: worker.id,
+          serviceId: { in: serviceIds },
+          isActive: true,
+        },
+      });
+
+      if (qualified !== serviceIds.length) {
+        return err(
+          "This stylist does not offer one or more of the selected services",
+          422
+        );
+      }
+    }
+
     // TODO: this endpoint currently ignores any `variantId` a client might
     // send per service and always prices at service.basePrice. Confirm
     // whether variant-based pricing needs to be wired in here — the GET

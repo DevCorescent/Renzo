@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { API } from "@/lib/endpoints";
 import {
   MapPin, Scissors, Clock, ChevronLeft, ChevronRight, Check,
-  Loader2, CalendarDays, X,
+  Loader2, CalendarDays, X, Star, User, Award, Users,
 } from "lucide-react";
 
 /* ── shared types (exported for use in server page) ────────────────────────── */
@@ -27,6 +27,40 @@ type ApiService = {
   duration: number; gender: string; basePrice: number;
   category: { name: string }; branchPricings?: { price: number }[];
 };
+
+/** A stylist qualified for the chosen service at the chosen branch. */
+export type ApiWorker = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  displayName: string | null;
+  bio: string | null;
+  profilePhoto: string | null;
+  experience: number;
+  designation: { name: string; level: number } | null;
+  averageRating: number;
+  reviewCount: number;
+  availableToday: boolean | null;
+  nextSlot: string | null;
+};
+
+type WorkerDetail = ApiWorker & {
+  completedServices: number;
+  services: { id: string; name: string; duration: number }[];
+  ratingDistribution: Record<"1" | "2" | "3" | "4" | "5", number>;
+};
+
+type WorkerReview = {
+  id: string;
+  overallRating: number;
+  comment: string | null;
+  createdAt: string;
+  customer: { firstName: string } | null;
+};
+
+function workerName(w: { firstName: string; lastName: string; displayName: string | null }) {
+  return w.displayName?.trim() || `${w.firstName} ${w.lastName}`.trim();
+}
 
 /* ── helpers ────────────────────────────────────────────────────────────────── */
 
@@ -51,14 +85,17 @@ const DATE_COUNT = 14;
 /* ── top booking bar: shows selections made so far ──────────────────────────── */
 
 function BookingBar({
-  branch, service, date, slot,
-  onChangeBranch, onChangeService, onChangeSlot,
+  branch, service, worker, workerChosen, date, slot,
+  onChangeBranch, onChangeService, onChangeWorker, onChangeSlot,
 }: {
   branch: PreloadedBranch | null;
   service: PreloadedService | null;
+  worker: ApiWorker | null;
+  workerChosen: boolean;
   date: string; slot: string;
   onChangeBranch: () => void;
   onChangeService: () => void;
+  onChangeWorker: () => void;
   onChangeSlot: () => void;
 }) {
   if (!branch && !service) return null;
@@ -85,6 +122,18 @@ function BookingBar({
           <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
         </button>
       )}
+      {workerChosen && (
+        <button
+          onClick={onChangeWorker}
+          className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
+        >
+          <User className="size-3.5 shrink-0 text-amber-400" />
+          <span className="text-xs font-medium text-stone-200">
+            {worker ? workerName(worker) : "Any stylist"}
+          </span>
+          <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
+        </button>
+      )}
       {slot && (
         <button
           onClick={onChangeSlot}
@@ -99,12 +148,28 @@ function BookingBar({
   );
 }
 
+/* ── stars ──────────────────────────────────────────────────────────────────── */
+
+function Stars({ value, className = "size-3.5" }: { value: number; className?: string }) {
+  return (
+    <span className="inline-flex items-center gap-0.5" aria-label={`${value} out of 5`}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star
+          key={i}
+          className={`${className} ${i <= Math.round(value) ? "fill-amber-400 text-amber-400" : "text-stone-700"}`}
+        />
+      ))}
+    </span>
+  );
+}
+
 /* ── step indicator ─────────────────────────────────────────────────────────── */
 
-type Step = "branch" | "service" | "slot" | "confirm";
+type Step = "branch" | "service" | "worker" | "slot" | "confirm";
 const STEPS: { key: Step; label: string }[] = [
   { key: "branch", label: "Branch" },
   { key: "service", label: "Service" },
+  { key: "worker", label: "Stylist" },
   { key: "slot", label: "Date & Time" },
   { key: "confirm", label: "Confirm" },
 ];
@@ -191,16 +256,25 @@ function BranchStep({ onSelect }: { onSelect: (b: ApiBranch) => void }) {
 /* ── step 2: service ─────────────────────────────────────────────────────────── */
 
 function ServiceStep({ branchId, onSelect }: { branchId: string; onSelect: (s: PreloadedService) => void }) {
-  const [services, setServices] = React.useState<ApiService[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  // Result is tagged with the request it answers, so "loading" is derived from
+  // (result is stale) rather than set from inside the effect body.
+  const [result, setResult] = React.useState<{ key: string; items: ApiService[] } | null>(null);
 
   React.useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
     fetch(`${API.public.services}?branchId=${branchId}&limit=100`)
       .then((r) => r.json())
-      .then((j) => setServices(j.data?.items ?? j.data ?? []))
-      .finally(() => setLoading(false));
+      .then((j) => {
+        if (!cancelled) setResult({ key: branchId, items: j.data?.items ?? j.data ?? [] });
+      })
+      .catch(() => {
+        if (!cancelled) setResult({ key: branchId, items: [] });
+      });
+    return () => { cancelled = true; };
   }, [branchId]);
+
+  const loading = result?.key !== branchId;
+  const services = result?.key === branchId ? result.items : [];
 
   // Group by category
   const groupMap = new Map<string, { name: string; items: ApiService[] }>();
@@ -260,38 +334,345 @@ function ServiceStep({ branchId, onSelect }: { branchId: string; onSelect: (s: P
   );
 }
 
-/* ── step 3: date + slot ────────────────────────────────────────────────────── */
+/* ── step 3: stylist ────────────────────────────────────────────────────────── */
+
+// Expanded stylist detail: rating breakdown, services offered, recent reviews.
+// Fetched lazily — only when the customer actually opens a card.
+function WorkerDetailPanel({ workerId }: { workerId: string }) {
+  const [result, setResult] = React.useState<{
+    key: string;
+    detail: WorkerDetail | null;
+    reviews: WorkerReview[];
+    error: string | null;
+  } | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    Promise.all([
+      fetch(API.public.worker(workerId)).then((r) => r.json()),
+      fetch(`${API.public.workerReviews(workerId)}?limit=3`).then((r) => r.json()),
+    ])
+      .then(([d, rv]) => {
+        if (cancelled) return;
+        if (!d.success) throw new Error(d.message ?? "Could not load stylist");
+        setResult({ key: workerId, detail: d.data, reviews: rv.data?.items ?? [], error: null });
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setResult({
+          key: workerId,
+          detail: null,
+          reviews: [],
+          error: e instanceof Error ? e.message : "Could not load stylist",
+        });
+      });
+
+    return () => { cancelled = true; };
+  }, [workerId]);
+
+  const fresh = result?.key === workerId ? result : null;
+  const loading = fresh === null;
+  const error = fresh?.error ?? null;
+  const detail = fresh?.detail ?? null;
+  const reviews = fresh?.reviews ?? [];
+
+  if (loading) {
+    return (
+      <div className="flex justify-center border-t border-white/8 py-6">
+        <Loader2 className="size-4 animate-spin text-stone-600" />
+      </div>
+    );
+  }
+  if (error || !detail) {
+    return (
+      <p className="border-t border-white/8 px-4 py-4 text-center text-xs text-stone-500">
+        {error ?? "Could not load stylist details"}
+      </p>
+    );
+  }
+
+  const total = detail.reviewCount;
+
+  return (
+    <div className="space-y-4 border-t border-white/8 bg-stone-950/40 px-4 py-4">
+      {detail.bio && <p className="text-xs leading-relaxed text-stone-400">{detail.bio}</p>}
+
+      <div className="flex flex-wrap gap-4 text-xs text-stone-400">
+        <span className="flex items-center gap-1.5">
+          <Award className="size-3.5 text-amber-400" />
+          {detail.experience} yr{detail.experience === 1 ? "" : "s"} experience
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Check className="size-3.5 text-emerald-400" />
+          {detail.completedServices} completed
+        </span>
+      </div>
+
+      {/* Rating distribution */}
+      {total > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Ratings</p>
+          {([5, 4, 3, 2, 1] as const).map((n) => {
+            const count = detail.ratingDistribution[String(n) as "1" | "2" | "3" | "4" | "5"] ?? 0;
+            const pct = total ? (count / total) * 100 : 0;
+            return (
+              <div key={n} className="flex items-center gap-2">
+                <span className="w-6 text-[10px] text-stone-500">{n}★</span>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-800">
+                  <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
+                </div>
+                <span className="w-6 text-right text-[10px] text-stone-500">{count}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Services offered */}
+      {detail.services.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-stone-500">Services offered</p>
+          <div className="flex flex-wrap gap-1.5">
+            {detail.services.map((s) => (
+              <span key={s.id} className="rounded-lg bg-stone-800 px-2 py-1 text-[11px] text-stone-300">
+                {s.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent reviews */}
+      <div>
+        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-stone-500">Recent reviews</p>
+        {reviews.length === 0 ? (
+          <p className="text-xs text-stone-600">No reviews yet — be the first.</p>
+        ) : (
+          <div className="space-y-2">
+            {reviews.map((r) => (
+              <div key={r.id} className="rounded-xl border border-white/8 bg-stone-900 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <Stars value={r.overallRating} className="size-3" />
+                  <span className="text-[11px] text-stone-500">{r.customer?.firstName ?? "Guest"}</span>
+                </div>
+                {r.comment && <p className="mt-1 text-xs text-stone-400">{r.comment}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WorkerStep({
+  branchId, serviceId, onSelect,
+}: {
+  branchId: string;
+  serviceId: string;
+  onSelect: (worker: ApiWorker | null) => void;
+}) {
+  const [expanded, setExpanded] = React.useState<string | null>(null);
+  const [result, setResult] = React.useState<{
+    key: string;
+    items: ApiWorker[];
+    error: string | null;
+  } | null>(null);
+
+  const key = `${branchId}|${serviceId}`;
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    // Only stylists at this branch who are qualified for this service.
+    fetch(`${API.public.workers}?branchId=${branchId}&serviceId=${serviceId}&date=${today()}&limit=50`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        if (!j.success) throw new Error(j.message ?? "Could not load stylists");
+        setResult({ key: `${branchId}|${serviceId}`, items: j.data?.items ?? [], error: null });
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setResult({
+          key: `${branchId}|${serviceId}`,
+          items: [],
+          error: e instanceof Error ? e.message : "Could not load stylists",
+        });
+      });
+
+    return () => { cancelled = true; };
+  }, [branchId, serviceId]);
+
+  const fresh = result?.key === key ? result : null;
+  const loading = fresh === null;
+  const error = fresh?.error ?? null;
+  const workers = fresh?.items ?? [];
+
+  return (
+    <div>
+      <h2 className="mb-1 text-lg font-semibold">Choose your stylist</h2>
+      <p className="mb-5 text-sm text-stone-400">Only stylists who perform this service at this branch are shown</p>
+
+      {loading ? (
+        <div className="flex justify-center py-16"><Loader2 className="size-6 animate-spin text-stone-600" /></div>
+      ) : error ? (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</div>
+      ) : (
+        <div className="space-y-3">
+          {/* Any-stylist option keeps the original "book without picking" path. */}
+          <button
+            onClick={() => onSelect(null)}
+            className="group flex w-full items-center gap-3 rounded-2xl border border-white/8 bg-stone-900 p-4 text-left transition hover:border-amber-500/40 hover:bg-stone-800"
+          >
+            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-stone-800">
+              <Users className="size-5 text-stone-500" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-stone-100 group-hover:text-amber-400 transition">Any available stylist</p>
+              <p className="text-xs text-stone-500">We&apos;ll assign the best available professional</p>
+            </div>
+            <ChevronRight className="size-4 text-stone-600 group-hover:text-amber-400 transition" />
+          </button>
+
+          {workers.length === 0 ? (
+            <p className="rounded-2xl border border-white/8 bg-stone-900 py-10 text-center text-sm text-stone-500">
+              No stylist at this branch offers this service yet — pick “Any available stylist”,
+              or choose a different service.
+            </p>
+          ) : (
+            workers.map((w) => {
+              const isOpen = expanded === w.id;
+              return (
+                <div
+                  key={w.id}
+                  className="overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-amber-500/30"
+                >
+                  <div className="flex items-center gap-3 p-4">
+                    <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-stone-800">
+                      {w.profilePhoto ? (
+                        <Image src={w.profilePhoto} alt={workerName(w)} fill className="object-cover" sizes="56px" />
+                      ) : (
+                        <div className="flex size-full items-center justify-center text-lg font-bold text-stone-600">
+                          {w.firstName[0]}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-stone-100">{workerName(w)}</p>
+
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                        {w.reviewCount > 0 ? (
+                          <span className="flex items-center gap-1 text-amber-400">
+                            <Star className="size-3 fill-amber-400" />
+                            {w.averageRating.toFixed(1)}
+                            <span className="text-stone-500">({w.reviewCount} review{w.reviewCount === 1 ? "" : "s"})</span>
+                          </span>
+                        ) : (
+                          <span className="text-stone-600">No reviews yet</span>
+                        )}
+                      </div>
+
+                      <p className="mt-0.5 text-xs text-stone-500">
+                        {w.designation?.name && <>{w.designation.name} · </>}
+                        {w.experience} yr{w.experience === 1 ? "" : "s"} experience
+                      </p>
+
+                      {w.availableToday === true ? (
+                        <p className="mt-1 text-xs font-medium text-emerald-400">
+                          Available today{w.nextSlot ? ` · next ${w.nextSlot}` : ""}
+                        </p>
+                      ) : w.availableToday === false ? (
+                        <p className="mt-1 text-xs text-stone-600">Fully booked today — other dates available</p>
+                      ) : null}
+                    </div>
+
+                    <button
+                      onClick={() => onSelect(w)}
+                      className="shrink-0 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-amber-400 active:scale-95"
+                    >
+                      Select
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setExpanded(isOpen ? null : w.id)}
+                    className="w-full border-t border-white/8 py-2 text-xs font-medium text-stone-500 transition hover:bg-white/4 hover:text-stone-300"
+                  >
+                    {isOpen ? "Hide details" : "View details & reviews"}
+                  </button>
+
+                  {isOpen && <WorkerDetailPanel workerId={w.id} />}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── step 4: date + slot ────────────────────────────────────────────────────── */
 
 function SlotStep({
-  branchId, serviceId,
+  branchId, serviceId, workerId,
   onSelect,
 }: {
-  branchId: string; serviceId: string;
+  branchId: string; serviceId: string; workerId: string | null;
   onSelect: (date: string, slot: string) => void;
 }) {
   const dates = React.useMemo(() => Array.from({ length: DATE_COUNT }, (_, i) => addDays(today(), i)), []);
   const [selectedDate, setSelectedDate] = React.useState(dates[0]);
-  const [slots, setSlots] = React.useState<string[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [msg, setMsg] = React.useState<string | null>(null);
+  const [result, setResult] = React.useState<{
+    key: string;
+    slots: string[];
+    msg: string | null;
+  } | null>(null);
+
+  const key = `${branchId}|${serviceId}|${workerId ?? ""}|${selectedDate}`;
 
   React.useEffect(() => {
-    setSlots([]); setMsg(null); setLoading(true);
-    fetch(`${API.public.slots}?branchId=${branchId}&serviceId=${serviceId}&date=${selectedDate}`)
+    let cancelled = false;
+
+    // With a workerId the API returns ONLY that stylist's free slots, so one
+    // stylist's bookings never remove slots from another's schedule.
+    const q = new URLSearchParams({ branchId, serviceId, date: selectedDate });
+    if (workerId) q.set("workerId", workerId);
+    const reqKey = `${branchId}|${serviceId}|${workerId ?? ""}|${selectedDate}`;
+
+    fetch(`${API.public.slots}?${q.toString()}`)
       .then((r) => r.json())
       .then((j) => {
-        setSlots(j.data?.slots ?? []);
-        if (!j.success) setMsg(j.message ?? "Could not load slots");
-        else if ((j.data?.slots ?? []).length === 0) setMsg("No slots available — try another date");
+        if (cancelled) return;
+        const list: string[] = j.data?.slots ?? [];
+        const msg = !j.success
+          ? j.message ?? "Could not load slots"
+          : list.length === 0
+            ? "No slots available — try another date"
+            : null;
+        setResult({ key: reqKey, slots: list, msg });
       })
-      .catch(() => setMsg("Failed to load slots"))
-      .finally(() => setLoading(false));
-  }, [branchId, serviceId, selectedDate]);
+      .catch(() => {
+        if (!cancelled) setResult({ key: reqKey, slots: [], msg: "Failed to load slots" });
+      });
+
+    return () => { cancelled = true; };
+  }, [branchId, serviceId, workerId, selectedDate]);
+
+  const fresh = result?.key === key ? result : null;
+  const loading = fresh === null;
+  const slots = fresh?.slots ?? [];
+  const msg = fresh?.msg ?? null;
 
   return (
     <div>
       <h2 className="mb-1 text-lg font-semibold">Pick a date & time</h2>
-      <p className="mb-5 text-sm text-stone-400">Choose when you'd like to come in</p>
+      <p className="mb-5 text-sm text-stone-400">
+        {workerId ? "Showing only your stylist's free slots" : "Choose when you'd like to come in"}
+      </p>
 
       {/* Horizontal date scroller */}
       <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
@@ -348,10 +729,11 @@ function SlotStep({
 /* ── step 4: confirm ────────────────────────────────────────────────────────── */
 
 function ConfirmStep({
-  branch, service, date, slot, notes,
+  branch, service, worker, date, slot, notes,
   onNotes, onConfirm, loading, error,
 }: {
   branch: PreloadedBranch; service: PreloadedService;
+  worker: ApiWorker | null;
   date: string; slot: string; notes: string;
   onNotes: (v: string) => void;
   onConfirm: () => void;
@@ -380,6 +762,20 @@ function ConfirmStep({
         <div className="divide-y divide-white/5 px-4">
           <Row label="Service">
             <span className="font-medium text-stone-200">{service.name}</span>
+          </Row>
+          <Row label="Stylist">
+            {worker ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="font-medium text-stone-200">{workerName(worker)}</span>
+                {worker.reviewCount > 0 && (
+                  <span className="flex items-center gap-0.5 text-xs text-amber-400">
+                    <Star className="size-3 fill-amber-400" />{worker.averageRating.toFixed(1)}
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span className="font-medium text-stone-400">Any available stylist</span>
+            )}
           </Row>
           <Row label="Date">
             <span className="font-medium text-stone-200">{fmtDate(date)}</span>
@@ -443,18 +839,27 @@ export function BookWizard({
 
   // Determine initial step based on what was pre-loaded server-side
   const initStep: Step =
-    initialBranch && initialService ? "slot"
+    initialBranch && initialService ? "worker"
     : initialBranch ? "service"
     : "branch";
 
   const [step, setStep] = React.useState<Step>(initStep);
   const [branch, setBranch] = React.useState<PreloadedBranch | null>(initialBranch);
   const [service, setService] = React.useState<PreloadedService | null>(initialService);
+  // `worker === null` is a valid choice ("any stylist"), so a separate flag
+  // tracks whether the customer has actually made the choice yet.
+  const [worker, setWorker] = React.useState<ApiWorker | null>(null);
+  const [workerChosen, setWorkerChosen] = React.useState(false);
   const [date, setDate] = React.useState("");
   const [slot, setSlot] = React.useState("");
   const [notes, setNotes] = React.useState("");
   const [confirmLoading, setConfirmLoading] = React.useState(false);
   const [confirmError, setConfirmError] = React.useState<string | null>(null);
+
+  function resetWorker() {
+    setWorker(null);
+    setWorkerChosen(false);
+  }
 
   async function handleConfirm() {
     if (!branch || !service || !date || !slot) return;
@@ -465,6 +870,8 @@ export function BookWizard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           branchId: branch.id,
+          // Omitted entirely when the customer picked "any stylist".
+          ...(worker ? { workerId: worker.id } : {}),
           services: [{ serviceId: service.id }],
           appointmentDate: date,
           startTime: slot,
@@ -492,16 +899,18 @@ export function BookWizard({
         <StepBar current={step} />
 
         <BookingBar
-          branch={branch} service={service} date={date} slot={slot}
-          onChangeBranch={() => { setBranch(null); setService(null); setDate(""); setSlot(""); setStep("branch"); }}
-          onChangeService={() => { setService(null); setDate(""); setSlot(""); setStep("service"); }}
+          branch={branch} service={service} worker={worker} workerChosen={workerChosen}
+          date={date} slot={slot}
+          onChangeBranch={() => { setBranch(null); setService(null); resetWorker(); setDate(""); setSlot(""); setStep("branch"); }}
+          onChangeService={() => { setService(null); resetWorker(); setDate(""); setSlot(""); setStep("service"); }}
+          onChangeWorker={() => { resetWorker(); setDate(""); setSlot(""); setStep("worker"); }}
           onChangeSlot={() => { setDate(""); setSlot(""); setStep("slot"); }}
         />
 
         {step === "branch" && (
           <BranchStep
             onSelect={(b) => {
-              setBranch(b); setService(null); setDate(""); setSlot("");
+              setBranch(b); setService(null); resetWorker(); setDate(""); setSlot("");
               setStep("service");
             }}
           />
@@ -517,7 +926,26 @@ export function BookWizard({
             </button>
             <ServiceStep
               branchId={branch.id}
-              onSelect={(s) => { setService(s); setDate(""); setSlot(""); setStep("slot"); }}
+              onSelect={(s) => { setService(s); resetWorker(); setDate(""); setSlot(""); setStep("worker"); }}
+            />
+          </>
+        )}
+
+        {step === "worker" && branch && service && (
+          <>
+            <button
+              onClick={() => { setService(null); resetWorker(); setStep("service"); }}
+              className="mb-4 flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-300 transition"
+            >
+              <ChevronLeft className="size-4" /> Change service
+            </button>
+            <WorkerStep
+              branchId={branch.id}
+              serviceId={service.id}
+              onSelect={(w) => {
+                setWorker(w); setWorkerChosen(true);
+                setDate(""); setSlot(""); setStep("slot");
+              }}
             />
           </>
         )}
@@ -525,14 +953,15 @@ export function BookWizard({
         {step === "slot" && branch && service && (
           <>
             <button
-              onClick={() => { setDate(""); setSlot(""); setStep("service"); }}
+              onClick={() => { resetWorker(); setDate(""); setSlot(""); setStep("worker"); }}
               className="mb-4 flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-300 transition"
             >
-              <ChevronLeft className="size-4" /> Change service
+              <ChevronLeft className="size-4" /> Change stylist
             </button>
             <SlotStep
               branchId={branch.id}
               serviceId={service.id}
+              workerId={worker?.id ?? null}
               onSelect={(d, s) => { setDate(d); setSlot(s); setStep("confirm"); }}
             />
           </>
@@ -547,7 +976,7 @@ export function BookWizard({
               <ChevronLeft className="size-4" /> Change time
             </button>
             <ConfirmStep
-              branch={branch} service={service} date={date} slot={slot}
+              branch={branch} service={service} worker={worker} date={date} slot={slot}
               notes={notes} onNotes={setNotes}
               onConfirm={handleConfirm}
               loading={confirmLoading} error={confirmError}

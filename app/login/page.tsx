@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Scissors, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import { API } from "@/lib/endpoints";
+import { GoogleLoginButton, GOOGLE_ENABLED } from "@/components/shared/google-login-button";
 import type { ApiResponse, UserType } from "@/types/api";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -33,6 +34,7 @@ export default function LoginPage() {
   const [tab, setTab] = React.useState<Tab>("staff");
   const [showPass, setShowPass] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const [googleLoading, setGoogleLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [debug, setDebug] = React.useState<string[]>([]);
 
@@ -104,6 +106,21 @@ export default function LoginPage() {
       goHome(json.data.user);
     } catch (e) { setError(e instanceof Error ? e.message : "Invalid OTP"); }
     finally { setLoading(false); }
+  }
+
+  // Google hands us an ID token; the server verifies it and issues the same
+  // session cookie as password / OTP login.
+  async function handleGoogleCredential(credential: string) {
+    setGoogleLoading(true); setError(null); setDebug([]);
+    try {
+      setDebug((d) => [...d, `→ Verifying Google account…`]);
+      const json = await post<{ user: LoggedInUser }>(API.auth.google, { credential });
+      if (!json.success || !json.data) throw new Error(json.message);
+      goHome(json.data.user);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Google sign-in failed";
+      setError(msg); setDebug((d) => [...d, `✗ ${msg}`]);
+    } finally { setGoogleLoading(false); }
   }
 
   return (
@@ -243,65 +260,82 @@ export default function LoginPage() {
                 <SubmitButton loading={loading} label="Sign in" />
               </motion.form>
             ) : (
-              <AnimatePresence mode="wait">
-                {otpStep === "phone" ? (
-                  <motion.form
-                    key="otp-phone"
-                    initial={reduce ? false : { opacity: 0, x: 16 }}
-                    animate={reduce ? undefined : { opacity: 1, x: 0 }}
-                    exit={reduce ? undefined : { opacity: 0, x: -16 }}
-                    transition={{ duration: 0.3, ease: EASE }}
-                    onSubmit={handleSendOtp}
-                    className="mt-6 space-y-4"
-                  >
-                    <Field label="Mobile number">
-                      <input
-                        type="tel" required
-                        value={phone} onChange={(e) => setPhone(e.target.value)}
-                        placeholder="9990001111"
-                        className="auth-input"
-                      />
-                    </Field>
-                    <SubmitButton loading={loading} label="Send code" />
-                    <p className="text-center text-xs text-stone-500">
-                      New here?{" "}
-                      <Link href="/signup" className="text-gold hover:underline">Create account</Link>
-                    </p>
-                  </motion.form>
-                ) : (
-                  <motion.form
-                    key="otp-code"
-                    initial={reduce ? false : { opacity: 0, x: 16 }}
-                    animate={reduce ? undefined : { opacity: 1, x: 0 }}
-                    exit={reduce ? undefined : { opacity: 0, x: -16 }}
-                    transition={{ duration: 0.3, ease: EASE }}
-                    onSubmit={handleVerifyOtp}
-                    className="mt-6 space-y-4"
-                  >
-                    <p className="text-sm text-stone-300">
-                      Code sent to <span className="font-medium text-white">{phone}</span>
-                    </p>
-                    <Field label="Enter 6-digit code">
-                      <input
-                        inputMode="numeric" maxLength={6} required
-                        value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                        placeholder="123456"
-                        className="auth-input text-center font-mono text-xl tracking-[0.5em]"
-                      />
-                    </Field>
-                    {devOtp && (
+              <div key="customer">
+                <AnimatePresence mode="wait">
+                  {otpStep === "phone" ? (
+                    <motion.form
+                      key="otp-phone"
+                      initial={reduce ? false : { opacity: 0, x: 16 }}
+                      animate={reduce ? undefined : { opacity: 1, x: 0 }}
+                      exit={reduce ? undefined : { opacity: 0, x: -16 }}
+                      transition={{ duration: 0.3, ease: EASE }}
+                      onSubmit={handleSendOtp}
+                      className="mt-6 space-y-4"
+                    >
+                      <Field label="Mobile number">
+                        <input
+                          type="tel" required
+                          value={phone} onChange={(e) => setPhone(e.target.value)}
+                          placeholder="9990001111"
+                          className="auth-input"
+                        />
+                      </Field>
+                      <SubmitButton loading={loading} label="Send code" />
                       <p className="text-center text-xs text-stone-500">
-                        Dev code: <span className="font-mono font-semibold text-gold">{devOtp}</span>
+                        New here?{" "}
+                        <Link href="/signup" className="text-gold hover:underline">Create account</Link>
                       </p>
-                    )}
-                    <SubmitButton loading={loading} label="Verify &amp; sign in" />
-                    <button type="button" onClick={() => { setOtpStep("phone"); setOtp(""); setError(null); }}
-                      className="w-full text-center text-xs text-stone-500 hover:text-stone-300 transition-colors">
-                      ← Use a different number
-                    </button>
-                  </motion.form>
+                    </motion.form>
+                  ) : (
+                    <motion.form
+                      key="otp-code"
+                      initial={reduce ? false : { opacity: 0, x: 16 }}
+                      animate={reduce ? undefined : { opacity: 1, x: 0 }}
+                      exit={reduce ? undefined : { opacity: 0, x: -16 }}
+                      transition={{ duration: 0.3, ease: EASE }}
+                      onSubmit={handleVerifyOtp}
+                      className="mt-6 space-y-4"
+                    >
+                      <p className="text-sm text-stone-300">
+                        Code sent to <span className="font-medium text-white">{phone}</span>
+                      </p>
+                      <Field label="Enter 6-digit code">
+                        <input
+                          inputMode="numeric" maxLength={6} required
+                          value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                          placeholder="123456"
+                          className="auth-input text-center font-mono text-xl tracking-[0.5em]"
+                        />
+                      </Field>
+                      {devOtp && (
+                        <p className="text-center text-xs text-stone-500">
+                          Dev code: <span className="font-mono font-semibold text-gold">{devOtp}</span>
+                        </p>
+                      )}
+                      <SubmitButton loading={loading} label="Verify &amp; sign in" />
+                      <button type="button" onClick={() => { setOtpStep("phone"); setOtp(""); setError(null); }}
+                        className="w-full text-center text-xs text-stone-500 hover:text-stone-300 transition-colors">
+                        ← Use a different number
+                      </button>
+                    </motion.form>
+                  )}
+                </AnimatePresence>
+
+                {/* Customers only — staff/admin keep password sign-in. */}
+                {GOOGLE_ENABLED && otpStep === "phone" && (
+                  <div className="mt-6 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <span className="h-px flex-1 bg-white/10" />
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-stone-600">or</span>
+                      <span className="h-px flex-1 bg-white/10" />
+                    </div>
+                    <GoogleLoginButton
+                      loading={googleLoading}
+                      onCredential={handleGoogleCredential}
+                    />
+                  </div>
                 )}
-              </AnimatePresence>
+              </div>
             )}
           </AnimatePresence>
 

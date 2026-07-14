@@ -2,6 +2,7 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect, notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge } from "@/components/shared/ui";
+import { ReviewDialog } from "@/components/customer/review-dialog";
 import Link from "next/link";
 
 const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info" | "primary"> = {
@@ -34,6 +35,27 @@ export default async function CustomerBookingDetailPage({ params }: { params: Pr
   if (!appointment || appointment.customerId !== authUser.customerId) return notFound();
 
   const canCancel = ["PENDING", "CONFIRMED"].includes(appointment.status);
+
+  // A stylist can only be rated once the appointment is actually COMPLETED.
+  // If a review already exists we show it (and let them edit) instead of
+  // offering to create a second one.
+  const canReview = appointment.status === "COMPLETED";
+  const existingReview = canReview
+    ? await prisma.review.findFirst({
+        where: { appointmentId: appointment.id, customerId: authUser.customerId },
+        select: {
+          id: true,
+          overallRating: true,
+          workerRating: true,
+          comment: true,
+          status: true,
+        },
+      })
+    : null;
+
+  const stylistName = appointment.worker
+    ? `${appointment.worker.firstName} ${appointment.worker.lastName}`.trim()
+    : null;
 
   return (
     <div className="space-y-6">
@@ -92,11 +114,21 @@ export default async function CustomerBookingDetailPage({ params }: { params: Pr
           <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-500 mb-3">Stylist</h2>
           {appointment.worker ? (
             <>
-              <p className="font-medium text-stone-100">{appointment.worker.firstName} {appointment.worker.lastName}</p>
+              <p className="font-medium text-stone-100">{stylistName}</p>
               <p className="text-xs text-stone-500 mt-0.5">{appointment.worker.designation?.name}</p>
             </>
           ) : (
             <p className="text-sm text-stone-500">Not assigned yet</p>
+          )}
+
+          {canReview && (
+            <div className="mt-4 border-t border-white/8 pt-4">
+              <ReviewDialog
+                appointmentId={appointment.id}
+                stylistName={stylistName}
+                existing={existingReview}
+              />
+            </div>
           )}
         </div>
 
