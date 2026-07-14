@@ -29,7 +29,7 @@ export function Testimonials() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex items-end justify-between gap-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">Kind words</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C4C9D1]">Kind words</p>
             <h2 className="mt-3 font-heading text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
               Hear from the Renzo Family
             </h2>
@@ -69,7 +69,7 @@ export function Testimonials() {
               )}
             >
               <div className="flex items-center gap-2">
-                <div className="flex gap-0.5 text-gold" aria-label={`Rated ${t.rating} out of 5`}>
+                <div className="flex gap-0.5 text-[#C4C9D1]" aria-label={`Rated ${t.rating} out of 5`}>
                   {Array.from({ length: 5 }).map((_, s) => (
                     <Star key={s} className="size-4 fill-current" />
                   ))}
@@ -80,7 +80,7 @@ export function Testimonials() {
                 &ldquo;{t.text}&rdquo;
               </blockquote>
               <figcaption className="mt-6 flex items-center gap-3">
-                <span className="inline-flex size-10 items-center justify-center rounded-full bg-gold/15 font-heading text-sm font-semibold text-gold ring-1 ring-gold/20">
+                <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#C4C9D1]/15 font-heading text-sm font-semibold text-[#C4C9D1] ring-1 ring-[#C4C9D1]/20">
                   {initials(t.name)}
                 </span>
                 <span>
