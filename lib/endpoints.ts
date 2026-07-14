@@ -9,6 +9,7 @@ export const API = {
   // ── Auth (Aman) ────────────────────────────────────────────────────────────
   auth: {
     login:        `${BASE}/auth/login`,
+    google:       `${BASE}/auth/google`,
     otpSend:      `${BASE}/auth/otp/send`,
     otpVerify:    `${BASE}/auth/otp/verify`,
     logout:       `${BASE}/auth/logout`,

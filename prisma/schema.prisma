@@ -250,6 +250,9 @@ model User {
   email        String?   @unique
   phone        String?   @unique
   passwordHash String?
+  // Google `sub` — stable account id, survives the user changing their email.
+  // Nullable: password/OTP accounts never have one.
+  googleId     String?   @unique
   userType     UserType
   isActive     Boolean   @default(true)
   isVerified   Boolean   @default(false)
