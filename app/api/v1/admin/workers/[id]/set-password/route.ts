@@ -1,19 +1,28 @@
 import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope, denyIfWorkerOutOfScope } from "@/lib/branch-scope";
 import { hashPassword } from "@/lib/password";
 import prisma from "@/lib/db";
 
 // OWNER: Aman | MODULE: Worker Management — Set / reset password
 // POST /api/v1/admin/workers/[id]/set-password
 // Body: { password: string }
+//
+// BRANCH ISOLATION: this route previously accepted BRANCH_ADMIN and never checked
+// that the worker belonged to that admin's branch — so a branch admin could set
+// the password of ANY worker on the platform and then log in as them. The scope
+// guard below closes that. SUPER_ADMIN / OWNER are unaffected.
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
+
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
 
   try {
     const { id } = await params;
@@ -23,6 +32,10 @@ export async function POST(
     if (!body.password || typeof body.password !== "string" || body.password.length < 6) {
       return err("Password must be at least 6 characters", 422);
     }
+
+    // Must run BEFORE the password is hashed or written.
+    const denied = await denyIfWorkerOutOfScope(prisma, id, scope);
+    if (denied) return denied;
 
     const worker = await prisma.workerProfile.findUnique({
       where: { id },
