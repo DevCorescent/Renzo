@@ -28,7 +28,7 @@ type ApiService = {
   category: { name: string }; branchPricings?: { price: number }[];
 };
 
-/** A stylist qualified for the chosen service at the chosen branch. */
+/** A worker qualified for the chosen service at the chosen branch. */
 export type ApiWorker = {
   id: string;
   firstName: string;
@@ -37,6 +37,10 @@ export type ApiWorker = {
   bio: string | null;
   profilePhoto: string | null;
   experience: number;
+  // Both are already returned by GET /public/workers — surfaced on the card so a
+  // customer can judge fit at a glance, never fetched again.
+  languages: string[];
+  skills: { skill: { name: string }; proficiency: number }[];
   designation: { name: string; level: number } | null;
   averageRating: number;
   reviewCount: number;
@@ -106,7 +110,7 @@ function BookingBar({
           onClick={onChangeBranch}
           className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
         >
-          <MapPin className="size-3.5 shrink-0 text-amber-400" />
+          <MapPin className="size-3.5 shrink-0 text-stone-400" />
           <span className="text-xs font-medium text-stone-200">{branch.name}</span>
           <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
         </button>
@@ -116,9 +120,9 @@ function BookingBar({
           onClick={onChangeService}
           className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
         >
-          <Scissors className="size-3.5 shrink-0 text-amber-400" />
+          <Scissors className="size-3.5 shrink-0 text-stone-400" />
           <span className="text-xs font-medium text-stone-200">{service.name}</span>
-          <span className="text-xs text-amber-400 font-semibold">₹{service.price.toLocaleString("en-IN")}</span>
+          <span className="text-xs font-semibold text-stone-100">₹{service.price.toLocaleString("en-IN")}</span>
           <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
         </button>
       )}
@@ -127,9 +131,9 @@ function BookingBar({
           onClick={onChangeWorker}
           className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
         >
-          <User className="size-3.5 shrink-0 text-amber-400" />
+          <User className="size-3.5 shrink-0 text-stone-400" />
           <span className="text-xs font-medium text-stone-200">
-            {worker ? workerName(worker) : "Any stylist"}
+            {worker ? workerName(worker) : "Any worker"}
           </span>
           <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
         </button>
@@ -139,7 +143,7 @@ function BookingBar({
           onClick={onChangeSlot}
           className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
         >
-          <Clock className="size-3.5 shrink-0 text-amber-400" />
+          <Clock className="size-3.5 shrink-0 text-stone-400" />
           <span className="text-xs font-medium text-stone-200">{fmtDate(date).split(",")[0]}, {slot}</span>
           <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
         </button>
@@ -156,7 +160,7 @@ function Stars({ value, className = "size-3.5" }: { value: number; className?: s
       {[1, 2, 3, 4, 5].map((i) => (
         <Star
           key={i}
-          className={`${className} ${i <= Math.round(value) ? "fill-amber-400 text-amber-400" : "text-stone-700"}`}
+          className={`${className} ${i <= Math.round(value) ? "fill-stone-100 text-stone-100" : "text-stone-700"}`}
         />
       ))}
     </span>
@@ -169,7 +173,7 @@ type Step = "branch" | "service" | "worker" | "slot" | "confirm";
 const STEPS: { key: Step; label: string }[] = [
   { key: "branch", label: "Branch" },
   { key: "service", label: "Service" },
-  { key: "worker", label: "Stylist" },
+  { key: "worker", label: "Worker" },
   { key: "slot", label: "Date & Time" },
   { key: "confirm", label: "Confirm" },
 ];
@@ -181,15 +185,18 @@ function StepBar({ current }: { current: Step }) {
       {STEPS.map((s, i) => (
         <React.Fragment key={s.key}>
           <div className="flex items-center gap-1.5">
+            {/* Completed → green check. Current → filled (white on this dark
+                shell, the dark-mode reading of the spec's "black filled"). Upcoming
+                → outlined gray. */}
             <span className={`inline-flex size-6 items-center justify-center rounded-full text-xs font-bold transition-colors ${
               i < idx ? "bg-emerald-500 text-white" :
-              i === idx ? "bg-amber-500 text-stone-950" :
-              "bg-stone-800 text-stone-500"
+              i === idx ? "bg-white text-stone-950" :
+              "bg-transparent text-stone-500 ring-1 ring-stone-700"
             }`}>
               {i < idx ? <Check className="size-3.5" /> : i + 1}
             </span>
             <span className={`hidden text-xs font-medium sm:inline ${
-              i === idx ? "text-amber-400" : i < idx ? "text-emerald-400" : "text-stone-600"
+              i === idx ? "text-stone-100" : i < idx ? "text-emerald-400" : "text-stone-600"
             }`}>
               {s.label}
             </span>
@@ -387,7 +394,7 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
   if (error || !detail) {
     return (
       <p className="border-t border-white/8 px-4 py-4 text-center text-xs text-stone-500">
-        {error ?? "Could not load stylist details"}
+        {error ?? "Could not load worker details"}
       </p>
     );
   }
@@ -400,7 +407,7 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
 
       <div className="flex flex-wrap gap-4 text-xs text-stone-400">
         <span className="flex items-center gap-1.5">
-          <Award className="size-3.5 text-amber-400" />
+          <Award className="size-3.5 text-stone-300" />
           {detail.experience} yr{detail.experience === 1 ? "" : "s"} experience
         </span>
         <span className="flex items-center gap-1.5">
@@ -409,7 +416,7 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
         </span>
       </div>
 
-      {/* Rating distribution */}
+      {/* Rating distribution — monochrome bars, no amber. */}
       {total > 0 && (
         <div className="space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Ratings</p>
@@ -420,7 +427,7 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
               <div key={n} className="flex items-center gap-2">
                 <span className="w-6 text-[10px] text-stone-500">{n}★</span>
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-800">
-                  <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
+                  <div className="h-full rounded-full bg-stone-300" style={{ width: `${pct}%` }} />
                 </div>
                 <span className="w-6 text-right text-[10px] text-stone-500">{count}</span>
               </div>
@@ -462,6 +469,18 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
           </div>
         )}
       </div>
+
+      {/* The full read-only portfolio opens in a new tab, so a booking in progress
+          is never lost. */}
+      <a
+        href={`/stylists/${workerId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-stone-300 underline-offset-4 transition hover:text-white hover:underline"
+      >
+        View full portfolio
+        <ChevronRight className="size-3.5" />
+      </a>
     </div>
   );
 }
@@ -512,8 +531,8 @@ function WorkerStep({
 
   return (
     <div>
-      <h2 className="mb-1 text-lg font-semibold">Choose your stylist</h2>
-      <p className="mb-5 text-sm text-stone-400">Only stylists who perform this service at this branch are shown</p>
+      <h2 className="mb-1 text-lg font-semibold">Choose your worker</h2>
+      <p className="mb-5 text-sm text-stone-400">Only workers who perform this service at this branch are shown</p>
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="size-6 animate-spin text-stone-600" /></div>
@@ -524,85 +543,111 @@ function WorkerStep({
           {/* Any-stylist option keeps the original "book without picking" path. */}
           <button
             onClick={() => onSelect(null)}
-            className="group flex w-full items-center gap-3 rounded-2xl border border-white/8 bg-stone-900 p-4 text-left transition hover:border-amber-500/40 hover:bg-stone-800"
+            className="group flex w-full items-center gap-3 rounded-2xl border border-white/8 bg-stone-900 p-4 text-left transition hover:border-white/25 hover:bg-stone-800"
           >
             <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-stone-800">
-              <Users className="size-5 text-stone-500" />
+              <Users className="size-5 text-stone-400" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-semibold text-stone-100 group-hover:text-amber-400 transition">Any available stylist</p>
+              <p className="font-semibold text-stone-100">Any available worker</p>
               <p className="text-xs text-stone-500">We&apos;ll assign the best available professional</p>
             </div>
-            <ChevronRight className="size-4 text-stone-600 group-hover:text-amber-400 transition" />
+            <ChevronRight className="size-4 text-stone-600 transition group-hover:text-stone-300" />
           </button>
 
           {workers.length === 0 ? (
             <p className="rounded-2xl border border-white/8 bg-stone-900 py-10 text-center text-sm text-stone-500">
-              No stylist at this branch offers this service yet — pick “Any available stylist”,
+              No worker at this branch offers this service yet — pick “Any available worker”,
               or choose a different service.
             </p>
           ) : (
             workers.map((w) => {
               const isOpen = expanded === w.id;
+              // Highest-proficiency skills first, from the list payload — no fetch.
+              const topSkills = [...w.skills]
+                .sort((a, b) => b.proficiency - a.proficiency)
+                .slice(0, 3)
+                .map((s) => s.skill.name);
               return (
                 <div
                   key={w.id}
-                  className="overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-amber-500/30"
+                  className="overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-white/20"
                 >
-                  <div className="flex items-center gap-3 p-4">
-                    <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-stone-800">
-                      {w.profilePhoto ? (
-                        <Image src={w.profilePhoto} alt={workerName(w)} fill className="object-cover" sizes="56px" />
-                      ) : (
-                        <div className="flex size-full items-center justify-center text-lg font-bold text-stone-600">
-                          {w.firstName[0]}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-stone-100">{workerName(w)}</p>
-
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-                        {w.reviewCount > 0 ? (
-                          <span className="flex items-center gap-1 text-amber-400">
-                            <Star className="size-3 fill-amber-400" />
-                            {w.averageRating.toFixed(1)}
-                            <span className="text-stone-500">({w.reviewCount} review{w.reviewCount === 1 ? "" : "s"})</span>
-                          </span>
+                  <div className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-stone-800 ring-1 ring-white/10">
+                        {w.profilePhoto ? (
+                          <Image src={w.profilePhoto} alt={workerName(w)} fill className="object-cover" sizes="64px" />
                         ) : (
-                          <span className="text-stone-600">No reviews yet</span>
+                          <div className="flex size-full items-center justify-center text-lg font-bold text-stone-600">
+                            {w.firstName[0]}
+                          </div>
                         )}
                       </div>
 
-                      <p className="mt-0.5 text-xs text-stone-500">
-                        {w.designation?.name && <>{w.designation.name} · </>}
-                        {w.experience} yr{w.experience === 1 ? "" : "s"} experience
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate font-semibold text-stone-100">{workerName(w)}</p>
+                          {w.reviewCount > 0 ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-stone-800 px-2 py-0.5 text-[11px] font-medium text-stone-200">
+                              <Star className="size-3 fill-stone-100 text-stone-100" />
+                              {w.averageRating.toFixed(1)}
+                              <span className="text-stone-500">({w.reviewCount})</span>
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-stone-600">No reviews yet</span>
+                          )}
+                        </div>
 
-                      {w.availableToday === true ? (
-                        <p className="mt-1 text-xs font-medium text-emerald-400">
-                          Available today{w.nextSlot ? ` · next ${w.nextSlot}` : ""}
+                        <p className="mt-0.5 text-xs text-stone-500">
+                          {w.designation?.name && <>{w.designation.name} · </>}
+                          {w.experience} yr{w.experience === 1 ? "" : "s"} experience
                         </p>
-                      ) : w.availableToday === false ? (
-                        <p className="mt-1 text-xs text-stone-600">Fully booked today — other dates available</p>
-                      ) : null}
+
+                        {topSkills.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {topSkills.map((name) => (
+                              <span
+                                key={name}
+                                className="rounded-md bg-stone-800 px-1.5 py-0.5 text-[10px] font-medium text-stone-300"
+                              >
+                                {name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {w.languages.length > 0 && (
+                          <p className="mt-1.5 text-[11px] text-stone-500">Speaks {w.languages.join(", ")}</p>
+                        )}
+
+                        {w.availableToday === true ? (
+                          <p className="mt-1.5 text-xs font-medium text-emerald-400">
+                            Available today{w.nextSlot ? ` · next ${w.nextSlot}` : ""}
+                          </p>
+                        ) : w.availableToday === false ? (
+                          <p className="mt-1.5 text-xs text-stone-600">Fully booked today — other dates available</p>
+                        ) : null}
+                      </div>
                     </div>
 
-                    <button
-                      onClick={() => onSelect(w)}
-                      className="shrink-0 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-amber-400 active:scale-95"
-                    >
-                      Select
-                    </button>
+                    {/* Portfolio (inline preview) + Select (primary). */}
+                    <div className="mt-4 flex items-center gap-2">
+                      <button
+                        onClick={() => setExpanded(isOpen ? null : w.id)}
+                        aria-expanded={isOpen}
+                        className="inline-flex flex-1 items-center justify-center rounded-full border border-white/12 px-4 py-2 text-xs font-semibold text-stone-200 transition hover:border-white/25 hover:bg-white/5"
+                      >
+                        {isOpen ? "Hide portfolio" : "Portfolio"}
+                      </button>
+                      <button
+                        onClick={() => onSelect(w)}
+                        className="inline-flex flex-1 items-center justify-center rounded-full bg-white px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-stone-200 active:scale-[0.98]"
+                      >
+                        Select
+                      </button>
+                    </div>
                   </div>
-
-                  <button
-                    onClick={() => setExpanded(isOpen ? null : w.id)}
-                    className="w-full border-t border-white/8 py-2 text-xs font-medium text-stone-500 transition hover:bg-white/4 hover:text-stone-300"
-                  >
-                    {isOpen ? "Hide details" : "View details & reviews"}
-                  </button>
 
                   {isOpen && <WorkerDetailPanel workerId={w.id} />}
                 </div>
@@ -752,7 +797,7 @@ function ConfirmStep({
           {branch.coverImage && (
             <Image src={branch.coverImage} alt={branch.name} fill className="object-cover opacity-50" sizes="100vw" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-t from-stone-900 via-transparent to-transparent" />
           <div className="absolute bottom-3 left-4">
             <p className="text-xs text-stone-400">Branch</p>
             <p className="font-semibold text-stone-100">{branch.name} · {branch.city}</p>
@@ -956,7 +1001,7 @@ export function BookWizard({
               onClick={() => { resetWorker(); setDate(""); setSlot(""); setStep("worker"); }}
               className="mb-4 flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-300 transition"
             >
-              <ChevronLeft className="size-4" /> Change stylist
+              <ChevronLeft className="size-4" /> Change worker
             </button>
             <SlotStep
               branchId={branch.id}
