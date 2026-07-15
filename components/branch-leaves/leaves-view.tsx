@@ -145,7 +145,7 @@ export function LeavesView({
                 <TD className="whitespace-nowrap text-xs text-gray-600">{formatDate(l.startDate)}</TD>
                 <TD className="whitespace-nowrap text-xs text-gray-600">{formatDate(l.endDate)}</TD>
                 <TD className="text-gray-500">{l.days}</TD>
-                <TD className="max-w-[180px] truncate text-xs text-gray-500" title={l.reason}>
+                <TD className="max-w-45 truncate text-xs text-gray-500" title={l.reason}>
                   {l.reason}
                 </TD>
                 <TD>
