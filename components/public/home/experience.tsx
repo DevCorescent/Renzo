@@ -28,7 +28,7 @@ function StatItem({ stat, start, index }: { stat: Stat; start: boolean; index: n
         {String(index + 1).padStart(2, "0")}
       </span>
       <p
-        className="bg-gradient-to-br from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text font-heading text-4xl font-semibold leading-none text-transparent sm:text-5xl"
+        className="font-heading text-4xl font-semibold leading-none text-white sm:text-5xl"
         aria-hidden="true"
       >
         {value}
