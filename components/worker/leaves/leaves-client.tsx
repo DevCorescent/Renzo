@@ -267,7 +267,7 @@ export function LeavesClient({
                         {formatDate(l.endDate)}
                       </TD>
                       <TD className="text-gray-500">{l.days}</TD>
-                      <TD className="max-w-[220px] truncate text-xs text-gray-500" title={l.reason}>
+                      <TD className="max-w-55 truncate text-xs text-gray-500" title={l.reason}>
                         {l.reason}
                       </TD>
                       <TD>

@@ -1,119 +1,191 @@
 import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
-import { Badge, Card, CardHeader, CardTitle, CardBody } from "@/components/shared/ui";
+import { ProfileHero } from "@/components/worker-profile/profile-hero";
+import {
+  PersonalDetails,
+  EmploymentDetails,
+  ProfessionalSkills,
+  AssignedServices,
+  CurrentBranch,
+  Documents,
+} from "@/components/worker-profile/profile-sections";
+import {
+  AttendanceSnapshot,
+  LeaveSummary,
+  QuickActions,
+} from "@/components/worker-profile/profile-snapshots";
 
 // OWNER: Hemant | MODULE: Worker — Profile
+//
+// The internal profile — an identity/employment record, NOT the portfolio. The UI
+// was rebuilt into premium, sectioned cards, but the data contract is unchanged:
+// still a Server Component reading the worker's own record directly.
+//
+// Everything is READ ONLY: there is no worker self-edit API, so no field is
+// editable and no edit/download action is offered. Sections without backing data
+// hide themselves — attendance is omitted when no records exist this month; skills,
+// services and documents hide when empty; emergency contact and notifications are
+// absent entirely because no schema field exists for them. Nothing is faked, and
+// no value ever renders as null/undefined.
 
 export default async function WorkerProfilePage() {
   const authUser = await getServerUser();
   if (!authUser?.workerId) redirect("/login");
   const workerId = authUser.workerId;
 
-  const worker = await prisma.workerProfile.findUnique({
-    where: { id: workerId },
-    include: {
-      designation: { select: { name: true, level: true } },
-      department: { select: { name: true } },
-      skills: { include: { skill: { select: { name: true } } } },
-      services: { where: { isActive: true }, include: { service: { select: { name: true, duration: true } } } },
-      branches: { include: { branch: { select: { name: true, city: true } } } },
-    },
-  });
+  // Current-month window for the attendance snapshot, pinned to UTC like every
+  // other date in the codebase.
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const todayIso = now.toISOString().slice(0, 10);
+
+  // One parallel batch — no waterfalls, no duplicate queries. Attendance and leave
+  // are new reads (not duplicates of the worker query): the data already exists in
+  // the schema, so these sections are backed, not faked.
+  const [worker, leaveGroups, attendanceRows] = await Promise.all([
+    prisma.workerProfile.findUnique({
+      where: { id: workerId },
+      include: {
+        designation: { select: { name: true, level: true } },
+        department: { select: { name: true } },
+        skills: { include: { skill: { select: { name: true } } } },
+        services: {
+          where: { isActive: true },
+          include: { service: { select: { name: true, duration: true } } },
+        },
+        branches: { include: { branch: { select: { name: true, city: true } } } },
+      },
+    }),
+    prisma.leave.groupBy({ by: ["status"], where: { workerId }, _count: { _all: true } }),
+    prisma.attendance.findMany({
+      where: { workerId, date: { gte: monthStart } },
+      select: { date: true, status: true, lateMinutes: true, workingMinutes: true },
+    }),
+  ]);
 
   if (!worker) redirect("/login");
 
+  // ── Current / primary branch ────────────────────────────────────────────
+  const primaryLink =
+    worker.branches.find((b) => b.isPrimary && b.isActive) ??
+    worker.branches.find((b) => b.isActive) ??
+    worker.branches[0] ??
+    null;
+
+  // ── Leave summary ─────────────────────────────────────────────────────────
+  const leave = { pending: 0, approved: 0, rejected: 0, cancelled: 0 };
+  for (const g of leaveGroups) {
+    const n = g._count._all;
+    if (g.status === "PENDING") leave.pending = n;
+    else if (g.status === "APPROVED") leave.approved = n;
+    else if (g.status === "REJECTED") leave.rejected = n;
+    else if (g.status === "CANCELLED") leave.cancelled = n;
+  }
+
+  // ── Attendance snapshot (this month) ──────────────────────────────────────
+  // Null when there is nothing to show, so the page can hide the section entirely
+  // rather than render zeros as if they were real attendance.
+  let attendance: {
+    todayStatus: string;
+    attendancePct: number;
+    workingHours: number;
+    lateCount: number;
+  } | null = null;
+
+  if (attendanceRows.length > 0) {
+    let attended = 0;
+    let lateCount = 0;
+    let workingMinutes = 0;
+    let todayStatus = "Not marked";
+
+    for (const r of attendanceRows) {
+      if (r.status === "PRESENT" || r.status === "LATE") attended += 1;
+      else if (r.status === "HALF_DAY") attended += 0.5;
+      if (r.status === "LATE" || r.lateMinutes > 0) lateCount += 1;
+      workingMinutes += r.workingMinutes;
+      if (r.date.toISOString().slice(0, 10) === todayIso) todayStatus = r.status;
+    }
+
+    attendance = {
+      todayStatus,
+      attendancePct: Math.round((attended / attendanceRows.length) * 100),
+      workingHours: Math.round((workingMinutes / 60) * 10) / 10,
+      lateCount,
+    };
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">
-            {worker.firstName} {worker.lastName}
-          </h1>
-          <p className="mt-0.5 text-sm text-gray-500">
-            {worker.designation?.name ?? "Worker"} · {worker.experience} yrs experience
-          </p>
-        </div>
-        <Badge tone={worker.isActive ? "success" : "danger"}>{worker.isActive ? "Active" : "Inactive"}</Badge>
-      </div>
+    <div className="mx-auto max-w-4xl space-y-6 pb-12">
+      <ProfileHero
+        data={{
+          id: worker.id,
+          firstName: worker.firstName,
+          lastName: worker.lastName,
+          photo: worker.profilePhoto,
+          designation: worker.designation?.name ?? null,
+          department: worker.department?.name ?? null,
+          employeeCode: worker.employeeCode,
+          branchName: primaryLink?.branch.name ?? null,
+          experience: worker.experience,
+          isActive: worker.isActive,
+          joinDate: worker.joinDate,
+        }}
+      />
 
-      <Card>
-        <CardHeader><CardTitle>Personal Info</CardTitle></CardHeader>
-        <CardBody>
-          <dl className="grid gap-3 sm:grid-cols-2">
-            {[
-              ["Employee Code", worker.employeeCode],
-              ["Department", worker.department?.name ?? "—"],
-              ["Designation", worker.designation?.name ?? "—"],
-              ["Gender", worker.gender],
-              ["Phone", worker.phone ?? "—"],
-              ["Email", worker.email ?? "—"],
-              ["Date of Birth", worker.dateOfBirth ? new Date(worker.dateOfBirth).toLocaleDateString("en-IN") : "—"],
-              ["Join Date", new Date(worker.joinDate).toLocaleDateString("en-IN")],
-              ["Languages", worker.languages.join(", ") || "—"],
-            ].map(([label, value]) => (
-              <div key={String(label)} className="rounded border border-gray-100 p-3">
-                <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{label}</dt>
-                <dd className="mt-1 text-sm text-gray-800">{String(value)}</dd>
-              </div>
-            ))}
-          </dl>
-          {worker.bio && (
-            <div className="mt-4 rounded border border-gray-100 p-3">
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Bio</dt>
-              <dd className="mt-1 text-sm text-gray-700">{worker.bio}</dd>
-            </div>
-          )}
-        </CardBody>
-      </Card>
+      <PersonalDetails
+        data={{
+          phone: worker.phone,
+          email: worker.email,
+          gender: worker.gender,
+          dateOfBirth: worker.dateOfBirth,
+          languages: worker.languages,
+          bio: worker.bio,
+        }}
+      />
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Skills</CardTitle></CardHeader>
-          <div className="flex flex-wrap gap-2 p-4">
-            {worker.skills.length > 0
-              ? worker.skills.map((sk) => (
-                  <Badge key={sk.id} tone="neutral">{sk.skill.name} {sk.proficiency}/5</Badge>
-                ))
-              : <p className="text-sm text-gray-400">No skills listed.</p>
-            }
-          </div>
-        </Card>
+      <EmploymentDetails
+        data={{
+          employeeCode: worker.employeeCode,
+          department: worker.department?.name ?? null,
+          designation: worker.designation?.name ?? null,
+          experience: worker.experience,
+          joinDate: worker.joinDate,
+          currentBranch: primaryLink?.branch.name ?? null,
+          primaryBranch:
+            worker.branches.find((b) => b.isPrimary)?.branch.name ?? primaryLink?.branch.name ?? null,
+          isActive: worker.isActive,
+        }}
+      />
 
-        <Card>
-          <CardHeader><CardTitle>Services</CardTitle></CardHeader>
-          <div className="divide-y divide-gray-50">
-            {worker.services.length > 0
-              ? worker.services.map((ws) => (
-                  <div key={ws.id} className="flex justify-between px-4 py-2.5">
-                    <p className="text-sm text-gray-700">{ws.service.name}</p>
-                    <p className="text-xs text-gray-400">{ws.service.duration} min</p>
-                  </div>
-                ))
-              : <p className="px-4 py-4 text-sm text-gray-400">No services assigned.</p>
-            }
-          </div>
-        </Card>
-      </div>
+      <ProfessionalSkills
+        skills={worker.skills.map((s) => ({ name: s.skill.name, proficiency: s.proficiency }))}
+      />
 
-      <Card>
-        <CardHeader><CardTitle>Branch Assignments</CardTitle></CardHeader>
-        <div className="divide-y divide-gray-50">
-          {worker.branches.map((wb) => (
-            <div key={wb.id} className="flex items-center justify-between px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-gray-900">{wb.branch.name}</p>
-                <p className="text-xs text-gray-400">{wb.branch.city}</p>
-              </div>
-              <div className="flex gap-2">
-                {wb.isPrimary && <Badge tone="primary">Primary</Badge>}
-                <Badge tone={wb.isActive ? "success" : "neutral"}>{wb.isActive ? "Active" : "Off"}</Badge>
-              </div>
-            </div>
-          ))}
-          {worker.branches.length === 0 && <p className="px-4 py-4 text-sm text-gray-400">No branches assigned.</p>}
-        </div>
-      </Card>
+      <AssignedServices
+        services={worker.services.map((ws) => ({
+          name: ws.service.name,
+          duration: ws.service.duration,
+          isActive: ws.isActive,
+        }))}
+      />
+
+      <CurrentBranch
+        branches={worker.branches.map((wb) => ({
+          name: wb.branch.name,
+          city: wb.branch.city,
+          isPrimary: wb.isPrimary,
+          isActive: wb.isActive,
+        }))}
+      />
+
+      {attendance && <AttendanceSnapshot data={attendance} />}
+
+      <LeaveSummary data={leave} />
+
+      <Documents certificates={worker.certificates} />
+
+      <QuickActions />
     </div>
   );
 }

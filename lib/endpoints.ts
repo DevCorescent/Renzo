@@ -58,6 +58,14 @@ export const API = {
     leaves:       `${BASE}/worker/leaves`,
     leave:        (id: string) => `${BASE}/worker/leaves/${id}`,
     shifts:       `${BASE}/worker/shifts`,
+
+    // Portfolio — professional identity (Gauransh)
+    portfolio:            `${BASE}/worker/portfolio`,
+    portfolioItem:        (id: string) => `${BASE}/worker/portfolio/${id}`,
+    portfolioSummary:     `${BASE}/worker/portfolio/summary`,
+    portfolioStatistics:  `${BASE}/worker/portfolio/statistics`,
+    portfolioSkillRatings:`${BASE}/worker/portfolio/skill-ratings`,
+    portfolioReviews:     `${BASE}/worker/portfolio/reviews`,
   },
 
   // ── Reception panel (Gauransh + Shalmon) ──────────────────────────────────
