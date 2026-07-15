@@ -26,7 +26,7 @@ import { Badge } from "@/components/shared/ui";
 import { WorkerAvatar } from "@/components/workers/worker-ui";
 import { cn } from "@/lib/utils";
 import { LeaveStatusBadge } from "./leaves-ui";
-import { formatDate, workerName, type BranchLeave } from "./types";
+import { formatDate, workerName, workerBranchName, type BranchLeave } from "./types";
 
 type ActionResult = string | null; // error message, or null on success
 
@@ -39,13 +39,12 @@ export function LeaveDrawer({
   leave: BranchLeave | null;
   onClose: () => void;
   onApprove: (id: string) => Promise<ActionResult>;
-  onReject: (id: string, reason: string) => Promise<ActionResult>;
+  onReject: (id: string) => Promise<ActionResult>;
 }) {
   const dialogRef = React.useRef<HTMLDialogElement>(null);
   const open = leave !== null;
 
   const [mode, setMode] = React.useState<null | "approve" | "reject">(null);
-  const [reason, setReason] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -54,7 +53,6 @@ export function LeaveDrawer({
   if (open && leave.id !== shownId) {
     setShownId(leave.id);
     setMode(null);
-    setReason("");
     setSubmitting(false);
     setError(null);
   } else if (!open && shownId !== null) {
@@ -73,8 +71,7 @@ export function LeaveDrawer({
     if (!leave || submitting) return;
     setSubmitting(true);
     setError(null);
-    const err =
-      mode === "approve" ? await onApprove(leave.id) : await onReject(leave.id, reason);
+    const err = mode === "approve" ? await onApprove(leave.id) : await onReject(leave.id);
     setSubmitting(false);
     // On success the parent closes the drawer; on failure we keep it open and show
     // the route's message inline where the admin can act on it.
@@ -146,6 +143,7 @@ export function LeaveDrawer({
                   {leave.leaveType.isPaid ? "Paid" : "Unpaid"}
                 </Badge>
               </Row>
+              <Row label="Branch">{workerBranchName(leave.worker)}</Row>
               <Row label="Applied on">{formatDate(leave.createdAt)}</Row>
               <Row label="From">{formatDate(leave.startDate)}</Row>
               <Row label="To">{formatDate(leave.endDate)}</Row>
@@ -160,26 +158,17 @@ export function LeaveDrawer({
               <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">{leave.reason}</p>
             </div>
 
-            {/* Approval information */}
+            {/* Status. The transition writes only the status column, so there is
+                no actioned-by / actioned-on to show — the badge and this line are
+                the whole story, honestly. */}
             <div>
-              <p className="text-xs font-medium text-gray-500">Approval information</p>
-              <div className="mt-1 text-sm text-gray-700">
-                {leave.status === "PENDING" && <p className="text-gray-500">Awaiting review.</p>}
-                {leave.status === "CANCELLED" && (
-                  <p className="text-gray-500">Cancelled by the worker.</p>
-                )}
-                {(leave.status === "APPROVED" || leave.status === "REJECTED") && (
-                  <div className="space-y-1">
-                    <p>
-                      {leave.status === "APPROVED" ? "Approved" : "Rejected"} on{" "}
-                      {formatDate(leave.approvedAt)}
-                    </p>
-                    {leave.status === "REJECTED" && leave.rejectionReason && (
-                      <p className="text-gray-500">Reason: {leave.rejectionReason}</p>
-                    )}
-                  </div>
-                )}
-              </div>
+              <p className="text-xs font-medium text-gray-500">Status</p>
+              <p className="mt-1 text-sm text-gray-700">
+                {leave.status === "PENDING" && "Awaiting your review."}
+                {leave.status === "APPROVED" && "This leave has been approved."}
+                {leave.status === "REJECTED" && "This leave has been rejected."}
+                {leave.status === "CANCELLED" && "Cancelled by the worker."}
+              </p>
             </div>
           </div>
 
@@ -229,18 +218,6 @@ export function LeaveDrawer({
                   <span className="font-medium text-gray-900">{leave.leaveType.name}</span> leave from{" "}
                   {formatDate(leave.startDate)} to {formatDate(leave.endDate)}?
                 </p>
-
-                {mode === "reject" && (
-                  <textarea
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    disabled={submitting}
-                    rows={2}
-                    placeholder="Reason (optional)"
-                    aria-label="Rejection reason"
-                    className="w-full rounded border border-gray-200 bg-white px-2.5 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-gray-400 focus:ring-2 focus:ring-gray-900/5 disabled:bg-gray-50"
-                  />
-                )}
 
                 <div className="flex items-center justify-end gap-2">
                   <button

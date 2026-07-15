@@ -95,7 +95,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     if (leaveCount > 0 || balanceCount > 0) {
       return err(
-        "This leave type is in use and cannot be deleted. Deactivate it instead.",
+        "This leave type is already in use. Please deactivate it instead.",
         409
       );
     }
@@ -107,7 +107,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     // Prisma raises P2003 (FK violation) — surface the same guidance, not a 500.
     if ((e as { code?: string })?.code === "P2003") {
       return err(
-        "This leave type is in use and cannot be deleted. Deactivate it instead.",
+        "This leave type is already in use. Please deactivate it instead.",
         409
       );
     }

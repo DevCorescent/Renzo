@@ -100,8 +100,7 @@ export const API = {
     // Admin — Leave requests / approvals (Gauransh)
     leaves:           `${BASE}/admin/leaves`,
     leavesStats:      `${BASE}/admin/leaves/stats`,
-    leaveApprove:     (id: string) => `${BASE}/admin/leaves/${id}/approve`,
-    leaveReject:      (id: string) => `${BASE}/admin/leaves/${id}/reject`,
+    leave:            (id: string) => `${BASE}/admin/leaves/${id}`,
 
     // Admin — Services (Gauransh)
     services:         `${BASE}/admin/services`,

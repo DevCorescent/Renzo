@@ -28,7 +28,7 @@ import {
   TR,
   TD,
 } from "@/components/shared/ui";
-import { approveLeaveAction, rejectLeaveAction } from "@/app/branch-admin/leaves/actions";
+import { setLeaveStatusAction } from "@/app/branch-admin/leaves/actions";
 import { LeaveStatusBadge } from "./leaves-ui";
 import { LeaveDrawer } from "./leave-drawer";
 import { formatDate, workerName, type BranchLeave } from "./types";
@@ -60,23 +60,17 @@ export function LeavesView({
     return () => clearTimeout(t);
   }, [toast]);
 
-  async function runApprove(id: string): Promise<string | null> {
-    const res = await approveLeaveAction(id);
+  async function runStatus(
+    id: string,
+    status: "APPROVED" | "REJECTED"
+  ): Promise<string | null> {
+    const res = await setLeaveStatusAction(id, status);
     if (res.status === "success") {
       setSelected(null);
       setToast(res.message);
       return null;
     }
-    return res.message;
-  }
-
-  async function runReject(id: string, reason: string): Promise<string | null> {
-    const res = await rejectLeaveAction(id, reason);
-    if (res.status === "success") {
-      setSelected(null);
-      setToast(res.message);
-      return null;
-    }
+    // Keep the drawer open and hand the route's message back for inline display.
     return res.message;
   }
 
@@ -206,8 +200,8 @@ export function LeavesView({
       <LeaveDrawer
         leave={selected}
         onClose={() => setSelected(null)}
-        onApprove={runApprove}
-        onReject={runReject}
+        onApprove={(id) => runStatus(id, "APPROVED")}
+        onReject={(id) => runStatus(id, "REJECTED")}
       />
     </>
   );
