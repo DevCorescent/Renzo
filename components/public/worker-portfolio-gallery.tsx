@@ -31,7 +31,7 @@ function Tile({ item }: { item: GalleryItem }) {
         disabled={!hasBefore}
         onClick={() => setShowBefore((v) => !v)}
         aria-label={hasBefore ? `Toggle before and after for ${item.title ?? item.category}` : undefined}
-        className="relative block aspect-[4/5] w-full overflow-hidden bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 disabled:cursor-default"
+        className="relative block aspect-4/5 w-full overflow-hidden bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 disabled:cursor-default"
       >
         <Image
           src={src}

@@ -797,7 +797,7 @@ function ConfirmStep({
           {branch.coverImage && (
             <Image src={branch.coverImage} alt={branch.name} fill className="object-cover opacity-50" sizes="100vw" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-t from-stone-900 via-transparent to-transparent" />
           <div className="absolute bottom-3 left-4">
             <p className="text-xs text-stone-400">Branch</p>
             <p className="font-semibold text-stone-100">{branch.name} · {branch.city}</p>
