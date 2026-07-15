@@ -28,7 +28,7 @@ function StatItem({ stat, start, index }: { stat: Stat; start: boolean; index: n
         {String(index + 1).padStart(2, "0")}
       </span>
       <p
-        className="bg-gradient-to-br from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text font-heading text-4xl font-black leading-none text-transparent sm:text-5xl"
+        className="bg-gradient-to-br from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text font-heading text-4xl font-semibold leading-none text-transparent sm:text-5xl"
         aria-hidden="true"
       >
         {value}
@@ -50,7 +50,7 @@ export function Experience() {
   const reduceMotion = useReducedMotion();
 
   return (
-    <section id="about" className="relative overflow-hidden bg-[#0A0B0D] py-24 sm:py-28">
+    <section id="about" className="relative overflow-hidden bg-[#0A0B0D] py-24 sm:py-32">
       {/* Ambient silver glow — matches Hero/Blog */}
       <div
         aria-hidden
@@ -70,10 +70,8 @@ export function Experience() {
                 Our Story
               </span>
             </div>
-            <h2 className="group max-w-xl font-heading text-4xl font-black leading-[0.98] tracking-[-0.03em] text-white sm:text-5xl xl:text-6xl">
-              More Than a Salon,
-              <br />
-              An{" "}
+            <h2 className="group max-w-xl font-heading text-4xl font-semibold leading-[1.1] tracking-[-0.02em] text-white sm:text-5xl xl:text-6xl">
+              More Than a Salon, An{" "}
               <motion.span
                 className="inline-block bg-[length:200%_100%] bg-gradient-to-r from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text text-transparent transition-transform duration-500 group-hover:translate-x-1.5"
                 animate={

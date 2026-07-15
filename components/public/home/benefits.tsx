@@ -5,7 +5,7 @@ import { BENEFITS } from "./home-data";
 
 export function Benefits() {
   return (
-    <section className="relative overflow-hidden bg-[#111315] py-28">
+    <section className="relative overflow-hidden bg-[#111315] py-24 sm:py-32">
       {/* Background Glow */}
       <div className="absolute -top-32 right-0 h-96 w-96 rounded-full bg-[#E8E5DE]/10 blur-[140px]" />
       <div className="absolute bottom-0 left-0 h-80 w-80 rounded-full bg-[#5F6D7A]/10 blur-[140px]" />
@@ -16,10 +16,8 @@ export function Benefits() {
             Why Choose Us
           </p>
 
-          <h2 className="mt-5 font-heading text-4xl font-bold leading-tight tracking-tight text-white md:text-5xl xl:text-6xl">
-            Because You
-            <br />
-            <span className="text-[#E8E5DE]">Deserve The Best</span>
+          <h2 className="mt-5 font-heading text-4xl font-semibold leading-tight tracking-tight text-white md:text-5xl xl:text-6xl">
+            Because You <span className="text-[#E8E5DE]">Deserve The Best</span>
           </h2>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#B8BEC8]">

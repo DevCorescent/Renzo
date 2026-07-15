@@ -25,12 +25,12 @@ export function Testimonials() {
   };
 
   return (
-    <section className="bg-stone-950 py-24">
+    <section className="bg-stone-950 py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex items-end justify-between gap-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C4C9D1]">Kind words</p>
-            <h2 className="mt-3 font-heading text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+            <h2 className="mt-3 font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
               Hear from the Renzo Family
             </h2>
           </div>

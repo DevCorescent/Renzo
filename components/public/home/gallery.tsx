@@ -11,7 +11,7 @@ export function Gallery() {
   const mid = (GALLERY.length - 1) / 2;
 
   return (
-    <section className="overflow-hidden bg-stone-950 py-24">
+    <section className="overflow-hidden bg-stone-950 py-24 sm:py-32">
       {/* Curved image band */}
       <MotionReveal className="flex justify-center gap-2.5 px-4 [perspective:1200px]" y={32}>
         {GALLERY.map((image, i) => {
@@ -37,7 +37,7 @@ export function Gallery() {
       </MotionReveal>
 
       <MotionReveal className="mx-auto mt-14 max-w-2xl px-4 text-center">
-        <h2 className="font-heading text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+        <h2 className="font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
           Our Work Speaks for Itself
         </h2>
         <p className="mt-4 leading-relaxed text-stone-400">

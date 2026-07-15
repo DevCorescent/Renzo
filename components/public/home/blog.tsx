@@ -52,7 +52,7 @@ export function Blog() {
   const reduce = useReducedMotion();
 
   return (
-    <section className="relative overflow-hidden bg-[#0A0B0D] py-24 sm:py-28">
+    <section className="relative overflow-hidden bg-[#0A0B0D] py-24 sm:py-32">
       {/* Ambient silver glow — matches Hero */}
       <div
         aria-hidden
@@ -93,10 +93,8 @@ export function Blog() {
                 Journal
               </span>
             </div>
-            <h2 className="group max-w-xl font-heading text-4xl font-black leading-[0.98] tracking-[-0.03em] text-white sm:text-5xl xl:text-6xl">
-              More Than a Salon,
-              <br />
-              An{" "}
+            <h2 className="group max-w-xl font-heading text-4xl font-semibold leading-[1.1] tracking-[-0.02em] text-white sm:text-5xl xl:text-6xl">
+              Our Latest{" "}
               <motion.span
                 className="inline-block bg-[length:200%_100%] bg-gradient-to-r from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text text-transparent transition-transform duration-500 group-hover:translate-x-1.5"
                 animate={
@@ -110,7 +108,7 @@ export function Blog() {
                     : { duration: 4, repeat: Infinity, ease: "linear" }
                 }
               >
-                Experience
+                Stories
               </motion.span>
             </h2>
           </div>

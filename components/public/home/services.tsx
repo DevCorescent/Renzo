@@ -10,7 +10,7 @@ import { SERVICES } from "./home-data";
 
 export function Services() {
   return (
-    <section className="bg-stone-950 py-24">
+    <section className="bg-stone-950 py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           eyebrow="What we do"
