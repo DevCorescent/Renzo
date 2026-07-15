@@ -90,6 +90,16 @@ export const API = {
     departments:      `${BASE}/admin/departments`,
     designations:     `${BASE}/admin/designations`,
 
+    // Admin — Leave Types / HR config (Gauransh)
+    leaveTypes:       `${BASE}/admin/leave-types`,
+    leaveType:        (id: string) => `${BASE}/admin/leave-types/${id}`,
+
+    // Admin — Leave requests / approvals (Gauransh)
+    leaves:           `${BASE}/admin/leaves`,
+    leavesStats:      `${BASE}/admin/leaves/stats`,
+    leaveApprove:     (id: string) => `${BASE}/admin/leaves/${id}/approve`,
+    leaveReject:      (id: string) => `${BASE}/admin/leaves/${id}/reject`,
+
     // Admin — Services (Gauransh)
     services:         `${BASE}/admin/services`,
     service:          (id: string) => `${BASE}/admin/services/${id}`,
