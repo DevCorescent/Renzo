@@ -13,7 +13,19 @@ export type Tone = "neutral" | "success" | "warning" | "danger" | "info" | "prim
 
 export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 
-/** One leave request row, exactly as the list route selects it. */
+/** A worker's active branch link, as embedded on a leave row. */
+export type WorkerBranchRef = {
+  isPrimary: boolean;
+  branch: { id: string; name: string; code: string };
+};
+
+/**
+ * One leave request row, exactly as the list route selects it.
+ *
+ * No approvedBy / approvedAt / rejectionReason: the transition writes only the
+ * status column, so there is nothing stored to surface for those. The type mirrors
+ * the API — absent from the select means absent here.
+ */
 export type BranchLeave = {
   id: string;
   status: LeaveStatus;
@@ -21,9 +33,6 @@ export type BranchLeave = {
   endDate: string;
   days: number;
   reason: string;
-  rejectionReason: string | null;
-  approvedBy: string | null;
-  approvedAt: string | null;
   createdAt: string;
   leaveType: { id: string; name: string; code: string; isPaid: boolean };
   worker: {
@@ -34,6 +43,7 @@ export type BranchLeave = {
     employeeCode: string;
     profilePhoto: string | null;
     designation: { name: string } | null;
+    branches: WorkerBranchRef[];
   };
 };
 
@@ -58,6 +68,13 @@ export const STATUS_TONE: Record<LeaveStatus, Tone> = {
 /** A worker's display name, preferring the explicit displayName. */
 export function workerName(w: BranchLeave["worker"]): string {
   return (w.displayName?.trim() || `${w.firstName} ${w.lastName}`.trim()) || "—";
+}
+
+/** The worker's primary active branch name (falls back to the first), or a dash. */
+export function workerBranchName(w: BranchLeave["worker"]): string {
+  const links = w.branches ?? [];
+  const primary = links.find((b) => b.isPrimary) ?? links[0];
+  return primary?.branch.name ?? "—";
 }
 
 /** ISO date → "12 Jul 2026", UTC-pinned so a UTC-midnight @db.Date never rolls back. */

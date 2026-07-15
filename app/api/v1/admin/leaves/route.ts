@@ -113,9 +113,6 @@ export async function GET(req: NextRequest) {
           endDate: true,
           days: true,
           reason: true,
-          rejectionReason: true,
-          approvedBy: true,
-          approvedAt: true,
           createdAt: true,
           leaveType: { select: { id: true, name: true, code: true, isPaid: true } },
           worker: {
@@ -127,6 +124,12 @@ export async function GET(req: NextRequest) {
               employeeCode: true,
               profilePhoto: true,
               designation: { select: { name: true } },
+              // The worker's active branch — one nested read, no N+1. Redundant for
+              // a branch admin (single branch) but meaningful for a global admin.
+              branches: {
+                where: { isActive: true },
+                select: { isPrimary: true, branch: { select: { id: true, name: true, code: true } } },
+              },
             },
           },
         },
