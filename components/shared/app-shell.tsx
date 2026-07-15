@@ -46,6 +46,7 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
       { label: "Dashboard",    href: "/branch-admin/dashboard",    icon: LayoutDashboard },
       { label: "Appointments", href: "/branch-admin/appointments", icon: CalendarDays },
       { label: "Workers",      href: "/branch-admin/workers",      icon: Users },
+      { label: "Leaves",       href: "/branch-admin/leaves",       icon: CalendarOff },
       { label: "Services",     href: "/branch-admin/services",     icon: Scissors },
       { label: "Schedule",     href: "/branch-admin/schedule",     icon: Clock },
       { label: "Inventory",    href: "/branch-admin/inventory",    icon: Boxes },

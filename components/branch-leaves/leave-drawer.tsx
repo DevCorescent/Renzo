@@ -23,6 +23,7 @@
 import * as React from "react";
 import { X, Check, Ban } from "lucide-react";
 import { Badge } from "@/components/shared/ui";
+import { WorkerAvatar } from "@/components/workers/worker-ui";
 import { cn } from "@/lib/utils";
 import { LeaveStatusBadge } from "./leaves-ui";
 import { formatDate, workerName, type BranchLeave } from "./types";
@@ -121,7 +122,13 @@ export function LeaveDrawer({
           <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
             {/* Worker */}
             <div className="flex items-center gap-3">
-              <Avatar worker={leave.worker} />
+              <WorkerAvatar
+                firstName={leave.worker.firstName}
+                lastName={leave.worker.lastName}
+                photo={leave.worker.profilePhoto}
+                id={leave.worker.id}
+                size={40}
+              />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-gray-900">{workerName(leave.worker)}</p>
                 <p className="truncate text-xs text-gray-500">
@@ -282,24 +289,5 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <dt className="shrink-0 text-xs font-medium text-gray-500">{label}</dt>
       <dd className="text-right text-gray-700">{children}</dd>
     </div>
-  );
-}
-
-function Avatar({ worker }: { worker: BranchLeave["worker"] }) {
-  const initials = `${worker.firstName?.[0] ?? ""}${worker.lastName?.[0] ?? ""}`.toUpperCase() || "?";
-  if (worker.profilePhoto) {
-    // eslint-disable-next-line @next/next/no-img-element -- avatar is a remote URL of unknown host; next/image would need config we must not change.
-    return (
-      <img
-        src={worker.profilePhoto}
-        alt=""
-        className="size-10 shrink-0 rounded-full object-cover"
-      />
-    );
-  }
-  return (
-    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
-      {initials}
-    </span>
   );
 }
