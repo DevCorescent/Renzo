@@ -6,6 +6,14 @@ const BASE = "/api/v1";
 export const API = {
   upload: `${BASE}/upload`,
 
+  // ── Notification center (Gauransh) — any authenticated role ────────────────
+  notifications: {
+    list:        `${BASE}/notifications`,
+    unreadCount: `${BASE}/notifications/unread-count`,
+    readAll:     `${BASE}/notifications/read-all`,
+    read:        (id: string) => `${BASE}/notifications/${id}`,
+  },
+
   // ── Auth (Aman) ────────────────────────────────────────────────────────────
   auth: {
     login:        `${BASE}/auth/login`,
@@ -66,6 +74,9 @@ export const API = {
     portfolioStatistics:  `${BASE}/worker/portfolio/statistics`,
     portfolioSkillRatings:`${BASE}/worker/portfolio/skill-ratings`,
     portfolioReviews:     `${BASE}/worker/portfolio/reviews`,
+
+    // Portfolio change requests — approval workflow (Gauransh)
+    portfolioRequests:    `${BASE}/worker/portfolio-requests`,
   },
 
   // ── Reception panel (Gauransh + Shalmon) ──────────────────────────────────
@@ -110,6 +121,10 @@ export const API = {
     leavesStats:      `${BASE}/admin/leaves/stats`,
     leave:            (id: string) => `${BASE}/admin/leaves/${id}`,
 
+    // Admin — Portfolio change requests / approvals (Gauransh)
+    portfolioRequests:`${BASE}/admin/portfolio-requests`,
+    portfolioRequest: (id: string) => `${BASE}/admin/portfolio-requests/${id}`,
+
     // Admin — Services (Gauransh)
     services:         `${BASE}/admin/services`,
     service:          (id: string) => `${BASE}/admin/services/${id}`,
@@ -135,6 +150,7 @@ export const API = {
     product:          (id: string) => `${BASE}/admin/inventory/products/${id}`,
     stock:            `${BASE}/admin/inventory/stock`,
     stockAdjust:      `${BASE}/admin/inventory/stock/adjust`,
+    stockMovements:   `${BASE}/admin/inventory/stock/movements`,
     purchases:        `${BASE}/admin/inventory/purchases`,
     purchase:         (id: string) => `${BASE}/admin/inventory/purchases/${id}`,
     transfers:        `${BASE}/admin/inventory/transfers`,

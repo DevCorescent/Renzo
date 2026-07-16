@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { created, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope, resolveWriteBranchId } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 import { applyStockMovement, InsufficientStockError } from "@/lib/stock";
 import type { StockMovementType } from "@prisma/client";
@@ -22,12 +23,19 @@ export async function POST(req: NextRequest) {
   const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "INVENTORY_MANAGER", "BRANCH_ADMIN");
   if (error) return error;
 
+  // BRANCH ISOLATION on the WRITE: a BRANCH_ADMIN can only adjust stock in their OWN
+  // branch — the branch is taken from the session and a body-supplied branchId is
+  // ignored, so a branch admin cannot mutate another branch's stock. GLOBAL roles
+  // still choose the branch via the body.
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
+
   try {
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") return err("Invalid JSON body", 400);
 
     const productId: string = typeof body.productId === "string" ? body.productId : "";
-    const branchId: string = typeof body.branchId === "string" ? body.branchId : "";
+    const branchId: string = resolveWriteBranchId(scope, body.branchId) ?? "";
     const type: StockMovementType = body.type;
     const delta = Number(body.delta);
 

@@ -85,7 +85,7 @@ export async function signInGoogleCustomer(
 ): Promise<GoogleSignInResult> {
   // Match on googleId first so a linked account still resolves if the user
   // later changes the email on their Google account.
-  const existing = await prisma.user.findFirst({
+  const existing: UserWithProfiles | null = await prisma.user.findFirst({
     where: { OR: [{ googleId: profile.googleId }, { email: profile.email }] },
     include: USER_INCLUDE,
   });
@@ -130,7 +130,7 @@ export async function signInGoogleCustomer(
   // First Google sign-in for a customer who already exists via OTP/password:
   // link the accounts rather than creating a duplicate or failing on the
   // unique email.
-  if (!existing.googleId || !existing.isVerified) {
+  if (!existing.isVerified) {
     const user = await prisma.user.update({
       where: { id: existing.id },
       data: { googleId: profile.googleId, isVerified: true },

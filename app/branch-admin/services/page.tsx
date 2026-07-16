@@ -456,7 +456,10 @@ export default function BranchAdminServicesPage() {
         const [svcJson, catJson] = await Promise.all([svcRes.json(), catRes.json()]);
         if (!svcRes.ok) throw new Error(svcJson?.message ?? "Failed to load");
         setServices(svcJson.data ?? []);
-        setCategories(catJson.data ?? []);
+        // GET /admin/services/categories is PAGINATED, so the array is at data.items
+        // (not data). Reading data straight set `categories` to the pagination
+        // object, and the Add Service modal's `categories.map(...)` then threw.
+        setCategories(catJson.data?.items ?? []);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load services");
       } finally {

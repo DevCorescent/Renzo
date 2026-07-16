@@ -266,6 +266,8 @@ model User {
   customerProfile Customer?
   workerProfile   WorkerProfile?
   staffProfile    StaffProfile?
+  portfolioReviews PortfolioChangeRequest[] // requests this admin has reviewed
+  notifications    Notification[]            // in-app notification center feed
 
   @@index([email])
   @@index([phone])
@@ -681,6 +683,7 @@ model WorkerProfile {
   reviews          Review[]
   ratingSummary    RatingSummary?
   availability     WorkerAvailability[]
+  portfolioChangeRequests PortfolioChangeRequest[]
 
   @@index([isPublic, isActive])
   @@map("worker_profiles")
@@ -2149,4 +2152,98 @@ model PlatformConfig {
   updatedAt             DateTime @updatedAt
 
   @@map("platform_config")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 18 — PORTFOLIO CHANGE REQUESTS (approval workflow)
+// ─────────────────────────────────────────────────────────────
+// A worker NEVER edits the live portfolio directly. Every professional change is
+// proposed here, sits PENDING until a Branch Admin (or Super Admin) reviews it,
+// and is only written to the live data on APPROVE. `previousValue` snapshots the
+// current value so the reviewer sees a true old-vs-new diff; `payload` carries the
+// proposed value. History lives in the existing AuditLog; worker alerts in
+// NotificationLog. Reused, not duplicated.
+
+enum PortfolioChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_CHANGES
+}
+
+enum PortfolioChangeType {
+  BIO
+  EXPERIENCE
+  LANGUAGE
+  CERTIFICATE
+  SKILL
+  SKILL_LEVEL
+  GALLERY
+}
+
+model PortfolioChangeRequest {
+  id            String                @id @default(cuid())
+  workerId      String
+  type          PortfolioChangeType
+  status        PortfolioChangeStatus @default(PENDING)
+  payload       Json                  // the proposed value(s)
+  previousValue Json?                 // snapshot of the live value, for the diff
+  attachments   String[]              @default([])
+  reviewedBy    String?               // admin User.id who actioned it (see `reviewer`)
+  reviewedAt    DateTime?
+  reviewNote    String?               // rejection reason / requested-changes comment
+  createdAt     DateTime              @default(now()) // submitted-at
+  updatedAt     DateTime              @updatedAt
+
+  worker WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  // The reviewer is a real User FK, not a copied name — no duplicated reviewer data.
+  // SetNull (the default for an optional relation) keeps the request intact if a
+  // reviewer account is ever removed; the immutable record still lives in AuditLog.
+  reviewer User? @relation(fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([workerId, status])
+  @@index([reviewedBy])
+  @@map("portfolio_change_requests")
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODULE 19 — IN-APP NOTIFICATION CENTER
+// ─────────────────────────────────────────────────────────────
+// This is the IN-APP notification center — distinct from NotificationLog, which is
+// the outbound channel-delivery log (WhatsApp / SMS / Email / Push). A center needs
+// what a delivery log cannot express: a recipient that can be ANY role (a plain
+// User FK, so Super Admin / Branch Admin / Worker are all first-class), a read
+// state, a type, a title, and a click-through target. Business modules never write
+// notifications ad-hoc — they publish through lib/notifications.ts, which is the
+// single source of truth, so alerts stay centralized and consistent.
+//
+// Notifications are immutable event SNAPSHOTS: the human context (worker/branch
+// names) is denormalised into title/message at creation, so a card renders with no
+// joins and reads correctly even if the referenced record later changes.
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String                            // recipient — any role, via User
+  type      NotificationType @default(INFO)
+  title     String
+  message   String
+  href      String?                           // in-app click-through target
+  refType   String?                           // e.g. "PortfolioChangeRequest", "Leave"
+  refId     String?
+  readAt    DateTime?                         // null = unread
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }

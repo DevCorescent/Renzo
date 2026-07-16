@@ -6,22 +6,19 @@ import { getWorkerWorkspace } from "@/lib/worker-workspace";
 import { WorkspaceHeader } from "@/components/worker-workspace/workspace-header";
 import { Workspace } from "@/components/worker-workspace/workspace";
 
-// OWNER: Hemant | MODULE: Super Admin — Worker Detail
+// OWNER: Gauransh | MODULE: Branch Admin — Worker Workspace
 //
-// Now the unified Worker Workspace: one enterprise page (Overview / Portfolio /
-// Schedule / Attendance / Leaves / Services / Performance / Documents / Activity)
-// that consolidated the old scattered worker sub-pages. All data comes from the
-// shared branch-scoped fetch in lib/worker-workspace — no Prisma here, no per-tab
-// query. proxy.ts admits SUPER_ADMIN + OWNER to /super-admin/*, so both are allowed
-// (a plain === SUPER_ADMIN check used to bounce a legitimately-authenticated OWNER).
+// The Branch Admin entry to the unified Worker Workspace. Branch isolation is
+// enforced in the fetch (getWorkerWorkspace refuses a worker outside the admin's
+// branch, resolved through WorkerBranch), so this page adds no isolation of its
+// own — a worker in another branch simply resolves to notFound(), which also
+// avoids revealing that the worker exists elsewhere.
 
-const PLATFORM_ROLES = ["SUPER_ADMIN", "OWNER"] as const;
-
-export default async function SuperAdminWorkerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function BranchAdminWorkerWorkspacePage({ params }: { params: Promise<{ id: string }> }) {
   const authUser = await getServerUser();
-  if (!authUser || !PLATFORM_ROLES.includes(authUser.userType as (typeof PLATFORM_ROLES)[number])) {
-    redirect("/login");
-  }
+  // proxy.ts gates /branch-admin/*; this is the second line and the fetch is the
+  // third. A branch admin with no branch is refused by the fetch.
+  if (!authUser?.branchId) redirect("/login");
 
   const { id } = await params;
   const data = await getWorkerWorkspace(id, authUser);
@@ -30,7 +27,7 @@ export default async function SuperAdminWorkerDetailPage({ params }: { params: P
   return (
     <div className="space-y-5">
       <Link
-        href="/super-admin/workers"
+        href="/branch-admin/workers"
         className="inline-flex items-center gap-1 text-xs text-gray-500 transition hover:text-gray-900"
       >
         <ChevronLeft className="size-3.5" aria-hidden="true" />
