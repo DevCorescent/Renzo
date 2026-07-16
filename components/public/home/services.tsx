@@ -21,7 +21,7 @@ export function Services() {
       <MotionReveal className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#C8A96A]">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#C4C9D1]">
               What we do
             </p>
             <h2 className="font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
@@ -39,25 +39,25 @@ export function Services() {
         {/* Ambient top glow */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-[#C8A96A]/8 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-[#C4C9D1]/8 to-transparent"
         />
 
         {/* LED rail — top */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C8A96A]/70 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C4C9D1]/70 to-transparent"
         />
 
         {/* LED rail — bottom */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#C8A96A]/70 to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#C4C9D1]/70 to-transparent"
         />
 
         {/* Ambient bottom glow */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#C8A96A]/8 to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#C4C9D1]/8 to-transparent"
         />
 
         {/* Left / right fade masks */}
@@ -89,11 +89,11 @@ export function Services() {
                 aria-label={`Book ${service.name}`}
                 className={cn(
                   "group relative shrink-0 overflow-hidden rounded-2xl",
-                  "ring-1 ring-[#C8A96A]/20",
-                  "shadow-[0_0_18px_-4px_rgba(200,169,106,0.2)]",
+                  "ring-1 ring-[#C4C9D1]/20",
+                  "shadow-[0_0_18px_-4px_rgba(196,201,209,0.2)]",
                   "transition-shadow duration-300",
-                  "hover:shadow-[0_0_36px_-4px_rgba(200,169,106,0.55)]",
-                  "hover:ring-[#C8A96A]/55",
+                  "hover:shadow-[0_0_36px_-4px_rgba(196,201,209,0.55)]",
+                  "hover:ring-[#C4C9D1]/55",
                   service.featured
                     ? "aspect-[3/4] w-72 sm:w-80"
                     : "aspect-[3/4] w-56 sm:w-64"
@@ -111,7 +111,7 @@ export function Services() {
                   className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/30 to-transparent"
                 />
                 <div className="absolute inset-x-0 bottom-0 p-5">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96A]">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C4C9D1]">
                     {service.price}
                   </p>
                   <h3 className="mt-1 font-heading text-lg font-semibold text-white">

@@ -22,25 +22,25 @@ export function Gallery() {
         {/* Ambient top glow */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-[#C8A96A]/8 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-[#C4C9D1]/8 to-transparent"
         />
 
         {/* LED rail — top */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C8A96A]/70 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#C4C9D1]/70 to-transparent"
         />
 
         {/* LED rail — bottom */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#C8A96A]/70 to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[#C4C9D1]/70 to-transparent"
         />
 
         {/* Ambient bottom glow */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#C8A96A]/8 to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#C4C9D1]/8 to-transparent"
         />
 
         {/* Left / right fade masks */}
@@ -69,11 +69,11 @@ export function Gallery() {
               <div
                 key={image.src + i}
                 className="relative aspect-[4/5] w-44 shrink-0 overflow-hidden rounded-2xl
-                           ring-1 ring-[#C8A96A]/25
-                           shadow-[0_0_18px_-4px_rgba(200,169,106,0.25)]
+                           ring-1 ring-[#C4C9D1]/25
+                           shadow-[0_0_18px_-4px_rgba(196,201,209,0.25)]
                            transition-shadow duration-300
-                           hover:shadow-[0_0_32px_-4px_rgba(200,169,106,0.55)]
-                           hover:ring-[#C8A96A]/60
+                           hover:shadow-[0_0_32px_-4px_rgba(196,201,209,0.55)]
+                           hover:ring-[#C4C9D1]/60
                            sm:w-52 lg:w-60"
               >
                 <Image

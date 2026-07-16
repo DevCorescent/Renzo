@@ -74,7 +74,7 @@ function RevealWords({
             className={cn(
               "inline-block",
               gradient &&
-                "bg-gradient-to-r from-[#EAD7AA] via-[#C8A96A] to-[#F2E2BF] bg-clip-text text-transparent"
+                "bg-gradient-to-r from-[#E6E8EB] via-[#C4C9D1] to-[#F2F4F6] bg-clip-text text-transparent"
             )}
           >
             {word}
@@ -127,7 +127,7 @@ export function Hero() {
         </motion.div>
 
         {/* Cinematic colour + vignette grade */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(200,169,106,.16),transparent_45%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(196,201,209,.16),transparent_45%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(20,22,25,.4),transparent_50%)]" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0A0B0D] via-[#0A0B0D]/70 to-[#0A0B0D]/20" />
         <div className="absolute inset-0 bg-gradient-to-r from-[#0A0B0D]/85 via-[#0A0B0D]/30 to-transparent" />
@@ -172,7 +172,7 @@ export function Hero() {
                   "inline-flex items-center gap-3 rounded-full border border-white/10 px-5 py-2"
                 )}
               >
-                <Sparkles className="h-4 w-4 text-[#C8A96A]" />
+                <Sparkles className="h-4 w-4 text-[#C4C9D1]" />
                 <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#D9D9D6]">
                   Luxury Hair &amp; Beauty Studio
                 </span>
@@ -195,9 +195,9 @@ export function Hero() {
         backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
         scale: [1, 1.03, 1],
         textShadow: [
-          "0 0 0px rgba(200,169,106,0)",
-          "0 0 18px rgba(200,169,106,.7)",
-          "0 0 0px rgba(200,169,106,0)",
+          "0 0 0px rgba(196,201,209,0)",
+          "0 0 18px rgba(196,201,209,.7)",
+          "0 0 0px rgba(196,201,209,0)",
         ],
       }}
       transition={{
@@ -205,7 +205,7 @@ export function Hero() {
         repeat: Infinity,
         ease: "linear",
       }}
-      className="inline-block bg-gradient-to-r from-[#EAD7AA] via-[#C8A96A] to-[#F2E2BF] bg-[length:250%_100%] bg-clip-text text-transparent"
+      className="inline-block bg-gradient-to-r from-[#E6E8EB] via-[#C4C9D1] to-[#F2F4F6] bg-[length:250%_100%] bg-clip-text text-transparent"
     >
       Confidence
     </motion.span>
@@ -228,7 +228,7 @@ export function Hero() {
                 href="/book"
                 className={cn(
                   buttonVariants({ size: "lg" }),
-                  "group relative overflow-hidden rounded-full bg-[#C8A96A] px-8 text-black shadow-[0_10px_35px_-8px_rgba(200,169,106,.6)] transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.03] hover:bg-[#D8B87A] hover:shadow-[0_18px_50px_-10px_rgba(200,169,106,.8)]"
+                  "group relative overflow-hidden rounded-full bg-[#C4C9D1] px-8 text-black shadow-[0_10px_35px_-8px_rgba(196,201,209,.6)] transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.03] hover:bg-[#D4D8DE] hover:shadow-[0_18px_50px_-10px_rgba(196,201,209,.8)]"
                 )}
               >
                 <span className="relative z-10 flex items-center">
@@ -268,7 +268,7 @@ export function Hero() {
                 </div>
                 <div className="text-xs leading-tight text-[#B7BEC8]">
                   <div className="flex items-center gap-1 text-white">
-                    <Star className="h-3.5 w-3.5 fill-[#C8A96A] text-[#C8A96A]" />
+                    <Star className="h-3.5 w-3.5 fill-[#C4C9D1] text-[#C4C9D1]" />
                     <span className="font-semibold">{RATING.toFixed(1)}</span>
                   </div>
                   <span>15,000+ happy clients</span>
@@ -287,7 +287,7 @@ export function Hero() {
           >
             {STATS.map((stat) => (
               <div key={stat.label} className="px-6 py-5 first:pt-6 last:pb-6">
-                <p className="text-3xl font-semibold text-[#C8A96A]">{stat.value}</p>
+                <p className="text-3xl font-semibold text-[#C4C9D1]">{stat.value}</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-[#B7BEC8]">
                   {stat.label}
                 </p>
@@ -315,7 +315,7 @@ export function Hero() {
                 className="flex items-center gap-8 whitespace-nowrap text-sm uppercase tracking-[0.2em] text-white/50"
               >
                 {label}
-                <span aria-hidden className="text-[#C8A96A]/70">
+                <span aria-hidden className="text-[#C4C9D1]/70">
                   •
                 </span>
               </span>
