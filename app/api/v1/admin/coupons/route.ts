@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { created, err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { writeAudit } from "@/lib/audit";
 import prisma from "@/lib/db";
 import type { CouponType, CouponApplicableTo, Prisma } from "@prisma/client";
 
@@ -74,7 +75,23 @@ export async function GET(req: NextRequest) {
       }),
       prisma.coupon.count({ where }),
     ]);
-    return paginated(items, total, page, limit);
+
+    // "Number of customers used" = DISTINCT customers per coupon (usages may repeat
+    // per customer). One grouped read over this page's ids, tallied in memory — no
+    // N+1, no distinct-count that Prisma can't express directly.
+    const couponIds = items.map((c) => c.id);
+    const pairs = couponIds.length
+      ? await prisma.couponUsage.findMany({
+          where: { couponId: { in: couponIds } },
+          select: { couponId: true, customerId: true },
+          distinct: ["couponId", "customerId"],
+        })
+      : [];
+    const customerCount = new Map<string, number>();
+    for (const p of pairs) customerCount.set(p.couponId, (customerCount.get(p.couponId) ?? 0) + 1);
+
+    const withStats = items.map((c) => ({ ...c, customersUsed: customerCount.get(c.id) ?? 0 }));
+    return paginated(withStats, total, page, limit);
   } catch {
     return err("Internal server error", 500);
   }
@@ -119,6 +136,7 @@ export async function POST(req: NextRequest) {
         createdBy: user.userId,
       },
     });
+    await writeAudit(user, { action: "CREATE", module: "COUPON", refId: coupon.id, refType: "Coupon", newValue: { code: coupon.code, type: coupon.type, value: coupon.value } });
     return created(coupon, "Coupon created");
   } catch {
     return err("Internal server error", 500);

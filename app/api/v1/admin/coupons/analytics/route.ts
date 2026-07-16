@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   try {
     const now = new Date();
 
-    const [total, active, expired, upcoming, usedAgg, discountAgg, mostUsed, limited] = await Promise.all([
+    const [total, active, expired, upcoming, usedAgg, discountAgg, mostUsed, limited, distinctCustomers] = await Promise.all([
       prisma.coupon.count(),
       prisma.coupon.count({ where: { isActive: true, validFrom: { lte: now }, OR: [{ validUntil: null }, { validUntil: { gte: now } }] } }),
       prisma.coupon.count({ where: { isActive: true, validUntil: { lt: now } } }),
@@ -36,6 +36,8 @@ export async function GET(req: NextRequest) {
       prisma.coupon.findFirst({ where: { usedCount: { gt: 0 } }, orderBy: { usedCount: "desc" }, select: { id: true, code: true, usedCount: true } }),
       // Only limited coupons contribute a finite "remaining" figure.
       prisma.coupon.findMany({ where: { usageLimit: { not: null } }, select: { usageLimit: true, usedCount: true } }),
+      // DISTINCT customers who have ever used any coupon (the "customers used" card).
+      prisma.couponUsage.findMany({ select: { customerId: true }, distinct: ["customerId"] }),
     ]);
 
     // Remaining redemptions across coupons that HAVE a usage limit (unlimited ones
@@ -51,6 +53,7 @@ export async function GET(req: NextRequest) {
       couponsUsed: usedAgg._sum.usedCount ?? 0,
       couponsRemaining,
       totalDiscountGiven: discountAgg._sum.discountAmount ?? 0,
+      totalCustomersUsed: distinctCustomers.length,
       mostUsedCoupon: mostUsed ? { code: mostUsed.code, usedCount: mostUsed.usedCount } : null,
     });
   } catch {

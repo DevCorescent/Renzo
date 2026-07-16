@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { created, err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { writeAudit } from "@/lib/audit";
 import prisma from "@/lib/db";
 import type { CampaignChannel, CampaignStatus, Prisma } from "@prisma/client";
 
@@ -14,22 +15,55 @@ export async function GET(req: NextRequest) {
 
   try {
     const url = new URL(req.url);
-    const { page, limit, skip } = parsePagination(url);
+    const { page, limit, skip, search } = parsePagination(url);
     const status = url.searchParams.get("status");
     const channel = url.searchParams.get("channel");
     const branchId = url.searchParams.get("branchId");
 
+    // Backend search (name) + filters (status / channel / branch) — additive; absent
+    // params leave the listing exactly as before.
     const where: Prisma.CampaignWhereInput = {
+      ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
       ...(status ? { status: status as CampaignStatus } : {}),
       ...(channel ? { channel: channel as CampaignChannel } : {}),
       ...(branchId ? { branchId } : {}),
     };
 
     const [items, total] = await Promise.all([
-      prisma.campaign.findMany({ where, skip, take: limit, orderBy: { createdAt: "desc" } }),
+      prisma.campaign.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: { branch: { select: { name: true } } },
+      }),
       prisma.campaign.count({ where }),
     ]);
-    return paginated(items, total, page, limit);
+
+    // Per-page enrichments (no N+1):
+    //   • participation — DISTINCT customers reached, from CampaignLog.
+    //   • createdByName — resolve the creator's staff name (createdBy is a userId).
+    const ids = items.map((c) => c.id);
+    const creatorIds = [...new Set(items.map((c) => c.createdBy))];
+    const [pairs, staff] = await Promise.all([
+      ids.length
+        ? prisma.campaignLog.findMany({ where: { campaignId: { in: ids } }, select: { campaignId: true, customerId: true }, distinct: ["campaignId", "customerId"] })
+        : Promise.resolve([]),
+      creatorIds.length
+        ? prisma.staffProfile.findMany({ where: { userId: { in: creatorIds } }, select: { userId: true, firstName: true, lastName: true } })
+        : Promise.resolve([]),
+    ]);
+    const participation = new Map<string, number>();
+    for (const p of pairs) participation.set(p.campaignId, (participation.get(p.campaignId) ?? 0) + 1);
+    const creatorName = new Map(staff.map((s) => [s.userId, `${s.firstName} ${s.lastName}`.trim()]));
+
+    const withStats = items.map((c) => ({
+      ...c,
+      branchName: c.branch?.name ?? null,
+      participation: participation.get(c.id) ?? 0,
+      createdByName: creatorName.get(c.createdBy) ?? null,
+    }));
+    return paginated(withStats, total, page, limit);
   } catch {
     return err("Internal server error", 500);
   }
@@ -63,6 +97,7 @@ export async function POST(req: NextRequest) {
         createdBy: user.userId,
       },
     });
+    await writeAudit(user, { action: "CREATE", module: "CAMPAIGN", refId: campaign.id, refType: "Campaign", newValue: { name: campaign.name, channel: campaign.channel } });
     return created(campaign, "Campaign created");
   } catch {
     return err("Internal server error", 500);

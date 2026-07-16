@@ -2,6 +2,8 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge } from "@/components/shared/ui";
+import { GiftCardShare } from "@/components/customer/gift-card-share";
+import { CopyCodeButton } from "@/components/gift-cards/copy-code-button";
 
 const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger"> = {
   ACTIVE: "success", REDEEMED: "neutral", EXPIRED: "neutral", CANCELLED: "danger",
@@ -40,7 +42,10 @@ export default async function CustomerGiftCardsPage() {
               <div key={gc.id} className="rounded-xl border border-white/8 bg-stone-900">
                 <div className="flex items-start justify-between border-b border-white/8 px-4 py-3">
                   <div>
-                    <p className="font-mono text-sm font-semibold text-stone-100 tracking-widest">{gc.code}</p>
+                    <div className="flex items-center gap-1">
+                      <p className="font-mono text-sm font-semibold text-stone-100 tracking-widest">{gc.code}</p>
+                      <CopyCodeButton code={gc.code} className="text-stone-400 hover:bg-white/5 hover:text-stone-200" />
+                    </div>
                     {gc.recipientName && <p className="text-xs text-stone-500">For: {gc.recipientName}</p>}
                   </div>
                   <Badge tone={isExpired ? "neutral" : STATUS_TONE[gc.status] ?? "neutral"}>
@@ -73,6 +78,13 @@ export default async function CustomerGiftCardsPage() {
                           <span>₹{Number(r.amount).toLocaleString("en-IN")}</span>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Share/transfer — offered only while the card is usable. */}
+                  {gc.status === "ACTIVE" && !isExpired && Number(gc.balance) > 0 && (
+                    <div className="mt-3 flex justify-end border-t border-white/8 pt-3">
+                      <GiftCardShare code={gc.code} />
                     </div>
                   )}
                 </div>

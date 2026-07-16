@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { writeAudit } from "@/lib/audit";
 import prisma from "@/lib/db";
 
 // OWNER: Shalmon | MODULE: Campaigns
@@ -13,10 +14,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const campaign = await prisma.campaign.findUnique({
       where: { id },
-      include: { template: true, _count: { select: { logs: true } } },
+      include: {
+        template: true,
+        branch: { select: { name: true } },
+        _count: { select: { logs: true } },
+        // Recent delivery log entries power the drawer's timeline.
+        logs: { orderBy: { sentAt: "desc" }, take: 50, select: { id: true, status: true, channel: true, sentAt: true } },
+      },
     });
     if (!campaign) return err("Campaign not found", 404);
-    return ok(campaign);
+
+    // Distinct customers reached (participation), computed live from CampaignLog.
+    const pairs = await prisma.campaignLog.findMany({ where: { campaignId: id }, select: { customerId: true }, distinct: ["customerId"] });
+
+    return ok({ ...campaign, participation: pairs.length });
   } catch {
     return err("Internal server error", 500);
   }
@@ -24,7 +35,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 // PATCH /api/v1/admin/campaigns/[id] — Edit while DRAFT/SCHEDULED, or change status
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "MARKETING_MANAGER");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "MARKETING_MANAGER");
   if (error) return error;
 
   try {
@@ -57,6 +68,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           : {}),
       },
     });
+    await writeAudit(user, { action: "UPDATE", module: "CAMPAIGN", refId: id, refType: "Campaign", oldValue: { status: existing.status }, newValue: { status: campaign.status } });
     return ok(campaign, "Campaign updated");
   } catch {
     return err("Internal server error", 500);

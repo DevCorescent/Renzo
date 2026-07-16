@@ -29,6 +29,8 @@ export type CouponRow = {
   isActive: boolean;
   createdAt: string;
   _count: { usages: number };
+  /** Distinct customers who used the coupon (from CouponUsage), added by the list route. */
+  customersUsed: number;
 };
 
 /** One usage row embedded in GET /api/v1/admin/coupons/[id]. */
@@ -52,6 +54,7 @@ export type CouponAnalytics = {
   couponsUsed: number;
   couponsRemaining: number;
   totalDiscountGiven: number;
+  totalCustomersUsed: number;
   mostUsedCoupon: { code: string; usedCount: number } | null;
 };
 

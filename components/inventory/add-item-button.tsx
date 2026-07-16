@@ -18,11 +18,15 @@ export function AddItemButton({
   suppliers,
   branches,
   isSuperAdmin,
+  fixedBranchId,
 }: {
   categories: Option[];
   suppliers: Option[];
   branches: Option[];
   isSuperAdmin: boolean;
+  /** Inventory Manager's own branch — forwarded to the modal so a GLOBAL-scoped
+   *  manager's new stock lands in their branch (the backend cannot pin it). */
+  fixedBranchId?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const [toast, setToast] = React.useState<string | null>(null);
@@ -54,6 +58,7 @@ export function AddItemButton({
         suppliers={suppliers}
         branches={branches}
         isSuperAdmin={isSuperAdmin}
+        fixedBranchId={fixedBranchId}
       />
     </>
   );

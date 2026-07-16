@@ -12,6 +12,11 @@
 //   Branch Admin  → their SESSION branch; a ?branchId is neither forwarded nor
 //                   trusted (the API ignores it regardless).
 //   Super Admin   → may narrow to a chosen ?branchId, else all branches.
+//   Inventory Mgr → `fixedBranchId` (their own branch). INVENTORY_MANAGER is a GLOBAL
+//                   role in the scope layer, so the backend does not pin them; this
+//                   view forwards their branch on reads AND writes to keep it focused
+//                   on their branch. (Backend enforcement of that isolation is a
+//                   separate, deliberately unchanged concern.)
 //
 // RESPONSE SHAPES DIFFER (and are handled, not assumed): inventory categories is a
 // bare array (ok), while suppliers and branches are paginated (data.items).
@@ -44,22 +49,39 @@ export async function InventoryDashboard({
   isSuperAdmin,
   title,
   subtitle,
+  fixedBranchId,
+  canManage,
+  showBranchColumn,
 }: {
   authUser: AuthUser;
   searchParams: SearchParams;
   isSuperAdmin: boolean;
   title: string;
   subtitle: string;
+  /** Inventory Manager: force every read/write to this branch. */
+  fixedBranchId?: string;
+  /** Product edit/delete affordances. Defaults to isSuperAdmin; the Inventory
+   *  Manager sets it true (the product routes permit INVENTORY_MANAGER). */
+  canManage?: boolean;
+  /** Show the Branch column. Defaults to isSuperAdmin (single-branch views hide it). */
+  showBranchColumn?: boolean;
 }) {
-  // The branch the SUMMARY is computed for (the table is scoped by the API itself).
-  const scopedBranchId = isSuperAdmin ? one(searchParams.branchId) ?? null : authUser.branchId ?? null;
+  const canManageResolved = canManage ?? isSuperAdmin;
+  const showBranchResolved = showBranchColumn ?? isSuperAdmin;
+
+  // The branch the SUMMARY is computed for (the table is scoped by the API params).
+  const scopedBranchId = fixedBranchId ?? (isSuperAdmin ? one(searchParams.branchId) ?? null : authUser.branchId ?? null);
 
   const params = new URLSearchParams();
   for (const key of PASSTHROUGH) {
-    if (key === "branchId" && !isSuperAdmin) continue; // branch admin: never forward it
+    if (key === "branchId") continue; // resolved explicitly below
     const v = one(searchParams[key]);
     if (v) params.set(key, v);
   }
+  // branchId: Inventory Manager is forced to their branch; Super Admin narrows via the
+  // query; Branch Admin never forwards it (the backend pins them regardless).
+  if (fixedBranchId) params.set("branchId", fixedBranchId);
+  else if (isSuperAdmin) { const b = one(searchParams.branchId); if (b) params.set("branchId", b); }
 
   const [stockRes, catRes, supRes, brRes, summary] = await Promise.all([
     apiGet<Paginated<StockRow>>(`${API.admin.stock}?${params.toString()}`),
@@ -83,7 +105,7 @@ export async function InventoryDashboard({
           <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
           <p className="mt-0.5 text-sm text-gray-500">{subtitle}</p>
         </div>
-        <AddItemButton categories={categories} suppliers={suppliers} branches={branches} isSuperAdmin={isSuperAdmin} />
+        <AddItemButton categories={categories} suppliers={suppliers} branches={branches} isSuperAdmin={isSuperAdmin} fixedBranchId={fixedBranchId} />
       </div>
 
       <InventorySummaryCards summary={summary} />
@@ -104,8 +126,8 @@ export async function InventoryDashboard({
           limit={stockRes.data.limit}
           totalPages={stockRes.data.totalPages}
           now={now}
-          showBranch={isSuperAdmin}
-          canManage={isSuperAdmin}
+          showBranch={showBranchResolved}
+          canManage={canManageResolved}
           categories={categories}
           suppliers={suppliers}
         />
