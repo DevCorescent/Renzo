@@ -166,12 +166,7 @@ export function Hero() {
           <div>
             {/* Eyebrow */}
             <motion.div variants={fadeUp}>
-              <div
-                className={cn(
-                  GLASS,
-                  "inline-flex items-center gap-3 rounded-full border border-white/10 px-5 py-2"
-                )}
-              >
+              <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/80 px-5 py-2 backdrop-blur-xl">
                 <Sparkles className="h-4 w-4 text-[#C8A96A]" />
                 <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#D9D9D6]">
                   Luxury Hair &amp; Beauty Studio
@@ -280,10 +275,7 @@ export function Hero() {
           {/* Vertical stat rail — desktop only */}
           <motion.div
             variants={fadeUp}
-            className={cn(
-              GLASS,
-              "hidden w-56 shrink-0 divide-y divide-white/10 rounded-[28px] border border-white/10 lg:block"
-            )}
+            className="hidden w-56 shrink-0 divide-y divide-white/10 rounded-[28px] border border-white/10 bg-black/80 backdrop-blur-xl lg:block"
           >
             {STATS.map((stat) => (
               <div key={stat.label} className="px-6 py-5 first:pt-6 last:pb-6">

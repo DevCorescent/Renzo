@@ -10,7 +10,7 @@ import { SERVICES } from "./home-data";
 
 export function Services() {
   return (
-    <section className="bg-stone-950 py-24">
+    <section className="bg-stone-950 py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           eyebrow="What we do"
@@ -18,7 +18,7 @@ export function Services() {
           subtitle="From everyday grooming to special-occasion glam, our menu covers every look."
         />
 
-        <MotionStagger className="mt-14 flex snap-x gap-5 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <MotionStagger className="mt-8 flex snap-x gap-5 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {SERVICES.map((service) => (
             <MotionItem
               key={service.name}
