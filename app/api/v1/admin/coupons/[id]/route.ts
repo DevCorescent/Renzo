@@ -13,7 +13,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const { id } = await params;
     const coupon = await prisma.coupon.findUnique({
       where: { id },
-      include: { usages: { orderBy: { usedAt: "desc" }, take: 50 } },
+      include: {
+        // Usage history for the detail drawer. The customer name is included
+        // (additively) so the usage table can show who redeemed it — the raw row
+        // only carries a customerId.
+        usages: {
+          orderBy: { usedAt: "desc" },
+          take: 50,
+          include: { customer: { select: { firstName: true, lastName: true } } },
+        },
+      },
     });
     if (!coupon) return err("Coupon not found", 404);
     return ok(coupon);

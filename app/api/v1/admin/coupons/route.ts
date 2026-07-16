@@ -9,17 +9,60 @@ const APPLICABLE: CouponApplicableTo[] = [
   "ALL", "SPECIFIC_SERVICE", "SPECIFIC_CATEGORY", "SPECIFIC_BRANCH", "FIRST_BOOKING",
 ];
 
+// A parseable date param, or undefined.
+function parseDate(value: string | null): Date | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
 // OWNER: Shalmon | MODULE: Coupons
-// GET /api/v1/admin/coupons — List coupons (paginated, search by code)
+// GET /api/v1/admin/coupons — List coupons (paginated).
+//
+// Backend-driven search + filters (all optional, additive — no param = original
+// behaviour): search (code OR description), status (active / upcoming / expired /
+// disabled — derived live from isActive + validFrom + validUntil, no stored column),
+// type, applicableTo, and a validity date-range overlap (from / to).
 export async function GET(req: NextRequest) {
   const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "MARKETING_MANAGER");
   if (error) return error;
 
   try {
-    const { page, limit, skip, search } = parsePagination(new URL(req.url));
-    const where: Prisma.CouponWhereInput = search
-      ? { code: { contains: search, mode: "insensitive" } }
-      : {};
+    const url = new URL(req.url);
+    const { page, limit, skip, search } = parsePagination(url);
+    const now = new Date();
+
+    const status = url.searchParams.get("status");
+    const type = url.searchParams.get("type");
+    const applicableTo = url.searchParams.get("applicableTo");
+    const from = parseDate(url.searchParams.get("from"));
+    const to = parseDate(url.searchParams.get("to"));
+
+    // Each filter is a separate AND clause so they compose without clobbering each
+    // other's OR groups (search / active-window both use OR internally).
+    const and: Prisma.CouponWhereInput[] = [];
+    if (search) {
+      and.push({
+        OR: [
+          { code: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ],
+      });
+    }
+    if (type && TYPES.includes(type as CouponType)) and.push({ type: type as CouponType });
+    if (applicableTo && APPLICABLE.includes(applicableTo as CouponApplicableTo)) {
+      and.push({ applicableTo: applicableTo as CouponApplicableTo });
+    }
+    // Status derived from the three real fields (no new column):
+    if (status === "disabled") and.push({ isActive: false });
+    else if (status === "active") and.push({ isActive: true, validFrom: { lte: now }, OR: [{ validUntil: null }, { validUntil: { gte: now } }] });
+    else if (status === "upcoming") and.push({ isActive: true, validFrom: { gt: now } });
+    else if (status === "expired") and.push({ isActive: true, validUntil: { lt: now } });
+    // Date-range = coupons whose validity window overlaps [from, to].
+    if (from) and.push({ OR: [{ validUntil: null }, { validUntil: { gte: from } }] });
+    if (to) and.push({ validFrom: { lte: to } });
+
+    const where: Prisma.CouponWhereInput = and.length ? { AND: and } : {};
 
     const [items, total] = await Promise.all([
       prisma.coupon.findMany({

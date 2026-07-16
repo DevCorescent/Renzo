@@ -4,7 +4,12 @@ import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
 
 // OWNER: Shalmon | MODULE: Membership Plans
-// GET /api/v1/admin/memberships/plans/[id] — Plan with benefits + subscriber count
+// GET /api/v1/admin/memberships/plans/[id] — Plan with benefits + subscriber stats.
+//
+// Additively enriched with a `stats` block (status breakdown, revenue, renewals due,
+// latest purchase) for the plan detail drawer — computed live from the existing
+// CustomerMembership records via a single grouped query (no N+1). The plan fields
+// remain at the top level, so any existing consumer is unaffected.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER");
   if (error) return error;
@@ -16,7 +21,36 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       include: { benefits: true, _count: { select: { customers: true } } },
     });
     if (!plan) return err("Plan not found", 404);
-    return ok(plan);
+
+    const now = new Date();
+    const windowEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    // One grouped status count + renewals-due + latest purchase, all for this plan.
+    const [statusGroups, renewalsDue, latest] = await Promise.all([
+      prisma.customerMembership.groupBy({ by: ["status"], where: { planId: id }, _count: { _all: true } }),
+      prisma.customerMembership.count({ where: { planId: id, status: "ACTIVE", endDate: { gte: now, lte: windowEnd } } }),
+      prisma.customerMembership.findFirst({ where: { planId: id }, orderBy: { purchasedAt: "desc" }, select: { purchasedAt: true } }),
+    ]);
+
+    const byStatus = { ACTIVE: 0, FROZEN: 0, EXPIRED: 0, CANCELLED: 0 };
+    let total = 0;
+    for (const g of statusGroups) {
+      total += g._count._all;
+      byStatus[g.status] = g._count._all;
+    }
+
+    const stats = {
+      total,
+      active: byStatus.ACTIVE,
+      frozen: byStatus.FROZEN,
+      expired: byStatus.EXPIRED,
+      cancelled: byStatus.CANCELLED,
+      revenue: total * plan.price, // gross plan sales (schema has no membership→invoice link)
+      renewalsDue,
+      latestPurchase: latest?.purchasedAt ?? null,
+    };
+
+    return ok({ ...plan, stats });
   } catch {
     return err("Internal server error", 500);
   }

@@ -97,6 +97,7 @@ export const API = {
     branchTimings:    (id: string) => `${BASE}/admin/branches/${id}/timings`,
     branchHolidays:   (id: string) => `${BASE}/admin/branches/${id}/holidays`,
     branchSettings:   (id: string) => `${BASE}/admin/branches/${id}/settings`,
+    settings:         `${BASE}/admin/settings`,
     branchStaff:      (id: string) => `${BASE}/admin/branches/${id}/staff`,
     // Admin — Staff / Admin Appointment (Shalmon)
     staff:            `${BASE}/admin/staff`,
@@ -131,6 +132,7 @@ export const API = {
     service:          (id: string) => `${BASE}/admin/services/${id}`,
     categories:       `${BASE}/admin/services/categories`,
     category:         (id: string) => `${BASE}/admin/services/categories/${id}`,
+    serviceSubcategories: `${BASE}/admin/services/subcategories`,
     packages:         `${BASE}/admin/packages`,
     package:          (id: string) => `${BASE}/admin/packages/${id}`,
     addOns:           `${BASE}/admin/add-ons`,
@@ -164,10 +166,13 @@ export const API = {
     // Admin — Memberships (Shalmon)
     membershipPlans:  `${BASE}/admin/memberships/plans`,
     membershipPlan:   (id: string) => `${BASE}/admin/memberships/plans/${id}`,
+    membershipAnalytics: `${BASE}/admin/memberships/analytics`,
+    membershipPlanCustomers: (id: string) => `${BASE}/admin/memberships/plans/${id}/customers`,
 
     // Admin — Marketing (Shalmon)
     coupons:          `${BASE}/admin/coupons`,
     coupon:           (id: string) => `${BASE}/admin/coupons/${id}`,
+    couponAnalytics:  `${BASE}/admin/coupons/analytics`,
     campaigns:        `${BASE}/admin/campaigns`,
     campaign:         (id: string) => `${BASE}/admin/campaigns/${id}`,
     offers:           `${BASE}/admin/offers`,

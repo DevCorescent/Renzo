@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { MarketingHeaderActions } from "@/components/marketing/marketing-header-actions";
 
 // OWNER: Hemant | MODULE: Super Admin — Marketing
 
@@ -30,9 +31,14 @@ export default async function SuperAdminMarketingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">Marketing</h1>
-        <p className="mt-0.5 text-sm text-gray-500">{activeCoupons.length} active coupons · {campaigns.length} campaigns · {offers.length} offers</p>
+      {/* Header — title/subtitle unchanged; the two primary create actions sit
+          top-right (Super-Admin only, since the page itself is Super-Admin guarded). */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Marketing</h1>
+          <p className="mt-0.5 text-sm text-gray-500">{activeCoupons.length} active coupons · {campaigns.length} campaigns · {offers.length} offers</p>
+        </div>
+        <MarketingHeaderActions />
       </div>
 
       <Card>
