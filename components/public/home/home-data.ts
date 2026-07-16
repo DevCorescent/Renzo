@@ -7,6 +7,7 @@ import {
   Brush,
   Wand2,
   Sparkles,
+  Gem,
   Star,
   type LucideIcon,
 } from "lucide-react";
@@ -78,10 +79,10 @@ export const HERO_IMAGE =
   "https://images.unsplash.com/photo-1560869713-7d0a29430803?auto=format&fit=crop&w=800&q=80";
 
 export const STATS: Stat[] = [
-  { value: 15, suffix: "k+", label: "Happy clients" },
-  { value: 12, suffix: "+", label: "Years of expertise" },
+  { value: 15, suffix: "+", label: "Years of expertise" },
   { value: 40, suffix: "+", label: "Expert stylists" },
   { value: 6, suffix: "", label: "Branches citywide" },
+  { value: 12, suffix: "k+", label: "Happy clients" },
 ];
 
 export const SERVICES: Service[] = [
@@ -167,7 +168,7 @@ export const STATS_BLURB =
 
 export const BENEFITS: Benefit[] = [
   { icon: Scissors, title: "Expert Stylists", desc: "Our certified team stays on top of the latest trends to give you a look you'll love." },
-  { icon: Sparkles, title: "Best Products", desc: "Only premium, cruelty-free professional products touch your hair and skin." },
+  { icon: Gem, title: "Best Products", desc: "Only premium, cruelty-free professional products touch your hair and skin." },
   { icon: Star, title: "Best Service", desc: "Every visit is a consultation-led ritual, tailored end to end around you." },
 ];
 

@@ -166,12 +166,7 @@ export function Hero() {
           <div>
             {/* Eyebrow */}
             <motion.div variants={fadeUp}>
-              <div
-                className={cn(
-                  GLASS,
-                  "inline-flex items-center gap-3 rounded-full border border-white/10 px-5 py-2"
-                )}
-              >
+              <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/80 px-5 py-2 backdrop-blur-xl">
                 <Sparkles className="h-4 w-4 text-[#C8A96A]" />
                 <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#D9D9D6]">
                   Luxury Hair &amp; Beauty Studio
@@ -182,7 +177,7 @@ export function Hero() {
            {/* Headline with word-reveal */}
 <h1
   id="hero-heading"
-  className="mt-8 max-w-4xl font-heading text-6xl font-semibold leading-[0.94] tracking-[-0.04em] sm:text-7xl xl:text-[104px]"
+  className="mt-8 max-w-4xl font-heading text-6xl font-black leading-[0.94] tracking-[-0.05em] sm:text-7xl xl:text-[104px]"
 >
   <RevealWords words={["Where", "Beauty"]} className="block" />
 
@@ -280,14 +275,11 @@ export function Hero() {
           {/* Vertical stat rail — desktop only */}
           <motion.div
             variants={fadeUp}
-            className={cn(
-              GLASS,
-              "hidden w-56 shrink-0 divide-y divide-white/10 rounded-[28px] border border-white/10 lg:block"
-            )}
+            className="hidden w-56 shrink-0 divide-y divide-white/10 rounded-[28px] border border-white/10 bg-black/80 backdrop-blur-xl lg:block"
           >
             {STATS.map((stat) => (
               <div key={stat.label} className="px-6 py-5 first:pt-6 last:pb-6">
-                <p className="text-3xl font-semibold text-[#C8A96A]">{stat.value}</p>
+                <p className="text-3xl font-black text-[#C8A96A]">{stat.value}</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-[#B7BEC8]">
                   {stat.label}
                 </p>
