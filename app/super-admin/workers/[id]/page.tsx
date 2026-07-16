@@ -3,16 +3,15 @@ import { ChevronLeft } from "lucide-react";
 import { getServerUser } from "@/lib/server-session";
 import { redirect, notFound } from "next/navigation";
 import { getWorkerWorkspace } from "@/lib/worker-workspace";
-import { WorkspaceHeader } from "@/components/worker-workspace/workspace-header";
-import { Workspace } from "@/components/worker-workspace/workspace";
+import { WorkerProfileView } from "@/components/worker-workspace/worker-profile-view";
 
 // OWNER: Hemant | MODULE: Super Admin — Worker Detail
 //
-// Now the unified Worker Workspace: one enterprise page (Overview / Portfolio /
-// Schedule / Attendance / Leaves / Services / Performance / Documents / Activity)
-// that consolidated the old scattered worker sub-pages. All data comes from the
-// shared branch-scoped fetch in lib/worker-workspace — no Prisma here, no per-tab
-// query. proxy.ts admits SUPER_ADMIN + OWNER to /super-admin/*, so both are allowed
+// A single rich worker profile: identity hero, headline KPIs, recent work,
+// portfolio, services, and a Profile Information rail (status, specializations,
+// languages, rating, certificates, assigned branches, availability). All data
+// comes from the shared branch-scoped fetch in lib/worker-workspace — no Prisma
+// here. proxy.ts admits SUPER_ADMIN + OWNER to /super-admin/*, so both are allowed
 // (a plain === SUPER_ADMIN check used to bounce a legitimately-authenticated OWNER).
 
 const PLATFORM_ROLES = ["SUPER_ADMIN", "OWNER"] as const;
@@ -37,8 +36,7 @@ export default async function SuperAdminWorkerDetailPage({ params }: { params: P
         Back to workers
       </Link>
 
-      <WorkspaceHeader data={data} />
-      <Workspace data={data} />
+      <WorkerProfileView data={data} />
     </div>
   );
 }

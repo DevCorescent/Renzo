@@ -40,10 +40,12 @@ export type WorkerWorkspaceData = NonNullable<Awaited<ReturnType<typeof getWorke
  */
 export async function getWorkerWorkspace(workerId: string, user: AuthUser) {
   const isGlobal = GLOBAL_ROLES.includes(user.userType);
+  // A worker viewing their OWN profile is always allowed, regardless of branchId.
+  const isSelf = user.workerId != null && user.workerId === workerId;
 
   // Branch gate FIRST: a branch admin with no branch, or a worker not in their
-  // branch, is refused before any data is read.
-  if (!isGlobal) {
+  // branch, is refused before any data is read. Self-view skips the gate.
+  if (!isGlobal && !isSelf) {
     if (!user.branchId) return null;
     const link = await prisma.workerBranch.findFirst({
       where: { workerId, branchId: user.branchId, isActive: true },
@@ -56,7 +58,7 @@ export async function getWorkerWorkspace(workerId: string, user: AuthUser) {
   const monthStart = monthStartUTC(now);
   const year = now.getUTCFullYear();
 
-  const [worker, attendance, leaves, leaveGroups, leaveBalances, apptByStatus, revenue, repeatGroups, portfolioItems, requestGroups, activity] =
+  const [worker, attendance, leaves, leaveGroups, leaveBalances, apptByStatus, revenue, repeatGroups, portfolioItems, requestGroups, activity, recentAppointments] =
     await Promise.all([
       // Overview + Services + Portfolio(skills/certs) + header
       prisma.workerProfile.findUnique({
@@ -114,6 +116,18 @@ export async function getWorkerWorkspace(workerId: string, user: AuthUser) {
         orderBy: { createdAt: "desc" },
         take: 30,
       }),
+      // Recent appointments — the profile's "recent work" timeline
+      prisma.appointment.findMany({
+        where: { workerId },
+        orderBy: [{ appointmentDate: "desc" }, { startTime: "desc" }],
+        take: 6,
+        select: {
+          id: true, appointmentNo: true, appointmentDate: true, status: true, totalAmount: true,
+          customer: { select: { firstName: true, lastName: true } },
+          branch: { select: { name: true } },
+          services: { select: { service: { select: { name: true } } } },
+        },
+      }),
     ]);
 
   if (!worker) return null;
@@ -129,6 +143,7 @@ export async function getWorkerWorkspace(workerId: string, user: AuthUser) {
 
   const statusCount = new Map<string, number>();
   for (const g of apptByStatus) statusCount.set(g.status, g._count._all);
+  const totalAppointments = apptByStatus.reduce((sum, g) => sum + g._count._all, 0);
   const completed = statusCount.get("COMPLETED") ?? 0;
   const cancelled = statusCount.get("CANCELLED") ?? 0;
   const noShow = statusCount.get("NO_SHOW") ?? 0;
@@ -160,6 +175,16 @@ export async function getWorkerWorkspace(workerId: string, user: AuthUser) {
   ];
   const portfolioCompletion = Math.round((completionChecks.filter(Boolean).length / completionChecks.length) * 100);
 
+  // Weekly availability = the primary branch's open hours (Mon–Sun). Worker-specific
+  // day-off overrides live in WorkerAvailability/shifts; this is the branch baseline.
+  const availability = primary
+    ? await prisma.branchTiming.findMany({
+        where: { branchId: primary.branch.id },
+        orderBy: { dayOfWeek: "asc" },
+        select: { dayOfWeek: true, isOpen: true, openTime: true, closeTime: true },
+      })
+    : [];
+
   return {
     worker,
     primaryBranch: primary?.branch ?? null,
@@ -179,6 +204,7 @@ export async function getWorkerWorkspace(workerId: string, user: AuthUser) {
     },
     leaves: { rows: leaves, counts: leaveCounts, balances: leaveBalances },
     performance: {
+      totalAppointments,
       completedBookings: completed,
       completedServices: completed, // one worker per appointment; completed appts ≈ services delivered
       revenueGenerated: revenue._sum.totalAmount ?? 0,
@@ -190,6 +216,8 @@ export async function getWorkerWorkspace(workerId: string, user: AuthUser) {
       portfolioCompletion,
     },
     portfolio: { items: portfolioItems, requestCounts },
+    recentAppointments,
+    availability,
     activity,
   };
 }
