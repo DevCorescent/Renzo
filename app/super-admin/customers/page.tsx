@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Eye } from "lucide-react";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
 // OWNER: Hemant | MODULE: Super Admin — Customers
@@ -66,7 +67,14 @@ export default async function SuperAdminCustomersPage() {
                   </TD>
                   <TD><Badge tone={c.isActive ? "success" : "danger"}>{c.isActive ? "Active" : "Inactive"}</Badge></TD>
                   <TD className="text-right">
-                    <Link href={`/super-admin/customers/${c.id}`} className="text-xs font-medium text-gray-600 hover:underline">View</Link>
+                    <Link
+                      href={`/super-admin/customers/${c.id}`}
+                      title={`View ${c.firstName} ${c.lastName ?? ""}`.trim()}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                    >
+                      <Eye className="size-3.5" aria-hidden="true" />
+                      View
+                    </Link>
                   </TD>
                 </TR>
               ))
