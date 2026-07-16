@@ -14,7 +14,8 @@ import { CampaignTable, type CampaignRow } from "@/components/dashboard/campaign
 import { RecentActivity, type ActivityItem } from "@/components/dashboard/recent-activity";
 import { FadeIn, Stagger, StaggerItem } from "@/components/dashboard/motion";
 import { statusTone } from "@/components/dashboard/status-badge";
-import { THEME_ROOT_ID, THEME_INIT_SCRIPT } from "@/components/dashboard/use-dash-theme";
+import { THEME_ROOT_ID } from "@/components/dashboard/use-dash-theme";
+import { DashThemeInit } from "@/components/dashboard/dash-theme-init";
 
 // MODULE: Marketing Manager Dashboard
 // UI-only — reuses the shared RENZO design system. All queries are READ-ONLY.
@@ -131,7 +132,7 @@ export default async function MarketingDashboardPage() {
 
   return (
     <div id={THEME_ROOT_ID} suppressHydrationWarning className="sa-dash -m-6 min-h-[calc(100vh-3.5rem)] bg-slate-50 p-4 transition-colors duration-300 sm:p-6">
-      <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      <DashThemeInit />
       <div className="mx-auto max-w-350 space-y-6">
         <FadeIn>
           <DashboardHeader role="marketing" userName={userName} greeting={greeting} dateLabel={dateLabel} notifications={[]} />
