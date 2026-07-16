@@ -63,6 +63,12 @@ export async function GET(req: NextRequest) {
 
     const leaveTypeId = url.searchParams.get("leaveTypeId")?.trim() || undefined;
 
+    // Optional single-worker filter — powers the "previous leave history" panel in
+    // the approval modal. Branch scope still applies (it lives on the worker match
+    // below), so this can only NARROW to a worker the caller may already see, never
+    // widen past their branch.
+    const workerId = url.searchParams.get("workerId")?.trim() || undefined;
+
     const from = parseDate(url.searchParams.get("from"));
     const to = parseDate(url.searchParams.get("to"));
 
@@ -91,6 +97,7 @@ export async function GET(req: NextRequest) {
 
     const where: Prisma.LeaveWhereInput = {
       worker: workerFilter,
+      ...(workerId ? { workerId } : {}),
       ...(status ? { status } : {}),
       ...(leaveTypeId ? { leaveTypeId } : {}),
       // Date-range = leaves whose period OVERLAPS [from, to]: start ≤ to AND

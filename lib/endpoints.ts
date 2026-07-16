@@ -119,6 +119,7 @@ export const API = {
     // Admin — Leave requests / approvals (Gauransh)
     leaves:           `${BASE}/admin/leaves`,
     leavesStats:      `${BASE}/admin/leaves/stats`,
+    leavesBalance:    `${BASE}/admin/leaves/balance`,
     leave:            (id: string) => `${BASE}/admin/leaves/${id}`,
 
     // Admin — Portfolio change requests / approvals (Gauransh)

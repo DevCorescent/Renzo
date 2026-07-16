@@ -32,13 +32,40 @@ export async function GET(req: NextRequest) {
   if (scopeError) return scopeError;
 
   try {
-    const grouped = await prisma.leave.groupBy({
-      by: ["status"],
-      where: { worker: workerBranchWhere(scope) },
-      _count: { _all: true },
-    });
+    // UTC-pinned day window, matching the @db.Date storage used across the module.
+    const now = new Date();
+    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const todayEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+    const scopedWorker = workerBranchWhere(scope);
 
-    const stats = { pending: 0, approved: 0, rejected: 0, cancelled: 0, total: 0 };
+    // One grouped status count + two focused reads, all branch-scoped identically:
+    //   • today       — requests APPLIED today (createdAt within the day window).
+    //   • onLeaveToday — DISTINCT workers whose APPROVED leave overlaps today.
+    const [grouped, today, onLeave] = await Promise.all([
+      prisma.leave.groupBy({
+        by: ["status"],
+        where: { worker: scopedWorker },
+        _count: { _all: true },
+      }),
+      prisma.leave.count({
+        where: { worker: scopedWorker, createdAt: { gte: todayStart, lte: todayEnd } },
+      }),
+      prisma.leave.findMany({
+        where: {
+          worker: scopedWorker,
+          status: "APPROVED",
+          startDate: { lte: todayEnd },
+          endDate: { gte: todayStart },
+        },
+        select: { workerId: true },
+        distinct: ["workerId"],
+      }),
+    ]);
+
+    const stats = {
+      pending: 0, approved: 0, rejected: 0, cancelled: 0, total: 0,
+      today, onLeaveToday: onLeave.length,
+    };
     for (const row of grouped) {
       const n = row._count._all;
       stats.total += n;
