@@ -94,7 +94,7 @@ export default async function CustomerDashboardPage() {
       value: (customer?.totalVisits ?? 0).toString(),
       sub: "all time",
       icon: Star,
-      accent: "text-amber-400",
+      accent: "text-[#C4C9D1]",
       href: "/customer/bookings",
     },
     {
@@ -110,100 +110,117 @@ export default async function CustomerDashboardPage() {
       value: activeMembership?.plan.name ?? "None",
       sub: activeMembership?.plan.tier ?? "Upgrade to unlock perks",
       icon: Crown,
-      accent: "text-gold",
+      accent: "text-[#C4C9D1]",
       href: "/customer/membership",
     },
   ];
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold text-stone-100">
-          Welcome back, {customer?.firstName ?? "there"}!
-        </h1>
-        <p className="mt-0.5 text-sm text-stone-500">
-          {customer?.totalVisits ?? 0} visits · ₹{Number(customer?.totalSpend ?? 0).toLocaleString("en-IN")} lifetime spend
-        </p>
-      </div>
+    <>
+      <style>{`
+        @keyframes dashSlide { from { opacity:0; transform: translateY(22px); } to { opacity:1; transform:none; } }
+        @keyframes dashPop { from { opacity:0; transform: translateY(10px) scale(.94); } to { opacity:1; transform:none; } }
+        .anim-slide { animation: dashSlide .6s cubic-bezier(.22,1,.36,1) both; }
+        .anim-pop { animation: dashPop .55s cubic-bezier(.34,1.56,.64,1) both; }
+        @media (prefers-reduced-motion: reduce){ .anim-slide,.anim-pop{ animation:none !important; } }
+      `}</style>
 
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((s) => (
-          <Link key={s.label} href={s.href} className="group rounded-xl border border-white/8 bg-stone-900 p-4 transition hover:border-white/15">
-            <div className="flex items-center gap-2 text-stone-500">
-              <s.icon className={`size-4 ${s.accent}`} />
-              <span className="text-xs">{s.label}</span>
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="anim-slide">
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+            Welcome back, {customer?.firstName ?? "there"}! <span className="inline-block">👋</span>
+          </h1>
+          <p className="mt-1.5 text-sm text-stone-400">
+            {customer?.totalVisits ?? 0} visits · ₹{Number(customer?.totalSpend ?? 0).toLocaleString("en-IN")} lifetime spend
+          </p>
+        </div>
+
+        {/* Stats */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.map((s, i) => (
+            <Link
+              key={s.label}
+              href={s.href}
+              style={{ animationDelay: `${i * 80}ms` }}
+              className="group anim-pop rounded-2xl border border-white/10 bg-gradient-to-b from-stone-800/70 to-stone-900/90 p-5 shadow-lg shadow-black/40 backdrop-blur transition-all duration-300 hover:-translate-y-1.5 hover:scale-[1.02] hover:border-white/25 hover:shadow-2xl hover:shadow-black/60"
+            >
+              <div className="flex items-center gap-2 text-stone-400">
+                <s.icon className={`size-4 ${s.accent} transition-transform group-hover:scale-110`} />
+                <span className="text-xs font-medium uppercase tracking-wide">{s.label}</span>
+              </div>
+              <p className="mt-3 text-2xl font-bold text-white">{s.value}</p>
+              {s.sub && <p className="mt-0.5 text-xs text-stone-400">{s.sub}</p>}
+            </Link>
+          ))}
+        </div>
+
+        {/* Upcoming appointments */}
+        {upcomingAppointments.length > 0 && (
+          <div className="anim-slide overflow-hidden rounded-2xl border border-white/10 bg-stone-900/70 shadow-lg shadow-black/40 backdrop-blur" style={{ animationDelay: "120ms" }}>
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <h2 className="text-base font-semibold text-white">Upcoming Appointments</h2>
+              <Link href="/customer/bookings" className="text-xs font-medium text-[#C4C9D1] hover:underline">
+                All bookings →
+              </Link>
             </div>
-            <p className="mt-2 text-xl font-semibold text-stone-100">{s.value}</p>
-            {s.sub && <p className="text-[11px] text-stone-500">{s.sub}</p>}
-          </Link>
-        ))}
+            <div className="divide-y divide-white/5">
+              {upcomingAppointments.map((a: ApptRow) => (
+                <div key={a.id} className="flex items-start justify-between px-5 py-4 transition-colors hover:bg-white/5">
+                  <div>
+                    <p className="text-sm font-semibold text-stone-100">
+                      {a.services.map((s: ApptSvc) => s.service.name).join(", ") || "Appointment"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-stone-400">
+                      {new Date(a.appointmentDate).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+                      {" · "}{a.startTime} · {a.branch.name}
+                    </p>
+                  </div>
+                  <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>{a.status.replace(/_/g, " ")}</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recent visits (compact) */}
+        {recentAppointments.length > 0 && (
+          <div className="anim-slide overflow-hidden rounded-2xl border border-white/10 bg-stone-900/70 shadow-lg shadow-black/40 backdrop-blur" style={{ animationDelay: "160ms" }}>
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <h2 className="text-base font-semibold text-white">Recent Visits</h2>
+              <Link href="/customer/bookings" className="text-xs font-medium text-[#C4C9D1] hover:underline">
+                Full history →
+              </Link>
+            </div>
+            <div className="divide-y divide-white/5">
+              {recentAppointments.map((a: RecentRow) => (
+                <div key={a.id} className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-white/5">
+                  <div>
+                    <p className="text-sm font-semibold text-stone-100">
+                      {a.services.map((s: ApptSvc) => s.service.name).join(", ") || "Visit"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-stone-400">
+                      {new Date(a.appointmentDate).toLocaleDateString("en-IN")} · {a.branch.name}
+                    </p>
+                  </div>
+                  <p className="text-sm font-bold text-stone-100">
+                    ₹{Number(a.totalAmount).toLocaleString("en-IN")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Discovery: services + branches */}
+        <div className="anim-slide" style={{ animationDelay: "200ms" }}>
+          <DiscoverSection
+            services={popularServices}
+            branches={branches}
+            customerGender={customer?.gender ?? null}
+          />
+        </div>
       </div>
-
-      {/* Upcoming appointments */}
-      {upcomingAppointments.length > 0 && (
-        <div className="rounded-xl border border-white/8 bg-stone-900">
-          <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
-            <h2 className="text-sm font-semibold text-stone-200">Upcoming Appointments</h2>
-            <Link href="/customer/bookings" className="text-xs text-amber-400 hover:underline">
-              All bookings →
-            </Link>
-          </div>
-          <div className="divide-y divide-white/5">
-            {upcomingAppointments.map((a: ApptRow) => (
-              <div key={a.id} className="flex items-start justify-between px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-stone-100">
-                    {a.services.map((s: ApptSvc) => s.service.name).join(", ") || "Appointment"}
-                  </p>
-                  <p className="text-xs text-stone-500">
-                    {new Date(a.appointmentDate).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
-                    {" · "}{a.startTime} · {a.branch.name}
-                  </p>
-                </div>
-                <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>{a.status.replace(/_/g, " ")}</Badge>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Recent visits (compact) */}
-      {recentAppointments.length > 0 && (
-        <div className="rounded-xl border border-white/8 bg-stone-900">
-          <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
-            <h2 className="text-sm font-semibold text-stone-200">Recent Visits</h2>
-            <Link href="/customer/bookings" className="text-xs text-amber-400 hover:underline">
-              Full history →
-            </Link>
-          </div>
-          <div className="divide-y divide-white/5">
-            {recentAppointments.map((a: RecentRow) => (
-              <div key={a.id} className="flex items-center justify-between px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-stone-100">
-                    {a.services.map((s: ApptSvc) => s.service.name).join(", ") || "Visit"}
-                  </p>
-                  <p className="text-xs text-stone-500">
-                    {new Date(a.appointmentDate).toLocaleDateString("en-IN")} · {a.branch.name}
-                  </p>
-                </div>
-                <p className="text-sm font-medium text-stone-300">
-                  ₹{Number(a.totalAmount).toLocaleString("en-IN")}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Discovery: services + branches */}
-      <DiscoverSection
-        services={popularServices}
-        branches={branches}
-        customerGender={customer?.gender ?? null}
-      />
-    </div>
+    </>
   );
 }

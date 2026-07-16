@@ -2,6 +2,7 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge } from "@/components/shared/ui";
+import { GiftCardActions } from "./gift-card-actions";
 
 const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger"> = {
   ACTIVE: "success", REDEEMED: "neutral", EXPIRED: "neutral", CANCELLED: "danger",
@@ -26,6 +27,9 @@ export default async function CustomerGiftCardsPage() {
           {giftCards.length} card{giftCards.length !== 1 ? "s" : ""}
         </p>
       </div>
+
+      {/* Redeem / Buy actions */}
+      <GiftCardActions />
 
       {giftCards.length === 0 ? (
         <div className="rounded-xl border border-white/8 bg-stone-900 px-4 py-8 text-center">
