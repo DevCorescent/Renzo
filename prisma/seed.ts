@@ -325,7 +325,7 @@ async function seedStylists(
     const branchId = branches.get(s.branch)!;
     const user = await prisma.user.upsert({
       where: { email: s.email },
-      update: { isActive: true, isVerified: true },
+      update: { isActive: true, isVerified: true, passwordHash, userType: "WORKER" },
       create: {
         email: s.email, phone: s.phone, passwordHash, userType: "WORKER", isVerified: true,
         workerProfile: {
@@ -384,7 +384,7 @@ async function seedDemoCustomers() {
   for (const c of DEMO_CUSTOMERS) {
     const user = await prisma.user.upsert({
       where: { email: c.email },
-      update: { isActive: true, isVerified: true },
+      update: { isActive: true, isVerified: true, passwordHash },
       create: {
         email: c.email, phone: c.phone, passwordHash, userType: "CUSTOMER", isVerified: true,
         customerProfile: { create: { firstName: c.firstName, lastName: c.lastName, email: c.email, phone: c.phone, gender: c.gender } },
@@ -515,7 +515,7 @@ async function seedBranchManagers(branches: Map<string, string>) {
     if (!branchId) continue;
     const user = await prisma.user.upsert({
       where: { email: m.email },
-      update: { isActive: true, isVerified: true, userType: "BRANCH_ADMIN" },
+      update: { isActive: true, isVerified: true, userType: "BRANCH_ADMIN", passwordHash },
       create: {
         email: m.email, phone: m.phone, passwordHash, userType: "BRANCH_ADMIN", isVerified: true,
         staffProfile: { create: { firstName: m.firstName, lastName: m.lastName, email: m.email, phone: m.phone, branchId } },

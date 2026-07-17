@@ -871,6 +871,77 @@ function Row({ label, children, highlight }: { label: string; children: React.Re
   );
 }
 
+/* ── inline phone-OTP (shown when confirming while signed out) ───────────────── */
+function InlineAuth({
+  phase, name, onName, phone, onPhone, otp, onOtp, devOtp, loading, error, onSend, onVerify, onBack,
+}: {
+  phase: "phone" | "code";
+  name: string; onName: (v: string) => void;
+  phone: string; onPhone: (v: string) => void;
+  otp: string; onOtp: (v: string) => void;
+  devOtp: string | null;
+  loading: boolean; error: string | null;
+  onSend: () => void; onVerify: () => void; onBack: () => void;
+}) {
+  const inputCls =
+    "w-full rounded-2xl border border-white/8 bg-stone-900 px-4 py-3 text-sm text-stone-200 placeholder:text-stone-600 focus:border-amber-500/40 focus:outline-none";
+  const btnCls =
+    "flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 py-3.5 text-sm font-bold text-stone-950 transition hover:bg-amber-400 disabled:opacity-60";
+  return (
+    <div className="mt-6 rounded-2xl border border-amber-500/20 bg-stone-900/70 p-5">
+      <h3 className="text-base font-semibold text-white">Sign in to confirm</h3>
+      <p className="mt-1 text-sm text-stone-400">
+        {phase === "phone"
+          ? "Enter your mobile number — we'll send a one-time code to secure your booking."
+          : "Enter the code we just sent."}
+      </p>
+      {error && (
+        <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-400">{error}</p>
+      )}
+      {phase === "phone" ? (
+        <form onSubmit={(e) => { e.preventDefault(); onSend(); }} className="mt-4 space-y-3">
+          <input
+            type="text" value={name} onChange={(e) => onName(e.target.value)}
+            placeholder="Full name" autoFocus className={inputCls}
+          />
+          <input
+            type="tel" inputMode="tel" value={phone} onChange={(e) => onPhone(e.target.value)}
+            placeholder="Mobile number" className={inputCls}
+          />
+          <button type="submit" disabled={loading} className={btnCls}>
+            {loading && <Loader2 className="size-4 animate-spin" />}
+            {loading ? "Sending…" : "Send code"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={(e) => { e.preventDefault(); onVerify(); }} className="mt-4 space-y-3">
+          <p className="text-sm text-stone-300">
+            Code sent to <span className="font-medium text-white">{phone}</span>
+          </p>
+          <input
+            inputMode="numeric" maxLength={6} value={otp}
+            onChange={(e) => onOtp(e.target.value.replace(/\D/g, ""))}
+            placeholder="6-digit code" autoFocus
+            className={`${inputCls} text-center font-mono text-lg tracking-[0.4em] placeholder:tracking-normal`}
+          />
+          {devOtp && (
+            <p className="text-center text-xs text-stone-500">
+              Dev code: <span className="font-mono font-semibold text-amber-400">{devOtp}</span>
+            </p>
+          )}
+          <button type="submit" disabled={loading} className={btnCls}>
+            {loading && <Loader2 className="size-4 animate-spin" />}
+            {loading ? "Confirming…" : "Verify & confirm booking"}
+          </button>
+          <button type="button" onClick={onBack} className="w-full text-center text-xs text-stone-500 transition hover:text-stone-300">
+            ← Use a different number
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 /* ── main wizard ────────────────────────────────────────────────────────────── */
 
 export function BookWizard({
@@ -901,6 +972,17 @@ export function BookWizard({
   const [confirmLoading, setConfirmLoading] = React.useState(false);
   const [confirmError, setConfirmError] = React.useState<string | null>(null);
 
+  // Inline phone-OTP: shown when confirming a booking while signed out, so the
+  // customer authenticates without leaving the flow, then the booking completes.
+  const [needsAuth, setNeedsAuth] = React.useState(false);
+  const [authPhase, setAuthPhase] = React.useState<"phone" | "code">("phone");
+  const [custName, setCustName] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [otp, setOtp] = React.useState("");
+  const [devOtp, setDevOtp] = React.useState<string | null>(null);
+  const [authLoading, setAuthLoading] = React.useState(false);
+  const [authError, setAuthError] = React.useState<string | null>(null);
+
   function resetWorker() {
     setWorker(null);
     setWorkerChosen(false);
@@ -926,7 +1008,8 @@ export function BookWizard({
       });
       const json = await res.json();
       if (res.status === 401) {
-        router.push(`/login?redirect=${encodeURIComponent("/customer/bookings")}`);
+        // Signed out — authenticate inline via phone OTP, then retry this booking.
+        setNeedsAuth(true);
         return;
       }
       if (!res.ok) throw new Error(json?.error ?? json?.message ?? "Booking failed");
@@ -936,6 +1019,47 @@ export function BookWizard({
     } finally {
       setConfirmLoading(false);
     }
+  }
+
+  // Step 1 of inline auth: send a one-time code to the entered phone.
+  async function sendOtp() {
+    if (!custName.trim()) { setAuthError("Enter your name"); return; }
+    const p = phone.trim();
+    if (!p) { setAuthError("Enter your mobile number"); return; }
+    setAuthLoading(true); setAuthError(null);
+    try {
+      const res = await fetch(API.auth.otpSend, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: p }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.success === false) throw new Error(json?.message ?? "Could not send code");
+      setDevOtp(json?.data?.devOtp ?? null);
+      setAuthPhase("code");
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Could not send code");
+    } finally { setAuthLoading(false); }
+  }
+
+  // Step 2: verify the code (auto-registers a customer if new), then complete the
+  // booking. The verify response sets the session cookie, so handleConfirm's retry
+  // is authenticated.
+  async function verifyAndBook() {
+    const code = otp.trim();
+    if (!code) { setAuthError("Enter the 6-digit code"); return; }
+    setAuthLoading(true); setAuthError(null);
+    try {
+      const res = await fetch(API.auth.otpVerify, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phone.trim(), otp: code, firstName: custName.trim() }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.success === false || !json?.data) throw new Error(json?.message ?? "Invalid code");
+      setNeedsAuth(false);
+      await handleConfirm();
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Invalid code");
+    } finally { setAuthLoading(false); }
   }
 
   return (
@@ -1026,6 +1150,17 @@ export function BookWizard({
               onConfirm={handleConfirm}
               loading={confirmLoading} error={confirmError}
             />
+            {needsAuth && (
+              <InlineAuth
+                phase={authPhase}
+                name={custName} onName={setCustName}
+                phone={phone} onPhone={setPhone}
+                otp={otp} onOtp={setOtp} devOtp={devOtp}
+                loading={authLoading} error={authError}
+                onSend={sendOtp} onVerify={verifyAndBook}
+                onBack={() => { setAuthPhase("phone"); setOtp(""); setAuthError(null); }}
+              />
+            )}
           </>
         )}
       </div>
