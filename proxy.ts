@@ -1,23 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import type { AuthUser } from "@/types/api";
+import { CUSTOMER_LOGIN_PATH, STAFF_LOGIN_PATH } from "@/lib/auth-paths";
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? "changeme-set-JWT_SECRET-in-env"
 );
 
-const ROUTE_ROLES: Array<{ prefix: string; roles: AuthUser["userType"][] }> = [
-  { prefix: "/super-admin", roles: ["SUPER_ADMIN", "OWNER"] },
-  { prefix: "/branch-admin", roles: ["BRANCH_ADMIN", "SUPER_ADMIN", "OWNER"] },
+const ROUTE_ROLES: Array<{
+  prefix: string;
+  roles: AuthUser["userType"][];
+  loginPath: string;
+}> = [
+  { prefix: "/super-admin", roles: ["SUPER_ADMIN", "OWNER"], loginPath: STAFF_LOGIN_PATH },
+  { prefix: "/branch-admin", roles: ["BRANCH_ADMIN", "SUPER_ADMIN", "OWNER"], loginPath: STAFF_LOGIN_PATH },
   {
     prefix: "/reception",
     roles: ["RECEPTIONIST", "BRANCH_ADMIN", "SUPER_ADMIN", "OWNER"],
+    loginPath: STAFF_LOGIN_PATH,
   },
-  { prefix: "/worker",   roles: ["WORKER"] },
-  { prefix: "/customer", roles: ["CUSTOMER"] },
-  { prefix: "/inventory",  roles: ["INVENTORY_MANAGER", "SUPER_ADMIN", "OWNER"] },
-  { prefix: "/marketing",  roles: ["MARKETING_MANAGER", "SUPER_ADMIN", "OWNER"] },
-  { prefix: "/accountant", roles: ["ACCOUNTANT", "SUPER_ADMIN", "OWNER"] },
+  { prefix: "/worker", roles: ["WORKER"], loginPath: STAFF_LOGIN_PATH },
+  { prefix: "/customer", roles: ["CUSTOMER"], loginPath: CUSTOMER_LOGIN_PATH },
+  { prefix: "/inventory", roles: ["INVENTORY_MANAGER", "SUPER_ADMIN", "OWNER"], loginPath: STAFF_LOGIN_PATH },
+  { prefix: "/marketing", roles: ["MARKETING_MANAGER", "SUPER_ADMIN", "OWNER"], loginPath: STAFF_LOGIN_PATH },
+  { prefix: "/accountant", roles: ["ACCOUNTANT", "SUPER_ADMIN", "OWNER"], loginPath: STAFF_LOGIN_PATH },
 ];
 
 export async function proxy(req: NextRequest) {
@@ -28,7 +34,7 @@ export async function proxy(req: NextRequest) {
 
   const token = req.cookies.get("renzo_token")?.value;
   if (!token) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL(rule.loginPath, req.url));
   }
 
   try {
@@ -39,7 +45,7 @@ export async function proxy(req: NextRequest) {
     }
     return NextResponse.next();
   } catch {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL(rule.loginPath, req.url));
   }
 }
 

@@ -96,7 +96,7 @@ function UserMenu({ userName, roleLabel, settingsHref }: { userName: string; rol
     try {
       await fetch(API.auth.logout, { method: "POST" });
     } finally {
-      router.push("/login");
+      router.push("/staff/login");
       router.refresh();
     }
   }

@@ -9,7 +9,7 @@ const ALLOWED = ["ACCOUNTANT", "SUPER_ADMIN", "OWNER"];
 
 export default async function AccountantLayout({ children }: { children: React.ReactNode }) {
   const authUser = await getServerUser();
-  if (!authUser || !ALLOWED.includes(authUser.userType)) redirect("/login");
+  if (!authUser || !ALLOWED.includes(authUser.userType)) redirect("/staff/login");
 
   let userName = "Accounts";
   const staff = await prisma.staffProfile.findFirst({
