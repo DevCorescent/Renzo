@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { CmsCopyGenerator } from "@/components/ai/cms-copy-generator";
 
 // OWNER: Hemant | MODULE: CMS — Banners
 
@@ -17,6 +18,9 @@ export default async function SuperAdminCmsBannersPage() {
         <h1 className="text-xl font-semibold text-gray-900">Banners</h1>
         <p className="mt-0.5 text-sm text-gray-500">{banners.length} total</p>
       </div>
+
+      <CmsCopyGenerator defaultKind="banner" />
+
       <Card>
         <CardHeader><CardTitle>All Banners</CardTitle></CardHeader>
         <Table>

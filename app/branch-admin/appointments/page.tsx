@@ -2,6 +2,8 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { CancelBookingButton } from "@/components/appointments/cancel-booking-button";
+import { EditAppointmentButton } from "@/components/appointments/edit-appointment-button";
 
 // OWNER: Hemant | MODULE: Branch Admin Appointments
 
@@ -46,8 +48,8 @@ export default async function BranchAdminAppointmentsPage({
     take: 100,
     include: {
       customer: { select: { firstName: true, lastName: true, phone: true } },
-      worker: { select: { firstName: true, lastName: true } },
-      services: { include: { service: { select: { name: true } } } },
+      worker: { select: { id: true, firstName: true, lastName: true } },
+      services: { include: { service: { select: { id: true, name: true } } } },
     },
   });
 
@@ -72,12 +74,13 @@ export default async function BranchAdminAppointmentsPage({
               <TH>Worker</TH>
               <TH>Amount</TH>
               <TH>Status</TH>
+              <TH className="text-right">Action</TH>
             </tr>
           </THead>
           <tbody>
             {appointments.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
                   No appointments found.
                 </td>
               </tr>
@@ -107,6 +110,22 @@ export default async function BranchAdminAppointmentsPage({
                     <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>
                       {a.status.replace(/_/g, " ")}
                     </Badge>
+                  </TD>
+                  <TD className="text-right">
+                    <span className="inline-flex flex-wrap items-start justify-end gap-1.5">
+                      <EditAppointmentButton
+                        appointmentId={a.id}
+                        status={a.status}
+                        appointmentDate={a.appointmentDate}
+                        startTime={a.startTime}
+                        endTime={a.endTime}
+                        branchId={branchId}
+                        serviceId={a.services[0]?.service.id}
+                        workerId={a.worker?.id}
+                        mode="admin"
+                      />
+                      <CancelBookingButton appointmentId={a.id} status={a.status} />
+                    </span>
                   </TD>
                 </TR>
               ))

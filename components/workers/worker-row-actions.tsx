@@ -90,16 +90,12 @@ export function WorkerRowActions({
     };
   }, [open]);
 
-  // Every destination below is backed by a route that exists and admits this role.
-  const links = [
-    { label: "View profile", href: `${basePath}/${workerId}` },
-    { label: "Schedule", href: `${basePath}/${workerId}/schedule` },
-    { label: "Calendar", href: `${basePath}/${workerId}/calendar` },
-    { label: "Slots", href: `${basePath}/${workerId}/slots` },
-    { label: "Availability", href: `${basePath}/${workerId}/availability` },
-    { label: "Services", href: `${basePath}/${workerId}/services` },
-    { label: "Shifts", href: `${basePath}/${workerId}/shifts` },
-  ];
+  // Consolidated into ONE destination — the unified Worker Workspace, which holds
+  // Overview / Portfolio / Schedule / Attendance / Leaves / Services / Performance /
+  // Documents / Activity as tabs. The old per-page links (schedule, calendar, slots,
+  // availability, services, shifts) are retired from this menu; those routes still
+  // exist and are now reached from inside the workspace, not scattered here.
+  const links = [{ label: "Open workspace", href: `${basePath}/${workerId}` }];
 
   return (
     <div ref={rootRef} className="relative flex justify-end">

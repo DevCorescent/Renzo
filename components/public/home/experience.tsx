@@ -18,7 +18,7 @@ function StatItem({ stat, start, index }: { stat: Stat; start: boolean; index: n
     <div
       className={cn(
         "relative flex flex-col justify-between px-6 py-8 sm:px-8",
-        "border-white/10 first:pl-0 sm:border-l sm:first:border-l-0"
+        "border-white/10 first:pl-0 sm:first:pl-6 sm:border-l sm:first:border-l-0"
       )}
     >
       <span
@@ -28,7 +28,7 @@ function StatItem({ stat, start, index }: { stat: Stat; start: boolean; index: n
         {String(index + 1).padStart(2, "0")}
       </span>
       <p
-        className="font-heading text-4xl font-semibold leading-none text-white sm:text-5xl"
+        className="bg-gradient-to-br from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text font-heading text-4xl font-black leading-none text-transparent sm:text-5xl"
         aria-hidden="true"
       >
         {value}
@@ -50,7 +50,7 @@ export function Experience() {
   const reduceMotion = useReducedMotion();
 
   return (
-    <section id="about" className="relative overflow-hidden bg-[#0A0B0D] py-24 sm:py-32">
+    <section id="about" className="relative overflow-hidden bg-[#0A0B0D] py-12 sm:py-14">
       {/* Ambient silver glow — matches Hero/Blog */}
       <div
         aria-hidden
@@ -60,18 +60,15 @@ export function Experience() {
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <MotionReveal className="grid gap-8 lg:grid-cols-2 lg:items-end">
           <div>
-            <div
-              className={cn(
-                GLASS,
-                "mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-1.5"
-              )}
-            >
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-4 py-1.5 backdrop-blur-xl">
               <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#C4C9D1]">
                 Our Story
               </span>
             </div>
-            <h2 className="group max-w-xl font-heading text-4xl font-semibold leading-[1.1] tracking-[-0.02em] text-white sm:text-5xl xl:text-6xl">
-              More Than a Salon, An{" "}
+            <h2 className="group max-w-xl font-heading text-4xl font-black leading-[0.98] tracking-[-0.03em] text-white sm:text-5xl xl:text-6xl">
+              More Than a Salon,
+              <br />
+              An{" "}
               <motion.span
                 className="inline-block bg-[length:200%_100%] bg-gradient-to-r from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text text-transparent transition-transform duration-500 group-hover:translate-x-1.5"
                 animate={
@@ -110,17 +107,14 @@ export function Experience() {
         </MotionReveal>
 
         {/* Shared blurb line above the stat rail */}
-        <p className="relative mt-16 max-w-lg text-sm leading-relaxed text-[#8D96A0]">
+        <p className="relative mt-8 max-w-lg text-sm leading-relaxed text-[#8D96A0]">
           {STATS_BLURB}
         </p>
 
         {/* Bento-style stat rail */}
         <div
           ref={ref}
-          className={cn(
-            GLASS,
-            "relative mt-6 grid grid-cols-2 gap-x-2 gap-y-2 rounded-[28px] border border-white/10 p-2 sm:grid-cols-4 sm:gap-0 sm:p-0"
-          )}
+          className="relative mt-4 grid grid-cols-2 gap-x-4 gap-y-4 rounded-[28px] border border-white/10 bg-black/80 p-4 backdrop-blur-xl sm:grid-cols-4 sm:gap-0 sm:p-6"
         >
           {STATS.map((stat, i) => (
             <StatItem key={stat.label} stat={stat} start={inView} index={i} />

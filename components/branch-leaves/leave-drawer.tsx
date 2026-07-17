@@ -35,16 +35,18 @@ export function LeaveDrawer({
   onClose,
   onApprove,
   onReject,
+  onReopen,
 }: {
   leave: BranchLeave | null;
   onClose: () => void;
   onApprove: (id: string) => Promise<ActionResult>;
   onReject: (id: string) => Promise<ActionResult>;
+  onReopen?: (id: string) => Promise<ActionResult>;
 }) {
   const dialogRef = React.useRef<HTMLDialogElement>(null);
   const open = leave !== null;
 
-  const [mode, setMode] = React.useState<null | "approve" | "reject">(null);
+  const [mode, setMode] = React.useState<null | "approve" | "reject" | "reopen">(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -71,10 +73,11 @@ export function LeaveDrawer({
     if (!leave || submitting) return;
     setSubmitting(true);
     setError(null);
-    const err = mode === "approve" ? await onApprove(leave.id) : await onReject(leave.id);
+    let err: ActionResult = null;
+    if (mode === "approve") err = await onApprove(leave.id);
+    else if (mode === "reject") err = await onReject(leave.id);
+    else if (mode === "reopen" && onReopen) err = await onReopen(leave.id);
     setSubmitting(false);
-    // On success the parent closes the drawer; on failure we keep it open and show
-    // the route's message inline where the admin can act on it.
     if (err) setError(err);
   }
 
@@ -167,12 +170,12 @@ export function LeaveDrawer({
                 {leave.status === "PENDING" && "Awaiting your review."}
                 {leave.status === "APPROVED" && "This leave has been approved."}
                 {leave.status === "REJECTED" && "This leave has been rejected."}
-                {leave.status === "CANCELLED" && "Cancelled by the worker."}
+                {leave.status === "CANCELLED" && "Cancelled — you can still approve or reopen."}
               </p>
             </div>
           </div>
 
-          {/* Footer / actions — only a PENDING request can be actioned. */}
+          {/* Footer / actions */}
           <div className="border-t border-gray-100 px-5 py-4">
             {error && (
               <p role="alert" className="mb-3 rounded border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -180,7 +183,7 @@ export function LeaveDrawer({
               </p>
             )}
 
-            {leave.status !== "PENDING" ? (
+            {leave.status !== "PENDING" && leave.status !== "CANCELLED" ? (
               <div className="flex justify-end">
                 <button
                   type="button"
@@ -191,7 +194,16 @@ export function LeaveDrawer({
                 </button>
               </div>
             ) : mode === null ? (
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {leave.status === "CANCELLED" && onReopen && (
+                  <button
+                    type="button"
+                    onClick={() => setMode("reopen")}
+                    className="inline-flex h-9 items-center gap-1.5 rounded border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                  >
+                    Reopen
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setMode("reject")}
@@ -210,10 +222,9 @@ export function LeaveDrawer({
                 </button>
               </div>
             ) : (
-              // Inline confirmation — shows exactly what is about to happen.
               <div className="space-y-3">
                 <p className="text-xs text-gray-600">
-                  {mode === "approve" ? "Approve" : "Reject"}{" "}
+                  {mode === "approve" ? "Approve" : mode === "reject" ? "Reject" : "Reopen"}{" "}
                   <span className="font-medium text-gray-900">{workerName(leave.worker)}</span>&rsquo;s{" "}
                   <span className="font-medium text-gray-900">{leave.leaveType.name}</span> leave from{" "}
                   {formatDate(leave.startDate)} to {formatDate(leave.endDate)}?
@@ -237,18 +248,18 @@ export function LeaveDrawer({
                     disabled={submitting}
                     className={cn(
                       "inline-flex h-9 items-center rounded px-4 text-sm font-medium text-white transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60",
-                      mode === "approve"
-                        ? "bg-gray-900 hover:bg-gray-800 focus:ring-gray-900/20"
-                        : "bg-red-600 hover:bg-red-700 focus:ring-red-500/25"
+                      mode === "reject"
+                        ? "bg-red-600 hover:bg-red-700 focus:ring-red-500/25"
+                        : "bg-gray-900 hover:bg-gray-800 focus:ring-gray-900/20"
                     )}
                   >
                     {submitting
-                      ? mode === "approve"
-                        ? "Approving…"
-                        : "Rejecting…"
+                      ? "Working…"
                       : mode === "approve"
                         ? "Confirm approve"
-                        : "Confirm reject"}
+                        : mode === "reject"
+                          ? "Confirm reject"
+                          : "Confirm reopen"}
                   </button>
                 </div>
               </div>

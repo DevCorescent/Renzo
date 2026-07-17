@@ -3,7 +3,7 @@ import { getServerUser } from "@/lib/server-session";
 import prisma from "@/lib/db";
 import { apiGet, type Paginated } from "@/lib/api-server";
 import { PageHeader } from "@/components/shared/ui";
-import { LeaveStatsCards, LeavesEmpty, LeavesError } from "@/components/branch-leaves/leaves-ui";
+import { LeaveStatsCards, LeavesError } from "@/components/branch-leaves/leaves-ui";
 import { LeavesToolbar } from "@/components/branch-leaves/leaves-toolbar";
 import { LeavesView } from "@/components/branch-leaves/leaves-view";
 import type {
@@ -112,8 +112,6 @@ export default async function BranchAdminLeavesPage({
 
       {!listResult.ok ? (
         <LeavesError message={friendlyError(listResult.status, listResult.message)} />
-      ) : listResult.data.items.length === 0 ? (
-        <LeavesEmpty filtered={params.toString().length > 0} />
       ) : (
         <LeavesView
           leaves={listResult.data.items}
@@ -121,6 +119,7 @@ export default async function BranchAdminLeavesPage({
           page={listResult.data.page}
           limit={listResult.data.limit}
           totalPages={listResult.data.totalPages}
+          leaveTypes={leaveTypes}
         />
       )}
     </div>

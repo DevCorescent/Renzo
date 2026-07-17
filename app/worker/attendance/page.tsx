@@ -2,6 +2,7 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { ClockActions } from "@/components/worker/attendance/clock-actions";
 
 // OWNER: Hemant | MODULE: Worker Attendance
 
@@ -13,17 +14,29 @@ const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" |
   ON_LEAVE: "info",
 };
 
+function todayDate(): Date {
+  return new Date(new Date().toISOString().slice(0, 10));
+}
+
 export default async function WorkerAttendancePage() {
   const authUser = await getServerUser();
   if (!authUser?.workerId) redirect("/login");
   const workerId = authUser.workerId;
 
-  const records = await prisma.attendance.findMany({
-    where: { workerId },
-    orderBy: { date: "desc" },
-    take: 60,
-    include: { branch: { select: { name: true } } },
-  });
+  const today = todayDate();
+
+  const [records, todayRecord] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { workerId },
+      orderBy: { date: "desc" },
+      take: 60,
+      include: { branch: { select: { name: true } } },
+    }),
+    prisma.attendance.findUnique({
+      where: { workerId_date: { workerId, date: today } },
+      select: { checkIn: true, checkOut: true },
+    }),
+  ]);
 
   const presentCount = records.filter((r) => r.status === "PRESENT").length;
   const absentCount = records.filter((r) => r.status === "ABSENT").length;
@@ -31,9 +44,15 @@ export default async function WorkerAttendancePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">Attendance</h1>
-        <p className="mt-0.5 text-sm text-gray-500">Last {records.length} records</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Attendance</h1>
+          <p className="mt-0.5 text-sm text-gray-500">Last {records.length} records</p>
+        </div>
+        <ClockActions
+          checkedIn={Boolean(todayRecord?.checkIn)}
+          checkedOut={Boolean(todayRecord?.checkOut)}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">

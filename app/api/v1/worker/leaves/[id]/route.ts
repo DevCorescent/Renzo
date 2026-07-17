@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
+import { adjustLeaveBalance } from "@/lib/leave-balance";
 import type { AuthUser } from "@/types/api";
 
 async function resolveWorkerId(user: AuthUser): Promise<string | null> {
@@ -24,7 +25,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!workerId) return err("Worker profile not found", 404);
 
     const { id } = await params;
-    // Scope by workerId so a worker can only read their own leave.
     const leave = await prisma.leave.findFirst({
       where: { id, workerId },
       include: { leaveType: true },
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// DELETE /api/v1/worker/leaves/[id] — Cancel own leave request (only if pending)
+// DELETE /api/v1/worker/leaves/[id] — Soft-cancel own leave (PENDING or APPROVED)
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireAuth(req, "WORKER");
   if (error) return error;
@@ -49,15 +49,43 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const { id } = await params;
     const leave = await prisma.leave.findFirst({
       where: { id, workerId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        days: true,
+        leaveTypeId: true,
+        workerId: true,
+        startDate: true,
+      },
     });
     if (!leave) return err("Leave not found", 404);
-    if (leave.status !== "PENDING") {
-      return err("Only pending leave requests can be cancelled", 409);
+    if (leave.status !== "PENDING" && leave.status !== "APPROVED") {
+      return err("Only pending or approved leave can be cancelled", 409);
     }
 
-    await prisma.leave.delete({ where: { id } });
-    return ok(null, "Leave request cancelled");
+    const year = leave.startDate.getUTCFullYear();
+
+    await prisma.$transaction(async (tx) => {
+      await tx.leave.update({
+        where: { id },
+        data: { status: "CANCELLED" },
+      });
+      await adjustLeaveBalance(tx, {
+        workerId: leave.workerId,
+        leaveTypeId: leave.leaveTypeId,
+        days: leave.days,
+        year,
+        from: leave.status,
+        to: "CANCELLED",
+      });
+    });
+
+    const updated = await prisma.leave.findUnique({
+      where: { id },
+      include: { leaveType: true },
+    });
+
+    return ok(updated, "Leave request cancelled");
   } catch {
     return err("Internal server error", 500);
   }

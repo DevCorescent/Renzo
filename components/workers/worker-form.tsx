@@ -47,6 +47,14 @@ const inputCls =
 
 const invalidCls = "border-red-300 focus:border-red-400 focus:ring-red-500/10";
 
+// Visual (top-to-bottom) order of the fields, so "focus the first invalid" lands on
+// the topmost offender rather than whichever key the route happened to list first.
+const FIELD_ORDER = [
+  "firstName", "lastName", "displayName", "gender", "dateOfBirth",
+  "phone", "email", "employeeCode", "joinDate", "experience",
+  "designationId", "departmentId", "password", "languages", "certificates", "bio",
+] as const;
+
 /* ─── Field ────────────────────────────────────────────────────────────────── */
 
 function Field({
@@ -195,38 +203,105 @@ export function WorkerForm({
     IDLE_FORM_STATE
   );
 
-  const [clientErrors, setClientErrors] = React.useState<Record<string, string[]>>({});
+  // CONTROLLED values, so a Server Action round trip NEVER wipes the form. React 19
+  // resets an uncontrolled <form> once its action runs — which is exactly how a
+  // single rejected field used to cost the admin the whole form. Controlled inputs
+  // render from state and are immune to that reset, so every correct field survives.
+  const [values, setValues] = React.useState<Record<string, string>>(() => ({
+    firstName: "", lastName: "", displayName: "", gender: "",
+    dateOfBirth: "", phone: "", email: "", employeeCode: "",
+    joinDate: today, experience: "0", designationId: "", departmentId: "",
+    password: "", languages: "", certificates: "", bio: "",
+  }));
+  const [isPublic, setIsPublic] = React.useState(false);
   const [photo, setPhoto] = React.useState<string | null>(null);
 
-  // Server errors win. They are the authoritative ones, and a stale client message
-  // must never mask what the route actually said.
-  const errors = { ...clientErrors, ...state.errors };
+  // The single source of displayed errors — the client pre-flight OR the route's
+  // 422 / 409, whichever spoke last. Deliberately NOT derived from `state`, so a
+  // field's error can be cleared the instant it is edited (see setField).
+  const [errors, setErrors] = React.useState<Record<string, string[]>>({});
+
+  const formRef = React.useRef<HTMLFormElement>(null);
+
+  // A field's controlled value plus its live error-clearing, bound by name. Every
+  // input spreads this, so the behaviour is stated once and identical everywhere.
+  const bind = (name: string) => ({
+    value: values[name] ?? "",
+    onChange: (
+      e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    ) => setField(name, e.target.value),
+  });
+
+  function setField(name: string, value: string) {
+    setValues((prev) => ({ ...prev, [name]: value }));
+    // Real-time clearing: the red border, message and aria-invalid all drop the
+    // moment the field is edited — no waiting for the next submit.
+    setErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  }
+
+  // Process a fresh Server Action result exactly once, during render, keyed on the
+  // returned state object. This is React's recommended alternative to a
+  // state-setting effect (which the project's lint forbids) — and it is what lets us
+  // clear ONLY the rejected fields while leaving everything the admin got right.
+  const [seenState, setSeenState] = React.useState(state);
+  if (state !== seenState) {
+    setSeenState(state);
+    if (state.status === "error" && Object.keys(state.errors).length > 0) {
+      setErrors(state.errors);
+      setValues((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(state.errors)) {
+          if (key in next) next[key] = "";
+        }
+        return next;
+      });
+    }
+  }
+
+  // Focus + smooth-scroll the first rejected field, in visual order, once per result.
+  // DOM-only work here (no setState), so it never cascades a render.
+  React.useEffect(() => {
+    if (seenState.status !== "error") return;
+    const invalid = Object.keys(seenState.errors);
+    if (invalid.length === 0) return;
+    const first = FIELD_ORDER.find((n) => invalid.includes(n)) ?? invalid[0];
+    const el = formRef.current?.querySelector<HTMLElement>(`[name="${first}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.focus({ preventScroll: true });
+  }, [seenState]);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     const form = event.currentTarget;
     const result = validateAdmission(new FormData(form));
 
     if (result.ok) {
-      setClientErrors({});
+      setErrors({});
       return;
     }
 
     // Cancels the Server Action for this submit — React runs onSubmit first, and a
     // preventDefault here stops the action ever firing.
     event.preventDefault();
-    setClientErrors(result.errors);
+    setErrors(result.errors);
 
-    // Focus the first offending input. An error announced but not reachable is no
-    // better than no error at all for a keyboard or screen-reader user.
-    const firstInvalid = Object.keys(result.errors)[0];
-    form.querySelector<HTMLElement>(`[name="${firstInvalid}"]`)?.focus();
+    // Focus the first offending input, in visual order. An error announced but not
+    // reachable is no better than no error at all for a keyboard or screen-reader user.
+    const first = FIELD_ORDER.find((n) => n in result.errors) ?? Object.keys(result.errors)[0];
+    const el = form.querySelector<HTMLElement>(`[name="${first}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    el?.focus({ preventScroll: true });
   }
 
   const nonFieldError =
     state.status === "error" && Object.keys(state.errors).length === 0 ? state.message : null;
 
   return (
-    <form action={formAction} onSubmit={handleSubmit} noValidate className="space-y-4">
+    <form ref={formRef} action={formAction} onSubmit={handleSubmit} noValidate className="space-y-4">
       {/* A 409 on a duplicate employee code or phone, a 403, a 500, an unreachable
           server — anything the route reported that belongs to no single field. */}
       {nonFieldError && (
@@ -249,6 +324,7 @@ export function WorkerForm({
                 autoComplete="off"
                 aria-invalid={invalid}
                 aria-describedby={describedBy}
+                {...bind(id)}
                 className={cn(inputCls, invalid && invalidCls)}
               />
             )}
@@ -262,6 +338,7 @@ export function WorkerForm({
                 autoComplete="off"
                 aria-invalid={invalid}
                 aria-describedby={describedBy}
+                {...bind(id)}
                 className={cn(inputCls, invalid && invalidCls)}
               />
             )}
@@ -280,6 +357,7 @@ export function WorkerForm({
                 autoComplete="off"
                 aria-invalid={invalid}
                 aria-describedby={describedBy}
+                {...bind(id)}
                 className={cn(inputCls, invalid && invalidCls)}
               />
             )}
@@ -290,10 +368,9 @@ export function WorkerForm({
             {({ id, invalid, describedBy }) => (
               <select
                 id={id}
-                name={id}
-                defaultValue=""
-                aria-invalid={invalid}
+                name={id}                aria-invalid={invalid}
                 aria-describedby={describedBy}
+                {...bind(id)}
                 className={cn(inputCls, invalid && invalidCls)}
               >
                 <option value="" disabled>
@@ -325,6 +402,7 @@ export function WorkerForm({
                 max={maxDateOfBirth}
                 aria-invalid={invalid}
                 aria-describedby={describedBy}
+                {...bind(id)}
                 className={cn(inputCls, invalid && invalidCls)}
               />
             )}
@@ -357,6 +435,7 @@ export function WorkerForm({
                 autoComplete="off"
                 aria-invalid={invalid}
                 aria-describedby={describedBy}
+                {...bind(id)}
                 className={cn(inputCls, invalid && invalidCls)}
               />
             )}
@@ -371,6 +450,7 @@ export function WorkerForm({
                 autoComplete="off"
                 aria-invalid={invalid}
                 aria-describedby={describedBy}
+                {...bind(id)}
                 className={cn(inputCls, invalid && invalidCls)}
               />
             )}
@@ -395,6 +475,7 @@ export function WorkerForm({
                 autoComplete="off"
                 aria-invalid={invalid}
                 aria-describedby={describedBy}
+                {...bind(id)}
                 className={cn(inputCls, "font-mono uppercase", invalid && invalidCls)}
               />
             )}
@@ -406,9 +487,9 @@ export function WorkerForm({
                 id={id}
                 name={id}
                 type="date"
-                defaultValue={today}
                 aria-invalid={invalid}
                 aria-describedby={describedBy}
+                {...bind(id)}
                 className={cn(inputCls, invalid && invalidCls)}
               />
             )}
@@ -422,9 +503,9 @@ export function WorkerForm({
                 type="number"
                 min={0}
                 step={1}
-                defaultValue={0}
                 aria-invalid={invalid}
                 aria-describedby={describedBy}
+                {...bind(id)}
                 className={cn(inputCls, invalid && invalidCls)}
               />
             )}
@@ -439,6 +520,7 @@ export function WorkerForm({
                   defaultValue=""
                   aria-invalid={invalid}
                   aria-describedby={describedBy}
+                {...bind(id)}
                   className={cn(inputCls, invalid && invalidCls)}
                 >
                   <option value="">None</option>
@@ -461,6 +543,7 @@ export function WorkerForm({
                   defaultValue=""
                   aria-invalid={invalid}
                   aria-describedby={describedBy}
+                {...bind(id)}
                   className={cn(inputCls, invalid && invalidCls)}
                 >
                   <option value="">None</option>
@@ -527,6 +610,7 @@ export function WorkerForm({
                 autoComplete="off"
                 aria-invalid={invalid}
                 aria-describedby={describedBy}
+                {...bind(id)}
                 className={cn(inputCls, invalid && invalidCls)}
               />
             )}
@@ -540,6 +624,7 @@ export function WorkerForm({
                 autoComplete="off"
                 aria-invalid={invalid}
                 aria-describedby={describedBy}
+                {...bind(id)}
                 className={cn(inputCls, invalid && invalidCls)}
               />
             )}
@@ -566,6 +651,8 @@ export function WorkerForm({
           <input
             type="checkbox"
             name="isPublic"
+            checked={isPublic}
+            onChange={(e) => setIsPublic(e.target.checked)}
             className="mt-0.5 size-3.5 rounded border-gray-300 text-gray-900 focus:ring-gray-900/20"
           />
           <span className="text-xs text-gray-600">

@@ -53,6 +53,20 @@ export type LeaveStats = {
   rejected: number;
   cancelled: number;
   total: number;
+  // Added additively by the stats route; older callers simply ignore them.
+  today?: number;
+  onLeaveToday?: number;
+};
+
+/** One leave-balance row for a worker/year, from GET /api/v1/admin/leaves/balance. */
+export type LeaveBalanceRow = {
+  id: string;
+  year: number;
+  allocated: number;
+  used: number;
+  pending: number;
+  remaining: number;
+  leaveType: { id: string; name: string; code: string; isPaid: boolean };
 };
 
 /** Active leave types, for the filter dropdown. */

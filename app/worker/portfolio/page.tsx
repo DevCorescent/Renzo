@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ImageOff, MessageSquare, GraduationCap, AlertTriangle } from "lucide-react";
+import { ImageOff, MessageSquare, GraduationCap, AlertTriangle, Settings2 } from "lucide-react";
 import { getServerUser } from "@/lib/server-session";
 import { apiGet, type Paginated } from "@/lib/api-server";
 import { Section, EmptyHint } from "@/components/worker-portfolio/portfolio-ui";
@@ -69,6 +70,18 @@ export default async function WorkerPortfolioPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-12 pb-16">
+      {/* This is the worker's own showcase, so it also offers the way in to manage
+          it. The management screen itself lives at /worker/portfolio/manage. */}
+      <div className="flex justify-end">
+        <Link
+          href="/worker/portfolio/manage"
+          className="inline-flex h-9 items-center gap-1.5 rounded border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+        >
+          <Settings2 className="size-4" aria-hidden="true" />
+          Manage portfolio
+        </Link>
+      </div>
+
       <PortfolioHero summary={summary} />
 
       <ProfessionalSummary summary={summary} />

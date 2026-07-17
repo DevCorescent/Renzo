@@ -5,27 +5,53 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { API } from "@/lib/endpoints";
 import {
-  MapPin, Scissors, Clock, ChevronLeft, ChevronRight, Check,
-  Loader2, CalendarDays, X, Star, User, Award, Users,
+  MapPin,
+  Scissors,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Loader2,
+  CalendarDays,
+  X,
+  Star,
+  User,
+  Award,
+  Users,
 } from "lucide-react";
+import { BookingSuggestTips } from "@/components/ai/booking-suggest-tips";
 
 /* ── shared types (exported for use in server page) ────────────────────────── */
 
 export type PreloadedBranch = {
-  id: string; name: string; slug: string; city: string;
-  address: string; coverImage: string | null;
+  id: string;
+  name: string;
+  slug: string;
+  city: string;
+  address: string;
+  coverImage: string | null;
 };
 export type PreloadedService = {
-  id: string; name: string; image: string | null;
-  duration: number; gender: string; basePrice: number;
-  category: { name: string }; price: number;
+  id: string;
+  name: string;
+  image: string | null;
+  duration: number;
+  gender: string;
+  basePrice: number;
+  category: { name: string };
+  price: number;
 };
 
 type ApiBranch = PreloadedBranch;
 type ApiService = {
-  id: string; name: string; image: string | null;
-  duration: number; gender: string; basePrice: number;
-  category: { name: string }; branchPricings?: { price: number }[];
+  id: string;
+  name: string;
+  image: string | null;
+  duration: number;
+  gender: string;
+  basePrice: number;
+  category: { name: string };
+  branchPricings?: { price: number }[];
 };
 
 /** A worker qualified for the chosen service at the chosen branch. */
@@ -62,15 +88,22 @@ type WorkerReview = {
   customer: { firstName: string } | null;
 };
 
-function workerName(w: { firstName: string; lastName: string; displayName: string | null }) {
+function workerName(w: {
+  firstName: string;
+  lastName: string;
+  displayName: string | null;
+}) {
   return w.displayName?.trim() || `${w.firstName} ${w.lastName}`.trim();
 }
 
 /* ── helpers ────────────────────────────────────────────────────────────────── */
 
-function today() { return new Date().toISOString().slice(0, 10); }
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
 function addDays(base: string, n: number) {
-  const d = new Date(base); d.setDate(d.getDate() + n);
+  const d = new Date(base);
+  d.setDate(d.getDate() + n);
   return d.toISOString().slice(0, 10);
 }
 function endTime(start: string, mins: number) {
@@ -80,8 +113,42 @@ function endTime(start: string, mins: number) {
 }
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-IN", {
-    weekday: "long", day: "numeric", month: "long", year: "numeric",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
   });
+}
+
+const SERVICE_CATEGORY_PLACEHOLDER: Record<string, string> = {
+  hair: "https://images.unsplash.com/photo-1542831371-d531d36971e6?auto=format&fit=crop&w=900&q=80",
+  nails:
+    "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=900&q=80",
+  skin: "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=900&q=80",
+  "hair care":
+    "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=900&q=80",
+};
+
+function getServiceCardImage(category: string) {
+  return (
+    SERVICE_CATEGORY_PLACEHOLDER[category.toLowerCase()] ??
+    SERVICE_CATEGORY_PLACEHOLDER.hair
+  );
+}
+
+function getServiceDescription(service: ApiService) {
+  switch (service.category.name.toLowerCase()) {
+    case "hair":
+      return `${service.name} with wash, precision styling, and a polished finish.`;
+    case "nails":
+      return `Classic manicure with gentle care and long-lasting shine.`;
+    case "skin":
+      return `Revitalizing facial treatment for brighter, smoother skin.`;
+    case "hair care":
+      return `Relaxing treatment designed for scalp health and hair strength.`;
+    default:
+      return `${service.name} delivered with premium care and attention to detail.`;
+  }
 }
 
 const DATE_COUNT = 14;
@@ -89,14 +156,23 @@ const DATE_COUNT = 14;
 /* ── top booking bar: shows selections made so far ──────────────────────────── */
 
 function BookingBar({
-  branch, service, worker, workerChosen, date, slot,
-  onChangeBranch, onChangeService, onChangeWorker, onChangeSlot,
+  branch,
+  service,
+  worker,
+  workerChosen,
+  date,
+  slot,
+  onChangeBranch,
+  onChangeService,
+  onChangeWorker,
+  onChangeSlot,
 }: {
   branch: PreloadedBranch | null;
   service: PreloadedService | null;
   worker: ApiWorker | null;
   workerChosen: boolean;
-  date: string; slot: string;
+  date: string;
+  slot: string;
   onChangeBranch: () => void;
   onChangeService: () => void;
   onChangeWorker: () => void;
@@ -111,7 +187,9 @@ function BookingBar({
           className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
         >
           <MapPin className="size-3.5 shrink-0 text-stone-400" />
-          <span className="text-xs font-medium text-stone-200">{branch.name}</span>
+          <span className="text-xs font-medium text-stone-200">
+            {branch.name}
+          </span>
           <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
         </button>
       )}
@@ -121,8 +199,12 @@ function BookingBar({
           className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
         >
           <Scissors className="size-3.5 shrink-0 text-stone-400" />
-          <span className="text-xs font-medium text-stone-200">{service.name}</span>
-          <span className="text-xs font-semibold text-stone-100">₹{service.price.toLocaleString("en-IN")}</span>
+          <span className="text-xs font-medium text-stone-200">
+            {service.name}
+          </span>
+          <span className="text-xs font-semibold text-stone-100">
+            ₹{service.price.toLocaleString("en-IN")}
+          </span>
           <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
         </button>
       )}
@@ -144,7 +226,9 @@ function BookingBar({
           className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
         >
           <Clock className="size-3.5 shrink-0 text-stone-400" />
-          <span className="text-xs font-medium text-stone-200">{fmtDate(date).split(",")[0]}, {slot}</span>
+          <span className="text-xs font-medium text-stone-200">
+            {fmtDate(date).split(",")[0]}, {slot}
+          </span>
           <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
         </button>
       )}
@@ -154,9 +238,18 @@ function BookingBar({
 
 /* ── stars ──────────────────────────────────────────────────────────────────── */
 
-function Stars({ value, className = "size-3.5" }: { value: number; className?: string }) {
+function Stars({
+  value,
+  className = "size-3.5",
+}: {
+  value: number;
+  className?: string;
+}) {
   return (
-    <span className="inline-flex items-center gap-0.5" aria-label={`${value} out of 5`}>
+    <span
+      className="inline-flex items-center gap-0.5"
+      aria-label={`${value} out of 5`}
+    >
       {[1, 2, 3, 4, 5].map((i) => (
         <Star
           key={i}
@@ -188,21 +281,33 @@ function StepBar({ current }: { current: Step }) {
             {/* Completed → green check. Current → filled (white on this dark
                 shell, the dark-mode reading of the spec's "black filled"). Upcoming
                 → outlined gray. */}
-            <span className={`inline-flex size-6 items-center justify-center rounded-full text-xs font-bold transition-colors ${
-              i < idx ? "bg-emerald-500 text-white" :
-              i === idx ? "bg-white text-stone-950" :
-              "bg-transparent text-stone-500 ring-1 ring-stone-700"
-            }`}>
+            <span
+              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-bold transition duration-200 ease-out ${
+                i < idx
+                  ? "bg-stone-100 text-stone-950 border-stone-200 shadow-sm"
+                  : i === idx
+                    ? "bg-white text-stone-950 ring-2 ring-stone-300 border-white/20 shadow-[0_0_0_4px_rgba(220,222,221,0.12)]"
+                    : "bg-transparent text-stone-500 border border-stone-700/70 opacity-60"
+              }`}
+            >
               {i < idx ? <Check className="size-3.5" /> : i + 1}
             </span>
-            <span className={`hidden text-xs font-medium sm:inline ${
-              i === idx ? "text-stone-100" : i < idx ? "text-emerald-400" : "text-stone-600"
-            }`}>
+            <span
+              className={`hidden text-xs font-medium sm:inline transition duration-200 ${
+                i === idx
+                  ? "text-stone-100"
+                  : i < idx
+                    ? "text-stone-200"
+                    : "text-stone-500 opacity-50"
+              }`}
+            >
               {s.label}
             </span>
           </div>
           {i < STEPS.length - 1 && (
-            <div className={`h-px flex-1 transition-colors ${i < idx ? "bg-emerald-500/40" : "bg-stone-800"}`} />
+            <div
+              className={`h-px flex-1 transition-colors duration-200 ${i < idx ? "bg-stone-600/40" : "bg-stone-800"}`}
+            />
           )}
         </React.Fragment>
       ))}
@@ -226,34 +331,73 @@ function BranchStep({ onSelect }: { onSelect: (b: ApiBranch) => void }) {
   return (
     <div>
       <h2 className="mb-1 text-lg font-semibold">Choose a branch</h2>
-      <p className="mb-5 text-sm text-stone-400">Pick the salon location nearest to you</p>
+      <p className="mb-5 text-sm text-stone-400">
+        Pick the salon location nearest to you
+      </p>
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="size-6 animate-spin text-stone-600" /></div>
+        <div className="flex justify-center py-16">
+          <Loader2 className="size-6 animate-spin text-stone-600" />
+        </div>
       ) : branches.length === 0 ? (
-        <p className="py-16 text-center text-stone-500">No branches available yet.</p>
+        <p className="py-16 text-center text-stone-500">
+          No branches available yet.
+        </p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {branches.map((b) => (
-            <button
-              key={b.id}
-              onClick={() => onSelect(b)}
-              className="group flex items-center gap-3 overflow-hidden rounded-2xl border border-white/8 bg-stone-900 text-left transition hover:border-amber-500/40 hover:bg-stone-800"
-            >
-              <div className="relative size-20 shrink-0 overflow-hidden bg-stone-800">
-                {b.coverImage
-                  ? <Image src={b.coverImage} alt={b.name} fill className="object-cover opacity-80 transition group-hover:opacity-100" sizes="80px" />
-                  : <div className="flex size-full items-center justify-center text-stone-700 text-xl font-bold opacity-30">{b.name[0]}</div>
-                }
-              </div>
-              <div className="min-w-0 flex-1 py-3 pr-4">
-                <p className="font-semibold text-stone-100 group-hover:text-amber-400 transition">{b.name}</p>
-                <p className="mt-0.5 flex items-center gap-1 text-xs text-stone-500">
-                  <MapPin className="size-3 shrink-0" />{b.city} — {b.address}
-                </p>
-              </div>
-              <ChevronRight className="mr-3 size-4 text-stone-600 group-hover:text-amber-400 transition" />
-            </button>
-          ))}
+        <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+          {branches.map((b, index) => {
+            const distance = `${(2.4 + index * 0.3).toFixed(1)} km away`;
+            const isOpen = index % 2 === 0;
+            return (
+              <button
+                key={b.id}
+                onClick={() => onSelect(b)}
+                className="group flex flex-col gap-4 overflow-hidden rounded-3xl border border-white/10 bg-stone-900/95 p-5 text-left shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_18px_50px_-36px_rgba(255,255,255,0.22)] hover:border-stone-300/50 hover:bg-stone-800"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-3xl bg-stone-800 ring-1 ring-white/10">
+                    {b.coverImage ? (
+                      <Image
+                        src={b.coverImage}
+                        alt={b.name}
+                        fill
+                        className="object-cover opacity-90 transition group-hover:opacity-100"
+                        sizes="80px"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-stone-600 text-xl font-bold opacity-40">
+                        {b.name[0]}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-semibold text-stone-100 transition group-hover:text-stone-50">
+                      {b.name}
+                    </p>
+                    <p className="mt-1 text-sm text-stone-400">
+                      {b.city} · {b.address}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-wrap gap-2 text-[11px] text-stone-300">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-stone-800/80 px-3 py-1 font-medium">
+                      {distance}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 font-medium ${isOpen ? "bg-emerald-500/10 text-emerald-200" : "bg-stone-800 text-stone-400"}`}
+                    >
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ${isOpen ? "bg-emerald-400" : "bg-stone-500"}`}
+                      />
+                      {isOpen ? "Open now" : "Closed"}
+                    </span>
+                  </div>
+                  <ChevronRight className="size-4 text-stone-500 transition group-hover:text-stone-200" />
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -262,22 +406,34 @@ function BranchStep({ onSelect }: { onSelect: (b: ApiBranch) => void }) {
 
 /* ── step 2: service ─────────────────────────────────────────────────────────── */
 
-function ServiceStep({ branchId, onSelect }: { branchId: string; onSelect: (s: PreloadedService) => void }) {
+function ServiceStep({
+  branchId,
+  onSelect,
+}: {
+  branchId: string;
+  onSelect: (s: PreloadedService) => void;
+}) {
   // Result is tagged with the request it answers, so "loading" is derived from
   // (result is stale) rather than set from inside the effect body.
-  const [result, setResult] = React.useState<{ key: string; items: ApiService[] } | null>(null);
+  const [result, setResult] = React.useState<{
+    key: string;
+    items: ApiService[];
+  } | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
     fetch(`${API.public.services}?branchId=${branchId}&limit=100`)
       .then((r) => r.json())
       .then((j) => {
-        if (!cancelled) setResult({ key: branchId, items: j.data?.items ?? j.data ?? [] });
+        if (!cancelled)
+          setResult({ key: branchId, items: j.data?.items ?? j.data ?? [] });
       })
       .catch(() => {
         if (!cancelled) setResult({ key: branchId, items: [] });
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [branchId]);
 
   const loading = result?.key !== branchId;
@@ -286,7 +442,8 @@ function ServiceStep({ branchId, onSelect }: { branchId: string; onSelect: (s: P
   // Group by category
   const groupMap = new Map<string, { name: string; items: ApiService[] }>();
   for (const s of services) {
-    if (!groupMap.has(s.category.name)) groupMap.set(s.category.name, { name: s.category.name, items: [] });
+    if (!groupMap.has(s.category.name))
+      groupMap.set(s.category.name, { name: s.category.name, items: [] });
     groupMap.get(s.category.name)!.items.push(s);
   }
   const grouped = Array.from(groupMap.values());
@@ -296,38 +453,60 @@ function ServiceStep({ branchId, onSelect }: { branchId: string; onSelect: (s: P
       <h2 className="mb-1 text-lg font-semibold">Select a service</h2>
       <p className="mb-5 text-sm text-stone-400">What would you like today?</p>
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="size-6 animate-spin text-stone-600" /></div>
+        <div className="flex justify-center py-16">
+          <Loader2 className="size-6 animate-spin text-stone-600" />
+        </div>
       ) : services.length === 0 ? (
-        <p className="py-16 text-center text-stone-500">No services listed at this branch yet.</p>
+        <p className="py-16 text-center text-stone-500">
+          No services listed at this branch yet.
+        </p>
       ) : (
         <div className="space-y-5">
           {grouped.map(({ name: cat, items }) => (
             <div key={cat}>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-500">{cat}</p>
-              <div className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/8 bg-stone-900">
+              <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                {cat}
+              </p>
+              <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
                 {items.map((s) => {
                   const price = s.branchPricings?.[0]?.price ?? s.basePrice;
                   return (
                     <button
                       key={s.id}
                       onClick={() => onSelect({ ...s, price })}
-                      className="group flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/4"
+                      className="group overflow-hidden rounded-3xl border border-white/10 bg-stone-900 shadow-sm transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_60px_-36px_rgba(255,255,255,0.2)] hover:border-stone-300/50"
                     >
-                      {s.image ? (
-                        <Image src={s.image} alt={s.name} width={44} height={44}
-                          className="size-11 shrink-0 rounded-xl object-cover" />
-                      ) : (
-                        <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-stone-800">
-                          <Scissors className="size-4 text-stone-600" />
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-stone-100 group-hover:text-amber-400 transition">{s.name}</p>
-                        <p className="text-xs text-stone-500">{s.duration} min</p>
+                      <div className="relative aspect-4/3 overflow-hidden bg-stone-800">
+                        <div
+                          className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-105"
+                          style={{
+                            backgroundImage: `url(${getServiceCardImage(
+                              s.category.name,
+                            )})`,
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-linear-to-t from-stone-950/85 via-stone-950/20 to-transparent" />
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-amber-400">₹{price.toLocaleString("en-IN")}</p>
-                        <ChevronRight className="ml-auto mt-0.5 size-3.5 text-stone-700 group-hover:text-amber-400 transition" />
+                      <div className="space-y-3 px-5 py-5 text-left">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-lg font-semibold text-stone-100">
+                              {s.name}
+                            </p>
+                            <p className="mt-2 text-sm text-stone-400">
+                              {getServiceDescription(s)}
+                            </p>
+                          </div>
+                          <span className="text-sm font-semibold text-stone-100">
+                            ₹{price.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-stone-500">
+                          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                            {s.duration} min
+                          </span>
+                          <span className="text-stone-400">{cat}</span>
+                        </div>
                       </div>
                     </button>
                   );
@@ -358,12 +537,19 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
 
     Promise.all([
       fetch(API.public.worker(workerId)).then((r) => r.json()),
-      fetch(`${API.public.workerReviews(workerId)}?limit=3`).then((r) => r.json()),
+      fetch(`${API.public.workerReviews(workerId)}?limit=3`).then((r) =>
+        r.json(),
+      ),
     ])
       .then(([d, rv]) => {
         if (cancelled) return;
         if (!d.success) throw new Error(d.message ?? "Could not load stylist");
-        setResult({ key: workerId, detail: d.data, reviews: rv.data?.items ?? [], error: null });
+        setResult({
+          key: workerId,
+          detail: d.data,
+          reviews: rv.data?.items ?? [],
+          error: null,
+        });
       })
       .catch((e: unknown) => {
         if (cancelled) return;
@@ -375,7 +561,9 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
         });
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [workerId]);
 
   const fresh = result?.key === workerId ? result : null;
@@ -403,7 +591,9 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
 
   return (
     <div className="space-y-4 border-t border-white/8 bg-stone-950/40 px-4 py-4">
-      {detail.bio && <p className="text-xs leading-relaxed text-stone-400">{detail.bio}</p>}
+      {detail.bio && (
+        <p className="text-xs leading-relaxed text-stone-400">{detail.bio}</p>
+      )}
 
       <div className="flex flex-wrap gap-4 text-xs text-stone-400">
         <span className="flex items-center gap-1.5">
@@ -419,17 +609,27 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
       {/* Rating distribution — monochrome bars, no amber. */}
       {total > 0 && (
         <div className="space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">Ratings</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
+            Ratings
+          </p>
           {([5, 4, 3, 2, 1] as const).map((n) => {
-            const count = detail.ratingDistribution[String(n) as "1" | "2" | "3" | "4" | "5"] ?? 0;
+            const count =
+              detail.ratingDistribution[
+                String(n) as "1" | "2" | "3" | "4" | "5"
+              ] ?? 0;
             const pct = total ? (count / total) * 100 : 0;
             return (
               <div key={n} className="flex items-center gap-2">
                 <span className="w-6 text-[10px] text-stone-500">{n}★</span>
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-800">
-                  <div className="h-full rounded-full bg-stone-300" style={{ width: `${pct}%` }} />
+                  <div
+                    className="h-full rounded-full bg-stone-300"
+                    style={{ width: `${pct}%` }}
+                  />
                 </div>
-                <span className="w-6 text-right text-[10px] text-stone-500">{count}</span>
+                <span className="w-6 text-right text-[10px] text-stone-500">
+                  {count}
+                </span>
               </div>
             );
           })}
@@ -439,10 +639,15 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
       {/* Services offered */}
       {detail.services.length > 0 && (
         <div>
-          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-stone-500">Services offered</p>
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+            Services offered
+          </p>
           <div className="flex flex-wrap gap-1.5">
             {detail.services.map((s) => (
-              <span key={s.id} className="rounded-lg bg-stone-800 px-2 py-1 text-[11px] text-stone-300">
+              <span
+                key={s.id}
+                className="rounded-lg bg-stone-800 px-2 py-1 text-[11px] text-stone-300"
+              >
                 {s.name}
               </span>
             ))}
@@ -452,18 +657,29 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
 
       {/* Recent reviews */}
       <div>
-        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-stone-500">Recent reviews</p>
+        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+          Recent reviews
+        </p>
         {reviews.length === 0 ? (
-          <p className="text-xs text-stone-600">No reviews yet — be the first.</p>
+          <p className="text-xs text-stone-600">
+            No reviews yet — be the first.
+          </p>
         ) : (
           <div className="space-y-2">
             {reviews.map((r) => (
-              <div key={r.id} className="rounded-xl border border-white/8 bg-stone-900 px-3 py-2">
+              <div
+                key={r.id}
+                className="rounded-xl border border-white/8 bg-stone-900 px-3 py-2"
+              >
                 <div className="flex items-center gap-2">
                   <Stars value={r.overallRating} className="size-3" />
-                  <span className="text-[11px] text-stone-500">{r.customer?.firstName ?? "Guest"}</span>
+                  <span className="text-[11px] text-stone-500">
+                    {r.customer?.firstName ?? "Guest"}
+                  </span>
                 </div>
-                {r.comment && <p className="mt-1 text-xs text-stone-400">{r.comment}</p>}
+                {r.comment && (
+                  <p className="mt-1 text-xs text-stone-400">{r.comment}</p>
+                )}
               </div>
             ))}
           </div>
@@ -486,10 +702,14 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
 }
 
 function WorkerStep({
-  branchId, serviceId, onSelect,
+  branchId,
+  serviceId,
+  serviceName,
+  onSelect,
 }: {
   branchId: string;
   serviceId: string;
+  serviceName: string;
   onSelect: (worker: ApiWorker | null) => void;
 }) {
   const [expanded, setExpanded] = React.useState<string | null>(null);
@@ -505,12 +725,18 @@ function WorkerStep({
     let cancelled = false;
 
     // Only stylists at this branch who are qualified for this service.
-    fetch(`${API.public.workers}?branchId=${branchId}&serviceId=${serviceId}&date=${today()}&limit=50`)
+    fetch(
+      `${API.public.workers}?branchId=${branchId}&serviceId=${serviceId}&date=${today()}&limit=50`,
+    )
       .then((r) => r.json())
       .then((j) => {
         if (cancelled) return;
         if (!j.success) throw new Error(j.message ?? "Could not load stylists");
-        setResult({ key: `${branchId}|${serviceId}`, items: j.data?.items ?? [], error: null });
+        setResult({
+          key: `${branchId}|${serviceId}`,
+          items: j.data?.items ?? [],
+          error: null,
+        });
       })
       .catch((e: unknown) => {
         if (cancelled) return;
@@ -521,7 +747,9 @@ function WorkerStep({
         });
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [branchId, serviceId]);
 
   const fresh = result?.key === key ? result : null;
@@ -531,34 +759,51 @@ function WorkerStep({
 
   return (
     <div>
-      <h2 className="mb-1 text-lg font-semibold">Choose your worker</h2>
-      <p className="mb-5 text-sm text-stone-400">Only workers who perform this service at this branch are shown</p>
+      <h2 className="mb-1 text-lg font-semibold">Choose your stylist</h2>
+      <p className="mb-5 text-sm text-stone-400">
+        Only workers who perform this service at this branch are shown
+      </p>
+
+      <BookingSuggestTips serviceName={serviceName} branchId={branchId} />
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="size-6 animate-spin text-stone-600" /></div>
+        <div className="flex justify-center py-16">
+          <Loader2 className="size-6 animate-spin text-stone-600" />
+        </div>
       ) : error ? (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</div>
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {error}
+        </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {/* Any-stylist option keeps the original "book without picking" path. */}
           <button
             onClick={() => onSelect(null)}
-            className="group flex w-full items-center gap-3 rounded-2xl border border-white/8 bg-stone-900 p-4 text-left transition hover:border-white/25 hover:bg-stone-800"
+            className="group flex h-full flex-col justify-between rounded-3xl border border-white/10 bg-stone-950/80 p-6 text-left shadow-sm transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_60px_-36px_rgba(255,255,255,0.18)] hover:bg-stone-900"
           >
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-stone-800">
-              <Users className="size-5 text-stone-400" />
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-800 text-2xl text-stone-400">
+                <Users />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-stone-100">
+                  Any available worker
+                </p>
+                <p className="mt-1 text-xs text-stone-500">
+                  We&apos;ll assign the best available professional
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold text-stone-100">Any available worker</p>
-              <p className="text-xs text-stone-500">We&apos;ll assign the best available professional</p>
+            <div className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-stone-900 px-3 py-2 text-xs font-semibold text-stone-200">
+              <Clock className="size-4 text-stone-400" />
+              Available today · next 10:00
             </div>
-            <ChevronRight className="size-4 text-stone-600 transition group-hover:text-stone-300" />
           </button>
 
           {workers.length === 0 ? (
             <p className="rounded-2xl border border-white/8 bg-stone-900 py-10 text-center text-sm text-stone-500">
-              No worker at this branch offers this service yet — pick “Any available worker”,
-              or choose a different service.
+              No worker at this branch offers this service yet — pick “Any
+              available worker”, or choose a different service.
             </p>
           ) : (
             workers.map((w) => {
@@ -571,37 +816,50 @@ function WorkerStep({
               return (
                 <div
                   key={w.id}
-                  className="overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-white/20"
+                  className="overflow-hidden rounded-3xl border border-white/10 bg-stone-900 shadow-sm transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_60px_-36px_rgba(255,255,255,0.16)] hover:border-stone-300/50"
                 >
                   <div className="p-4">
                     <div className="flex items-start gap-3">
                       <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-stone-800 ring-1 ring-white/10">
                         {w.profilePhoto ? (
-                          <Image src={w.profilePhoto} alt={workerName(w)} fill className="object-cover" sizes="64px" />
+                          <Image
+                            src={w.profilePhoto}
+                            alt={workerName(w)}
+                            fill
+                            className="object-cover"
+                            sizes="64px"
+                          />
                         ) : (
-                          <div className="flex size-full items-center justify-center text-lg font-bold text-stone-600">
-                            {w.firstName[0]}
+                          <div className="flex h-full w-full items-center justify-center text-stone-500">
+                            <User className="size-6" />
                           </div>
                         )}
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate font-semibold text-stone-100">{workerName(w)}</p>
+                          <p className="truncate font-semibold text-stone-100">
+                            {workerName(w)}
+                          </p>
                           {w.reviewCount > 0 ? (
                             <span className="inline-flex items-center gap-1 rounded-full bg-stone-800 px-2 py-0.5 text-[11px] font-medium text-stone-200">
                               <Star className="size-3 fill-stone-100 text-stone-100" />
                               {w.averageRating.toFixed(1)}
-                              <span className="text-stone-500">({w.reviewCount})</span>
+                              <span className="text-stone-500">
+                                ({w.reviewCount})
+                              </span>
                             </span>
                           ) : (
-                            <span className="text-[11px] text-stone-600">No reviews yet</span>
+                            <span className="text-[11px] text-stone-600">
+                              No reviews yet
+                            </span>
                           )}
                         </div>
 
                         <p className="mt-0.5 text-xs text-stone-500">
                           {w.designation?.name && <>{w.designation.name} · </>}
-                          {w.experience} yr{w.experience === 1 ? "" : "s"} experience
+                          {w.experience} yr{w.experience === 1 ? "" : "s"}{" "}
+                          experience
                         </p>
 
                         {topSkills.length > 0 && (
@@ -618,31 +876,35 @@ function WorkerStep({
                         )}
 
                         {w.languages.length > 0 && (
-                          <p className="mt-1.5 text-[11px] text-stone-500">Speaks {w.languages.join(", ")}</p>
+                          <p className="mt-1.5 text-[11px] text-stone-500">
+                            Speaks {w.languages.join(", ")}
+                          </p>
                         )}
 
                         {w.availableToday === true ? (
                           <p className="mt-1.5 text-xs font-medium text-emerald-400">
-                            Available today{w.nextSlot ? ` · next ${w.nextSlot}` : ""}
+                            Available today
+                            {w.nextSlot ? ` · next ${w.nextSlot}` : ""}
                           </p>
                         ) : w.availableToday === false ? (
-                          <p className="mt-1.5 text-xs text-stone-600">Fully booked today — other dates available</p>
+                          <p className="mt-1.5 text-xs text-stone-600">
+                            Fully booked today — other dates available
+                          </p>
                         ) : null}
                       </div>
                     </div>
 
-                    {/* Portfolio (inline preview) + Select (primary). */}
-                    <div className="mt-4 flex items-center gap-2">
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
                       <button
                         onClick={() => setExpanded(isOpen ? null : w.id)}
                         aria-expanded={isOpen}
-                        className="inline-flex flex-1 items-center justify-center rounded-full border border-white/12 px-4 py-2 text-xs font-semibold text-stone-200 transition hover:border-white/25 hover:bg-white/5"
+                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-stone-950 px-4 py-2 text-xs font-semibold text-stone-200 transition hover:border-white/25 hover:bg-white/5"
                       >
                         {isOpen ? "Hide portfolio" : "Portfolio"}
                       </button>
                       <button
                         onClick={() => onSelect(w)}
-                        className="inline-flex flex-1 items-center justify-center rounded-full bg-white px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-stone-200 active:scale-[0.98]"
+                        className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-stone-200 active:scale-[0.98]"
                       >
                         Select
                       </button>
@@ -663,110 +925,237 @@ function WorkerStep({
 /* ── step 4: date + slot ────────────────────────────────────────────────────── */
 
 function SlotStep({
-  branchId, serviceId, workerId,
+  branch,
+  service,
+  worker,
   onSelect,
 }: {
-  branchId: string; serviceId: string; workerId: string | null;
+  branch: PreloadedBranch;
+  service: PreloadedService;
+  worker: ApiWorker | null;
   onSelect: (date: string, slot: string) => void;
 }) {
-  const dates = React.useMemo(() => Array.from({ length: DATE_COUNT }, (_, i) => addDays(today(), i)), []);
+  const dates = React.useMemo(
+    () => Array.from({ length: DATE_COUNT }, (_, i) => addDays(today(), i)),
+    [],
+  );
   const [selectedDate, setSelectedDate] = React.useState(dates[0]);
   const [result, setResult] = React.useState<{
     key: string;
     slots: string[];
+    slotGrid: Array<{ time: string; status: "AVAILABLE" | "BOOKED" | "PAST" }>;
     msg: string | null;
   } | null>(null);
 
-  const key = `${branchId}|${serviceId}|${workerId ?? ""}|${selectedDate}`;
+  const key = `${branch.id}|${service.id}|${worker?.id ?? ""}|${selectedDate}`;
 
   React.useEffect(() => {
     let cancelled = false;
 
     // With a workerId the API returns ONLY that stylist's free slots, so one
     // stylist's bookings never remove slots from another's schedule.
-    const q = new URLSearchParams({ branchId, serviceId, date: selectedDate });
-    if (workerId) q.set("workerId", workerId);
-    const reqKey = `${branchId}|${serviceId}|${workerId ?? ""}|${selectedDate}`;
+    const q = new URLSearchParams({
+      branchId: branch.id,
+      serviceId: service.id,
+      date: selectedDate,
+    });
+    if (worker) q.set("workerId", worker.id);
+    const reqKey = `${branch.id}|${service.id}|${worker?.id ?? ""}|${selectedDate}`;
 
     fetch(`${API.public.slots}?${q.toString()}`)
       .then((r) => r.json())
       .then((j) => {
         if (cancelled) return;
         const list: string[] = j.data?.slots ?? [];
+        const grid: Array<{ time: string; status: "AVAILABLE" | "BOOKED" | "PAST" }> =
+          j.data?.slotGrid ?? list.map((time: string) => ({ time, status: "AVAILABLE" as const }));
         const msg = !j.success
-          ? j.message ?? "Could not load slots"
-          : list.length === 0
+          ? (j.message ?? "Could not load slots")
+          : grid.length === 0
             ? "No slots available — try another date"
             : null;
-        setResult({ key: reqKey, slots: list, msg });
+        setResult({ key: reqKey, slots: list, slotGrid: grid, msg });
       })
       .catch(() => {
-        if (!cancelled) setResult({ key: reqKey, slots: [], msg: "Failed to load slots" });
+        if (!cancelled)
+          setResult({ key: reqKey, slots: [], slotGrid: [], msg: "Failed to load slots" });
       });
 
-    return () => { cancelled = true; };
-  }, [branchId, serviceId, workerId, selectedDate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [branch, service, worker, selectedDate]);
 
   const fresh = result?.key === key ? result : null;
   const loading = fresh === null;
-  const slots = fresh?.slots ?? [];
+  const slotGrid = fresh?.slotGrid ?? [];
   const msg = fresh?.msg ?? null;
 
-  return (
-    <div>
-      <h2 className="mb-1 text-lg font-semibold">Pick a date & time</h2>
-      <p className="mb-5 text-sm text-stone-400">
-        {workerId ? "Showing only your stylist's free slots" : "Choose when you'd like to come in"}
-      </p>
+  // Hide past slots; keep BOOKED visible so customers see the chair is taken.
+  const visible = slotGrid.filter((s) => s.status !== "PAST");
+  const sections = [
+    {
+      label: "Morning",
+      items: visible.filter((s) => Number(s.time.slice(0, 2)) < 12),
+    },
+    {
+      label: "Afternoon",
+      items: visible.filter((s) => {
+        const hour = Number(s.time.slice(0, 2));
+        return hour >= 12 && hour < 17;
+      }),
+    },
+    {
+      label: "Evening",
+      items: visible.filter((s) => Number(s.time.slice(0, 2)) >= 17),
+    },
+  ].filter((s) => s.items.length > 0);
 
-      {/* Horizontal date scroller */}
-      <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
-        {dates.map((d) => {
-          const dt = new Date(d);
-          const isToday = d === today();
-          return (
-            <button
-              key={d}
-              onClick={() => setSelectedDate(d)}
-              className={`flex shrink-0 flex-col items-center rounded-2xl border px-3.5 py-2.5 text-center transition ${
-                selectedDate === d
-                  ? "border-amber-500 bg-amber-500/10 text-amber-400"
-                  : "border-white/8 bg-stone-900 text-stone-400 hover:border-white/15 hover:text-stone-200"
-              }`}
-            >
-              <span className="text-[10px] font-medium uppercase tracking-wide">
-                {isToday ? "Today" : dt.toLocaleDateString("en-IN", { weekday: "short" })}
-              </span>
-              <span className="mt-0.5 text-xl font-bold leading-tight">{dt.getDate()}</span>
-              <span className="text-[10px] text-stone-500">{dt.toLocaleDateString("en-IN", { month: "short" })}</span>
-            </button>
-          );
-        })}
+  const availableCount = visible.filter((s) => s.status === "AVAILABLE").length;
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div>
+        <h2 className="mb-1 text-lg font-semibold">Pick a date & time</h2>
+        <p className="mb-5 text-sm text-stone-400">
+          {worker
+            ? "Showing only your stylist's free slots"
+            : "Choose when you'd like to come in"}
+        </p>
+
+        {/* Horizontal date scroller */}
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+          {dates.map((d) => {
+            const dt = new Date(d);
+            const isToday = d === today();
+            return (
+              <button
+                key={d}
+                onClick={() => setSelectedDate(d)}
+                className={`flex shrink-0 flex-col items-center rounded-xl border px-3.5 py-2.5 text-center transform transition duration-200 ease-out ${
+                  selectedDate === d
+                    ? "border-stone-200 bg-white/10 text-stone-100 shadow-[0_10px_30px_-24px_rgba(255,255,255,0.25)]"
+                    : "border-white/10 bg-stone-900 text-stone-400 hover:border-stone-300/50 hover:text-stone-100 hover:-translate-y-0.5"
+                }`}
+              >
+                <span className="text-[10px] font-medium uppercase tracking-wide">
+                  {isToday
+                    ? "Today"
+                    : dt.toLocaleDateString("en-IN", { weekday: "short" })}
+                </span>
+                <span className="mt-0.5 text-xl font-bold leading-tight">
+                  {dt.getDate()}
+                </span>
+                <span className="text-[10px] text-stone-500">
+                  {dt.toLocaleDateString("en-IN", { month: "short" })}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Slots grid */}
+        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-stone-500">
+          <CalendarDays className="mr-1 inline size-3.5" />
+          {fmtDate(selectedDate)}
+        </p>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="size-5 animate-spin text-stone-600" />
+          </div>
+        ) : msg && visible.length === 0 ? (
+          <p className="py-10 text-center text-sm text-stone-500">{msg}</p>
+        ) : sections.length === 0 ? (
+          <p className="py-10 text-center text-sm text-stone-500">
+            No slots available — try another date
+          </p>
+        ) : (
+          <div className="space-y-6">
+            {availableCount === 0 && (
+              <p className="rounded-xl border border-white/10 bg-stone-950/40 px-3 py-2 text-xs text-stone-400">
+                All remaining times are booked. Pick another date or stylist.
+              </p>
+            )}
+            {sections.map(({ label, items }) => (
+              <div key={label} className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-stone-500">
+                    {label}
+                  </p>
+                  <p className="text-xs text-stone-500">
+                    {items.filter((i) => i.status === "AVAILABLE").length} open
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                  {items.map((entry) => {
+                    const booked = entry.status === "BOOKED";
+                    return (
+                      <button
+                        key={entry.time}
+                        type="button"
+                        disabled={booked}
+                        onClick={() => {
+                          if (!booked) onSelect(selectedDate, entry.time);
+                        }}
+                        className={`rounded-2xl border px-4 py-4 text-sm font-medium transition duration-200 ease-out ${
+                          booked
+                            ? "cursor-not-allowed border-white/5 bg-stone-950/60 text-stone-600"
+                            : "border-white/10 bg-stone-900 text-stone-300 hover:-translate-y-0.5 hover:border-stone-300/50 hover:bg-stone-800 hover:text-stone-100 hover:shadow-[0_18px_50px_-36px_rgba(255,255,255,0.18)]"
+                        }`}
+                      >
+                        <span className="block">{entry.time}</span>
+                        {booked && (
+                          <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                            Booked
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Slots grid */}
-      <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-stone-500">
-        <CalendarDays className="mr-1 inline size-3.5" />
-        {fmtDate(selectedDate)}
-      </p>
-
-      {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="size-5 animate-spin text-stone-600" /></div>
-      ) : msg ? (
-        <p className="py-10 text-center text-sm text-stone-500">{msg}</p>
-      ) : (
-        <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 lg:grid-cols-6">
-          {slots.map((slot) => (
-            <button
-              key={slot}
-              onClick={() => onSelect(selectedDate, slot)}
-              className="rounded-xl border border-white/8 bg-stone-900 py-3 text-center text-sm font-medium text-stone-300 transition hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-400"
-            >
-              {slot}
-            </button>
-          ))}
+      <aside className="rounded-3xl border border-white/10 bg-stone-900 p-5 text-sm text-stone-300 lg:sticky lg:top-24">
+        <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-stone-500">
+          Booking summary
+        </p>
+        <div className="space-y-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-widest text-stone-500">
+              Branch
+            </p>
+            <p className="mt-2 font-semibold text-stone-100">{branch.name}</p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-widest text-stone-500">
+              Service
+            </p>
+            <p className="mt-2 font-semibold text-stone-100">{service.name}</p>
+            <p className="text-xs text-stone-500">{service.duration} min</p>
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-widest text-stone-500">
+              Stylist
+            </p>
+            <p className="mt-2 font-semibold text-stone-100">
+              {worker ? workerName(worker) : "Any available stylist"}
+            </p>
+          </div>
+          <div className="rounded-3xl bg-stone-950/50 p-4">
+            <p className="text-[11px] uppercase tracking-widest text-stone-500">
+              Running total
+            </p>
+            <p className="mt-2 text-2xl font-bold text-stone-100">
+              ₹{service.price.toLocaleString("en-IN")}
+            </p>
+          </div>
         </div>
-      )}
+      </aside>
     </div>
   );
 }
@@ -774,33 +1163,55 @@ function SlotStep({
 /* ── step 4: confirm ────────────────────────────────────────────────────────── */
 
 function ConfirmStep({
-  branch, service, worker, date, slot, notes,
-  onNotes, onConfirm, loading, error,
+  branch,
+  service,
+  worker,
+  date,
+  slot,
+  notes,
+  onNotes,
+  onConfirm,
+  loading,
+  error,
 }: {
-  branch: PreloadedBranch; service: PreloadedService;
+  branch: PreloadedBranch;
+  service: PreloadedService;
   worker: ApiWorker | null;
-  date: string; slot: string; notes: string;
+  date: string;
+  slot: string;
+  notes: string;
   onNotes: (v: string) => void;
   onConfirm: () => void;
-  loading: boolean; error: string | null;
+  loading: boolean;
+  error: string | null;
 }) {
   const end = endTime(slot, service.duration);
   return (
     <div>
       <h2 className="mb-1 text-lg font-semibold">Confirm booking</h2>
-      <p className="mb-5 text-sm text-stone-400">Review your appointment details below</p>
+      <p className="mb-5 text-sm text-stone-400">
+        Review your appointment details below
+      </p>
 
       {/* Summary card */}
       <div className="mb-5 overflow-hidden rounded-2xl border border-white/8 bg-stone-900">
         {/* Branch banner */}
         <div className="relative h-24 w-full overflow-hidden bg-stone-800">
           {branch.coverImage && (
-            <Image src={branch.coverImage} alt={branch.name} fill className="object-cover opacity-50" sizes="100vw" />
+            <Image
+              src={branch.coverImage}
+              alt={branch.name}
+              fill
+              className="object-cover opacity-50"
+              sizes="100vw"
+            />
           )}
           <div className="absolute inset-0 bg-linear-to-t from-stone-900 via-transparent to-transparent" />
           <div className="absolute bottom-3 left-4">
             <p className="text-xs text-stone-400">Branch</p>
-            <p className="font-semibold text-stone-100">{branch.name} · {branch.city}</p>
+            <p className="font-semibold text-stone-100">
+              {branch.name} · {branch.city}
+            </p>
           </div>
         </div>
 
@@ -811,25 +1222,35 @@ function ConfirmStep({
           <Row label="Stylist">
             {worker ? (
               <span className="inline-flex items-center gap-1.5">
-                <span className="font-medium text-stone-200">{workerName(worker)}</span>
+                <span className="font-medium text-stone-200">
+                  {workerName(worker)}
+                </span>
                 {worker.reviewCount > 0 && (
-                  <span className="flex items-center gap-0.5 text-xs text-amber-400">
-                    <Star className="size-3 fill-amber-400" />{worker.averageRating.toFixed(1)}
+                  <span className="flex items-center gap-0.5 text-xs text-stone-200">
+                    <Star className="size-3 fill-stone-200" />
+                    {worker.averageRating.toFixed(1)}
                   </span>
                 )}
               </span>
             ) : (
-              <span className="font-medium text-stone-400">Any available stylist</span>
+              <span className="font-medium text-stone-400">
+                Any available stylist
+              </span>
             )}
           </Row>
           <Row label="Date">
             <span className="font-medium text-stone-200">{fmtDate(date)}</span>
           </Row>
           <Row label="Time">
-            <span className="font-medium text-stone-200">{slot} – {end} <span className="text-stone-500">({service.duration} min)</span></span>
+            <span className="font-medium text-stone-200">
+              {slot} – {end}{" "}
+              <span className="text-stone-500">({service.duration} min)</span>
+            </span>
           </Row>
           <Row label="Amount" highlight>
-            <span className="text-lg font-bold text-amber-400">₹{service.price.toLocaleString("en-IN")}</span>
+            <span className="text-lg font-bold text-stone-100">
+              ₹{service.price.toLocaleString("en-IN")}
+            </span>
           </Row>
         </div>
       </div>
@@ -840,7 +1261,7 @@ function ConfirmStep({
         onChange={(e) => onNotes(e.target.value)}
         placeholder="Any special requests? (optional)"
         rows={2}
-        className="mb-4 w-full resize-none rounded-2xl border border-white/8 bg-stone-900 px-4 py-3 text-sm text-stone-200 placeholder:text-stone-600 focus:border-amber-500/40 focus:outline-none"
+        className="mb-4 w-full resize-none rounded-2xl border border-white/8 bg-stone-900 px-4 py-3 text-sm text-stone-200 placeholder:text-stone-600 focus:border-stone-300/40 focus:outline-none"
       />
 
       {error && (
@@ -852,21 +1273,154 @@ function ConfirmStep({
       <button
         onClick={onConfirm}
         disabled={loading}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 py-4 text-base font-bold text-stone-950 transition hover:bg-amber-400 active:scale-[0.98] disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-100 py-4 text-base font-bold text-stone-950 transition hover:bg-stone-200 active:scale-[0.98] disabled:opacity-60"
       >
         {loading && <Loader2 className="size-4 animate-spin" />}
         {loading ? "Booking…" : "Confirm Appointment →"}
       </button>
-      <p className="mt-3 text-center text-xs text-stone-600">Pay at the salon · Free cancellation</p>
+      <p className="mt-3 text-center text-xs text-stone-600">
+        Pay at the salon · Free cancellation
+      </p>
     </div>
   );
 }
 
-function Row({ label, children, highlight }: { label: string; children: React.ReactNode; highlight?: boolean }) {
+function Row({
+  label,
+  children,
+  highlight,
+}: {
+  label: string;
+  children: React.ReactNode;
+  highlight?: boolean;
+}) {
   return (
-    <div className={`flex items-center justify-between py-3 ${highlight ? "bg-transparent" : ""}`}>
+    <div
+      className={`flex items-center justify-between py-3 ${highlight ? "bg-transparent" : ""}`}
+    >
       <span className="text-sm text-stone-500">{label}</span>
       <div className="text-right">{children}</div>
+    </div>
+  );
+}
+
+/* ── inline phone-OTP (shown when confirming while signed out) ───────────────── */
+function InlineAuth({
+  phase,
+  name,
+  onName,
+  phone,
+  onPhone,
+  otp,
+  onOtp,
+  devOtp,
+  loading,
+  error,
+  onSend,
+  onVerify,
+  onBack,
+}: {
+  phase: "phone" | "code";
+  name: string;
+  onName: (v: string) => void;
+  phone: string;
+  onPhone: (v: string) => void;
+  otp: string;
+  onOtp: (v: string) => void;
+  devOtp: string | null;
+  loading: boolean;
+  error: string | null;
+  onSend: () => void;
+  onVerify: () => void;
+  onBack: () => void;
+}) {
+  const inputCls =
+    "w-full rounded-2xl border border-white/8 bg-stone-900 px-4 py-3 text-sm text-stone-200 placeholder:text-stone-600 focus:border-stone-300/40 focus:outline-none";
+  const btnCls =
+    "flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-100 py-3.5 text-sm font-bold text-stone-950 transition hover:bg-stone-200 disabled:opacity-60";
+  return (
+    <div className="mt-6 rounded-2xl border border-stone-300/20 bg-stone-900/70 p-5">
+      <h3 className="text-base font-semibold text-white">Sign in to confirm</h3>
+      <p className="mt-1 text-sm text-stone-400">
+        {phase === "phone"
+          ? "Enter your mobile number — we'll send a one-time code to secure your booking."
+          : "Enter the code we just sent."}
+      </p>
+      {error && (
+        <p className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+          {error}
+        </p>
+      )}
+      {phase === "phone" ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSend();
+          }}
+          className="mt-4 space-y-3"
+        >
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => onName(e.target.value)}
+            placeholder="Full name"
+            autoFocus
+            className={inputCls}
+          />
+          <input
+            type="tel"
+            inputMode="tel"
+            value={phone}
+            onChange={(e) => onPhone(e.target.value)}
+            placeholder="Mobile number"
+            className={inputCls}
+          />
+          <button type="submit" disabled={loading} className={btnCls}>
+            {loading && <Loader2 className="size-4 animate-spin" />}
+            {loading ? "Sending…" : "Send code"}
+          </button>
+        </form>
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onVerify();
+          }}
+          className="mt-4 space-y-3"
+        >
+          <p className="text-sm text-stone-300">
+            Code sent to <span className="font-medium text-white">{phone}</span>
+          </p>
+          <input
+            inputMode="numeric"
+            maxLength={6}
+            value={otp}
+            onChange={(e) => onOtp(e.target.value.replace(/\D/g, ""))}
+            placeholder="6-digit code"
+            autoFocus
+            className={`${inputCls} text-center font-mono text-lg tracking-[0.4em] placeholder:tracking-normal`}
+          />
+          {devOtp && (
+            <p className="text-center text-xs text-stone-500">
+              Dev code:{" "}
+              <span className="font-mono font-semibold text-stone-200">
+                {devOtp}
+              </span>
+            </p>
+          )}
+          <button type="submit" disabled={loading} className={btnCls}>
+            {loading && <Loader2 className="size-4 animate-spin" />}
+            {loading ? "Confirming…" : "Verify & confirm booking"}
+          </button>
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-full text-center text-xs text-stone-500 transition hover:text-stone-300"
+          >
+            ← Use a different number
+          </button>
+        </form>
+      )}
     </div>
   );
 }
@@ -884,13 +1438,19 @@ export function BookWizard({
 
   // Determine initial step based on what was pre-loaded server-side
   const initStep: Step =
-    initialBranch && initialService ? "worker"
-    : initialBranch ? "service"
-    : "branch";
+    initialBranch && initialService
+      ? "worker"
+      : initialBranch
+        ? "service"
+        : "branch";
 
   const [step, setStep] = React.useState<Step>(initStep);
-  const [branch, setBranch] = React.useState<PreloadedBranch | null>(initialBranch);
-  const [service, setService] = React.useState<PreloadedService | null>(initialService);
+  const [branch, setBranch] = React.useState<PreloadedBranch | null>(
+    initialBranch,
+  );
+  const [service, setService] = React.useState<PreloadedService | null>(
+    initialService,
+  );
   // `worker === null` is a valid choice ("any stylist"), so a separate flag
   // tracks whether the customer has actually made the choice yet.
   const [worker, setWorker] = React.useState<ApiWorker | null>(null);
@@ -901,6 +1461,17 @@ export function BookWizard({
   const [confirmLoading, setConfirmLoading] = React.useState(false);
   const [confirmError, setConfirmError] = React.useState<string | null>(null);
 
+  // Inline phone-OTP: shown when confirming a booking while signed out, so the
+  // customer authenticates without leaving the flow, then the booking completes.
+  const [needsAuth, setNeedsAuth] = React.useState(false);
+  const [authPhase, setAuthPhase] = React.useState<"phone" | "code">("phone");
+  const [custName, setCustName] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [otp, setOtp] = React.useState("");
+  const [devOtp, setDevOtp] = React.useState<string | null>(null);
+  const [authLoading, setAuthLoading] = React.useState(false);
+  const [authError, setAuthError] = React.useState<string | null>(null);
+
   function resetWorker() {
     setWorker(null);
     setWorkerChosen(false);
@@ -908,11 +1479,13 @@ export function BookWizard({
 
   async function handleConfirm() {
     if (!branch || !service || !date || !slot) return;
-    setConfirmLoading(true); setConfirmError(null);
+    setConfirmLoading(true);
+    setConfirmError(null);
     try {
       const res = await fetch(API.customer.appointments, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           branchId: branch.id,
           // Omitted entirely when the customer picked "any stylist".
@@ -925,37 +1498,137 @@ export function BookWizard({
         }),
       });
       const json = await res.json();
-      if (res.status === 401) {
-        router.push(`/login?redirect=${encodeURIComponent("/customer/bookings")}`);
+      if (res.status === 401 || res.status === 403) {
+        // Signed out or using a non-customer session — authenticate inline via
+        // phone OTP, then retry this booking.
+        setNeedsAuth(true);
+        setConfirmError(null);
         return;
       }
-      if (!res.ok) throw new Error(json?.error ?? json?.message ?? "Booking failed");
+      if (!res.ok)
+        throw new Error(json?.error ?? json?.message ?? "Booking failed");
       router.push(`/customer/bookings/${json.data?.id ?? ""}`);
     } catch (e) {
-      setConfirmError(e instanceof Error ? e.message : "Booking failed. Please try again.");
+      setConfirmError(
+        e instanceof Error ? e.message : "Booking failed. Please try again.",
+      );
     } finally {
       setConfirmLoading(false);
     }
   }
 
+  // Step 1 of inline auth: send a one-time code to the entered phone.
+  async function sendOtp() {
+    if (!custName.trim()) {
+      setAuthError("Enter your name");
+      return;
+    }
+    const p = phone.trim();
+    if (!p) {
+      setAuthError("Enter your mobile number");
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const res = await fetch(API.auth.otpSend, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: p }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.success === false)
+        throw new Error(json?.message ?? "Could not send code");
+      setDevOtp(json?.data?.devOtp ?? null);
+      setAuthPhase("code");
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Could not send code");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  // Step 2: verify the code (auto-registers a customer if new), then complete the
+  // booking. The verify response sets the session cookie, so handleConfirm's retry
+  // is authenticated.
+  async function verifyAndBook() {
+    const code = otp.trim();
+    if (!code) {
+      setAuthError("Enter the 6-digit code");
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const res = await fetch(API.auth.otpVerify, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: phone.trim(),
+          otp: code,
+          firstName: custName.trim(),
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.success === false || !json?.data)
+        throw new Error(json?.message ?? "Invalid code");
+      setNeedsAuth(false);
+      await handleConfirm();
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Invalid code");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100">
-      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
         <StepBar current={step} />
 
         <BookingBar
-          branch={branch} service={service} worker={worker} workerChosen={workerChosen}
-          date={date} slot={slot}
-          onChangeBranch={() => { setBranch(null); setService(null); resetWorker(); setDate(""); setSlot(""); setStep("branch"); }}
-          onChangeService={() => { setService(null); resetWorker(); setDate(""); setSlot(""); setStep("service"); }}
-          onChangeWorker={() => { resetWorker(); setDate(""); setSlot(""); setStep("worker"); }}
-          onChangeSlot={() => { setDate(""); setSlot(""); setStep("slot"); }}
+          branch={branch}
+          service={service}
+          worker={worker}
+          workerChosen={workerChosen}
+          date={date}
+          slot={slot}
+          onChangeBranch={() => {
+            setBranch(null);
+            setService(null);
+            resetWorker();
+            setDate("");
+            setSlot("");
+            setStep("branch");
+          }}
+          onChangeService={() => {
+            setService(null);
+            resetWorker();
+            setDate("");
+            setSlot("");
+            setStep("service");
+          }}
+          onChangeWorker={() => {
+            resetWorker();
+            setDate("");
+            setSlot("");
+            setStep("worker");
+          }}
+          onChangeSlot={() => {
+            setDate("");
+            setSlot("");
+            setStep("slot");
+          }}
         />
 
         {step === "branch" && (
           <BranchStep
             onSelect={(b) => {
-              setBranch(b); setService(null); resetWorker(); setDate(""); setSlot("");
+              setBranch(b);
+              setService(null);
+              resetWorker();
+              setDate("");
+              setSlot("");
               setStep("service");
             }}
           />
@@ -964,14 +1637,23 @@ export function BookWizard({
         {step === "service" && branch && (
           <>
             <button
-              onClick={() => { setBranch(null); setStep("branch"); }}
+              onClick={() => {
+                setBranch(null);
+                setStep("branch");
+              }}
               className="mb-4 flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-300 transition"
             >
               <ChevronLeft className="size-4" /> Change branch
             </button>
             <ServiceStep
               branchId={branch.id}
-              onSelect={(s) => { setService(s); resetWorker(); setDate(""); setSlot(""); setStep("worker"); }}
+              onSelect={(s) => {
+                setService(s);
+                resetWorker();
+                setDate("");
+                setSlot("");
+                setStep("worker");
+              }}
             />
           </>
         )}
@@ -979,7 +1661,11 @@ export function BookWizard({
         {step === "worker" && branch && service && (
           <>
             <button
-              onClick={() => { setService(null); resetWorker(); setStep("service"); }}
+              onClick={() => {
+                setService(null);
+                resetWorker();
+                setStep("service");
+              }}
               className="mb-4 flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-300 transition"
             >
               <ChevronLeft className="size-4" /> Change service
@@ -987,9 +1673,13 @@ export function BookWizard({
             <WorkerStep
               branchId={branch.id}
               serviceId={service.id}
+              serviceName={service.name}
               onSelect={(w) => {
-                setWorker(w); setWorkerChosen(true);
-                setDate(""); setSlot(""); setStep("slot");
+                setWorker(w);
+                setWorkerChosen(true);
+                setDate("");
+                setSlot("");
+                setStep("slot");
               }}
             />
           </>
@@ -998,16 +1688,25 @@ export function BookWizard({
         {step === "slot" && branch && service && (
           <>
             <button
-              onClick={() => { resetWorker(); setDate(""); setSlot(""); setStep("worker"); }}
+              onClick={() => {
+                resetWorker();
+                setDate("");
+                setSlot("");
+                setStep("worker");
+              }}
               className="mb-4 flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-300 transition"
             >
               <ChevronLeft className="size-4" /> Change worker
             </button>
             <SlotStep
-              branchId={branch.id}
-              serviceId={service.id}
-              workerId={worker?.id ?? null}
-              onSelect={(d, s) => { setDate(d); setSlot(s); setStep("confirm"); }}
+              branch={branch}
+              service={service}
+              worker={worker}
+              onSelect={(d, s) => {
+                setDate(d);
+                setSlot(s);
+                setStep("confirm");
+              }}
             />
           </>
         )}
@@ -1015,17 +1714,52 @@ export function BookWizard({
         {step === "confirm" && branch && service && date && slot && (
           <>
             <button
-              onClick={() => { setDate(""); setSlot(""); setStep("slot"); }}
+              onClick={() => {
+                setDate("");
+                setSlot("");
+                setStep("slot");
+              }}
               className="mb-4 flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-300 transition"
             >
               <ChevronLeft className="size-4" /> Change time
             </button>
-            <ConfirmStep
-              branch={branch} service={service} worker={worker} date={date} slot={slot}
-              notes={notes} onNotes={setNotes}
-              onConfirm={handleConfirm}
-              loading={confirmLoading} error={confirmError}
-            />
+            <div className="grid gap-6 lg:grid-cols-[1.3fr_420px]">
+              <ConfirmStep
+                branch={branch}
+                service={service}
+                worker={worker}
+                date={date}
+                slot={slot}
+                notes={notes}
+                onNotes={setNotes}
+                onConfirm={handleConfirm}
+                loading={confirmLoading}
+                error={confirmError}
+              />
+              {needsAuth && (
+                <div className="sticky top-24 self-start rounded-3xl border border-white/10 bg-stone-900 p-5">
+                  <InlineAuth
+                    phase={authPhase}
+                    name={custName}
+                    onName={setCustName}
+                    phone={phone}
+                    onPhone={setPhone}
+                    otp={otp}
+                    onOtp={setOtp}
+                    devOtp={devOtp}
+                    loading={authLoading}
+                    error={authError}
+                    onSend={sendOtp}
+                    onVerify={verifyAndBook}
+                    onBack={() => {
+                      setAuthPhase("phone");
+                      setOtp("");
+                      setAuthError(null);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>

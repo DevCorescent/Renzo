@@ -5,19 +5,11 @@
 //
 // METHODS
 //   GET   — Full detail for one leave request.
-//   PATCH — Approve or reject a PENDING request: body { status: "APPROVED" | "REJECTED" }.
-//
-// ACCESS: SUPER_ADMIN, OWNER, BRANCH_ADMIN.
-//
-// BRANCH ISOLATION
-//   Leave has NO branchId — a leave belongs to a worker, whose branch lives in the
-//   WorkerBranch join table. So access is guarded THROUGH the worker with
-//   denyIfWorkerOutOfScope(), which answers 404 for an out-of-scope worker so an id
-//   cannot be used to probe another branch. Same primitive the Workers module uses.
-//
-// FIELDS WRITTEN
-//   PATCH updates ONLY `status`. No approvedBy / approvedAt / rejectionReason is
-//   touched — the transition is a pure status change, per the module's design.
+//   PATCH — Status transitions:
+//             PENDING|CANCELLED → APPROVED|REJECTED
+//             CANCELLED → PENDING (reopen)
+//             APPROVED → CANCELLED (admin cancel)
+//           Body: { status, rejectionReason? }
 // ============================================================================
 
 import { NextRequest } from "next/server";
@@ -26,12 +18,15 @@ import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import { requireBranchScope, denyIfWorkerOutOfScope } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
+import { adjustLeaveBalance } from "@/lib/leave-balance";
 
-// The only two states a PENDING request may be moved to from this endpoint.
-const TARGET_STATUSES = ["APPROVED", "REJECTED"] as const;
-type TargetStatus = (typeof TARGET_STATUSES)[number];
+const ALLOWED: Record<LeaveStatus, LeaveStatus[]> = {
+  PENDING: ["APPROVED", "REJECTED", "CANCELLED"],
+  CANCELLED: ["APPROVED", "REJECTED", "PENDING"],
+  APPROVED: ["CANCELLED"],
+  REJECTED: [],
+};
 
-// GET /api/v1/admin/leaves/[id] — Full leave detail.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
@@ -51,6 +46,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         endDate: true,
         days: true,
         reason: true,
+        rejectionReason: true,
+        approvedBy: true,
+        approvedAt: true,
         createdAt: true,
         leaveType: { select: { id: true, name: true, code: true, isPaid: true } },
         worker: {
@@ -72,8 +70,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
     if (!leave) return err("Leave request not found", 404);
 
-    // Guard by the leave's worker — 404 (not 403) so it can't confirm a leave
-    // exists in another branch.
     const denied = await denyIfWorkerOutOfScope(prisma, leave.worker.id, scope);
     if (denied) return denied;
 
@@ -83,7 +79,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// PATCH /api/v1/admin/leaves/[id] — Approve or reject a pending leave.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
@@ -97,48 +92,111 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") return err("Invalid JSON body", 400);
 
-    const status = body.status as TargetStatus | undefined;
-    if (!status || !TARGET_STATUSES.includes(status)) {
+    const status = body.status as LeaveStatus | undefined;
+    if (!status || !(status in ALLOWED)) {
       return err("Validation failed", 422, {
-        status: [`status must be one of: ${TARGET_STATUSES.join(", ")}`],
+        status: ["status must be APPROVED, REJECTED, PENDING, or CANCELLED"],
       });
     }
 
+    const rejectionReason =
+      typeof body.rejectionReason === "string" ? body.rejectionReason.trim() : undefined;
+
     const leave = await prisma.leave.findUnique({
       where: { id },
-      select: { id: true, status: true, workerId: true },
+      select: {
+        id: true,
+        status: true,
+        workerId: true,
+        leaveTypeId: true,
+        days: true,
+        startDate: true,
+      },
     });
     if (!leave) return err("Leave request not found", 404);
 
     const denied = await denyIfWorkerOutOfScope(prisma, leave.workerId, scope);
     if (denied) return denied;
 
-    // Only a PENDING request may transition. Reject an already-actioned one up
-    // front with a clear message…
-    if (leave.status !== "PENDING") {
-      return err(`This leave request has already been ${leave.status.toLowerCase()}`, 409);
+    const allowedTargets = ALLOWED[leave.status];
+    if (!allowedTargets.includes(status)) {
+      return err(
+        `Cannot move leave from ${leave.status} to ${status}`,
+        409
+      );
     }
 
-    // …and guard the write itself against a race: two admins clicking Approve at
-    // the same moment both pass the check above, so the transition is an atomic
-    // compare-and-swap — updateMany only touches the row while it is STILL pending.
-    // The loser sees count 0 and is told it was already actioned, so no double
-    // approval can land.
-    const result = await prisma.leave.updateMany({
-      where: { id, status: "PENDING" },
-      data: { status: status as LeaveStatus },
+    if (status === "REJECTED" && !rejectionReason) {
+      // rejectionReason optional but preferred — allow empty
+    }
+
+    const year = leave.startDate.getUTCFullYear();
+    const now = new Date();
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.leave.updateMany({
+        where: { id, status: leave.status },
+        data: {
+          status,
+          ...(status === "APPROVED"
+            ? {
+                approvedBy: user.userId,
+                approvedAt: now,
+                rejectionReason: null,
+              }
+            : {}),
+          ...(status === "REJECTED"
+            ? {
+                approvedBy: user.userId,
+                approvedAt: now,
+                rejectionReason: rejectionReason || null,
+              }
+            : {}),
+          ...(status === "PENDING"
+            ? {
+                approvedBy: null,
+                approvedAt: null,
+                rejectionReason: null,
+              }
+            : {}),
+          ...(status === "CANCELLED"
+            ? {
+                // keep prior approval audit if any
+              }
+            : {}),
+        },
+      });
+      if (result.count === 0) {
+        throw new Error("RACE");
+      }
+
+      await adjustLeaveBalance(tx, {
+        workerId: leave.workerId,
+        leaveTypeId: leave.leaveTypeId,
+        days: leave.days,
+        year,
+        from: leave.status,
+        to: status,
+      });
+
+      return tx.leave.findUnique({
+        where: { id },
+        include: { leaveType: true },
+      });
     });
-    if (result.count === 0) {
+
+    const messages: Record<string, string> = {
+      APPROVED: "Leave approved",
+      REJECTED: "Leave rejected",
+      PENDING: "Leave reopened",
+      CANCELLED: "Leave cancelled",
+    };
+
+    return ok(updated, messages[status] ?? "Leave updated");
+  } catch (e) {
+    if (e instanceof Error && e.message === "RACE") {
       return err("This leave request has already been actioned", 409);
     }
-
-    const updated = await prisma.leave.findUnique({
-      where: { id },
-      include: { leaveType: true },
-    });
-
-    return ok(updated, status === "APPROVED" ? "Leave approved" : "Leave rejected");
-  } catch {
     return err("Internal server error", 500);
   }
 }

@@ -282,10 +282,8 @@ export function LeavesClient({
                         {formatDate(l.createdAt)}
                       </TD>
                       <TD className="text-right">
-                        {/* Cancel is offered ONLY for PENDING — the route rejects
-                            anything else with a 409, so showing it elsewhere would
-                            invite an error the worker cannot act on. */}
-                        {l.status === "PENDING" ? (
+                        {/* Cancel for PENDING or APPROVED (soft-cancel). */}
+                        {l.status === "PENDING" || l.status === "APPROVED" ? (
                           <button
                             type="button"
                             onClick={() => handleCancel(l.id)}

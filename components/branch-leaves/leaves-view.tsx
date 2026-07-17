@@ -28,10 +28,11 @@ import {
   TR,
   TD,
 } from "@/components/shared/ui";
-import { setLeaveStatusAction } from "@/app/branch-admin/leaves/actions";
+import { setLeaveStatusAction, grantLeaveAction } from "@/app/branch-admin/leaves/actions";
 import { LeaveStatusBadge } from "./leaves-ui";
 import { LeaveDrawer } from "./leave-drawer";
-import { formatDate, workerName, type BranchLeave } from "./types";
+import { GrantLeaveModal } from "./grant-leave-modal";
+import { formatDate, workerName, type BranchLeave, type LeaveTypeOption } from "./types";
 
 export function LeavesView({
   leaves,
@@ -39,12 +40,14 @@ export function LeavesView({
   page,
   limit,
   totalPages,
+  leaveTypes = [],
 }: {
   leaves: BranchLeave[];
   total: number;
   page: number;
   limit: number;
   totalPages: number;
+  leaveTypes?: LeaveTypeOption[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -62,7 +65,7 @@ export function LeavesView({
 
   async function runStatus(
     id: string,
-    status: "APPROVED" | "REJECTED"
+    status: "APPROVED" | "REJECTED" | "PENDING"
   ): Promise<string | null> {
     const res = await setLeaveStatusAction(id, status);
     if (res.status === "success") {
@@ -70,7 +73,6 @@ export function LeavesView({
       setToast(res.message);
       return null;
     }
-    // Keep the drawer open and hand the route's message back for inline display.
     return res.message;
   }
 
@@ -110,9 +112,24 @@ export function LeavesView({
 
       <Card>
         <CardHeader>
-          <CardTitle>
-            {total} {total === 1 ? "leave request" : "leave requests"}
-          </CardTitle>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle>
+              {total} {total === 1 ? "leave request" : "leave requests"}
+            </CardTitle>
+            {leaveTypes.length > 0 && (
+              <GrantLeaveModal
+                leaveTypes={leaveTypes}
+                onGrant={async (input) => {
+                  const res = await grantLeaveAction(input);
+                  if (res.status === "success") {
+                    setToast(res.message);
+                    return null;
+                  }
+                  return res.message;
+                }}
+              />
+            )}
+          </div>
         </CardHeader>
         <Table>
           <THead>
@@ -162,7 +179,7 @@ export function LeavesView({
                     }}
                     className="text-xs font-medium text-gray-700 transition hover:text-gray-900 focus:outline-none focus:underline"
                   >
-                    {l.status === "PENDING" ? "Review" : "View"}
+                    {l.status === "PENDING" || l.status === "CANCELLED" ? "Review" : "View"}
                   </button>
                 </TD>
               </TR>
@@ -202,6 +219,7 @@ export function LeavesView({
         onClose={() => setSelected(null)}
         onApprove={(id) => runStatus(id, "APPROVED")}
         onReject={(id) => runStatus(id, "REJECTED")}
+        onReopen={(id) => runStatus(id, "PENDING")}
       />
     </>
   );

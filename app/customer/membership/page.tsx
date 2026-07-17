@@ -96,6 +96,12 @@ export default async function CustomerMembershipPage() {
                   ))}
                 </ul>
               )}
+              <button
+                type="button"
+                className="mt-4 w-full rounded-lg bg-gold py-2 text-sm font-semibold text-gold-foreground transition hover:bg-gold-soft"
+              >
+                Buy Now
+              </button>
             </div>
           ))}
         </div>

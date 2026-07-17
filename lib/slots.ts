@@ -38,11 +38,20 @@ export function rangesOverlap(
   return aStart < bEnd && bStart < aEnd;
 }
 
+export type SlotStatus = "AVAILABLE" | "BOOKED" | "PAST";
+
+export type SlotEntry = {
+  time: string;
+  status: SlotStatus;
+};
+
 export type WorkerSlots = {
   /** Branch is shut that day (holiday or no open timing) — nobody is bookable. */
   closed: boolean;
   /** workerId → free start times ("HH:mm"), ascending. */
   byWorker: Map<string, string[]>;
+  /** workerId → every open-hour slot with status (available / booked / past). */
+  gridByWorker: Map<string, SlotEntry[]>;
 };
 
 // Free slots for each given worker at one branch on one date.
@@ -57,9 +66,12 @@ export async function getWorkerSlots(params: {
   const empty = (): WorkerSlots => ({
     closed: true,
     byWorker: new Map(workerIds.map((id) => [id, []])),
+    gridByWorker: new Map(workerIds.map((id) => [id, []])),
   });
 
-  if (workerIds.length === 0) return { closed: false, byWorker: new Map() };
+  if (workerIds.length === 0) {
+    return { closed: false, byWorker: new Map(), gridByWorker: new Map() };
+  }
 
   const appointmentDate = new Date(`${date}T00:00:00.000Z`);
 
@@ -112,26 +124,38 @@ export async function getWorkerSlots(params: {
     date === todayStr ? now.getUTCHours() * 60 + now.getUTCMinutes() : -1;
 
   const byWorker = new Map<string, string[]>();
+  const gridByWorker = new Map<string, SlotEntry[]>();
 
   for (const workerId of workerIds) {
     const ranges = busy.get(workerId) ?? [];
     const free: string[] = [];
+    const grid: SlotEntry[] = [];
 
     for (
       let start = openMinutes;
       start + durationMinutes <= closeMinutes;
       start += SLOT_INTERVAL_MINUTES
     ) {
-      if (start <= nowMinutes) continue;
+      const time = minutesToTime(start);
+      if (start <= nowMinutes) {
+        grid.push({ time, status: "PAST" });
+        continue;
+      }
       const end = start + durationMinutes;
       const clash = ranges.some(([bs, be]) => rangesOverlap(start, end, bs, be));
-      if (!clash) free.push(minutesToTime(start));
+      if (clash) {
+        grid.push({ time, status: "BOOKED" });
+      } else {
+        free.push(time);
+        grid.push({ time, status: "AVAILABLE" });
+      }
     }
 
     byWorker.set(workerId, free);
+    gridByWorker.set(workerId, grid);
   }
 
-  return { closed: false, byWorker };
+  return { closed: false, byWorker, gridByWorker };
 }
 
 // Workers who can actually take this booking: active, at this branch, and

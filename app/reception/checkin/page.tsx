@@ -2,6 +2,8 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { CheckInButton } from "@/components/reception/check-in-button";
+import { AssignWorkerSelect } from "@/components/reception/assign-worker-select";
 
 // OWNER: Hemant | MODULE: Reception Check-in
 
@@ -30,12 +32,12 @@ export default async function ReceptionCheckinPage() {
     where: {
       branchId,
       appointmentDate: { gte: today, lt: tomorrow },
-      status: { in: ["PENDING", "CONFIRMED", "CHECKED_IN", "STARTED"] },
+      status: { in: ["PENDING", "CONFIRMED", "CHECKED_IN", "STARTED", "RESCHEDULED"] },
     },
     orderBy: { startTime: "asc" },
     include: {
       customer: { select: { firstName: true, lastName: true, phone: true } },
-      worker: { select: { firstName: true, lastName: true } },
+      worker: { select: { id: true, firstName: true, lastName: true } },
       services: { include: { service: { select: { name: true, duration: true } } } },
     },
   });
@@ -51,7 +53,7 @@ export default async function ReceptionCheckinPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Today's Arrivals</CardTitle>
+          <CardTitle>Today&apos;s Arrivals</CardTitle>
         </CardHeader>
         <Table>
           <THead>
@@ -63,12 +65,13 @@ export default async function ReceptionCheckinPage() {
               <TH>Worker</TH>
               <TH>Duration</TH>
               <TH>Status</TH>
+              <TH className="text-right">Actions</TH>
             </tr>
           </THead>
           <tbody>
             {appointments.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
                   No active appointments today.
                 </td>
               </tr>
@@ -96,6 +99,16 @@ export default async function ReceptionCheckinPage() {
                       <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>
                         {a.status.replace(/_/g, " ")}
                       </Badge>
+                    </TD>
+                    <TD className="text-right">
+                      <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                        <CheckInButton appointmentId={a.id} status={a.status} />
+                        <AssignWorkerSelect
+                          appointmentId={a.id}
+                          status={a.status}
+                          currentWorkerId={a.workerId}
+                        />
+                      </div>
                     </TD>
                   </TR>
                 );

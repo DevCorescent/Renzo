@@ -104,12 +104,12 @@ export async function GET(req: NextRequest) {
 
     if (candidateIds.length === 0) {
       return ok(
-        { branch, service, worker, date, slots: [] },
+        { branch, service, worker, date, slots: [], slotGrid: [] },
         "No workers available for this service"
       );
     }
 
-    const { closed, byWorker } = await getWorkerSlots({
+    const { closed, byWorker, gridByWorker } = await getWorkerSlots({
       branchId,
       date,
       durationMinutes: service.duration,
@@ -118,21 +118,49 @@ export async function GET(req: NextRequest) {
 
     if (closed) {
       return ok(
-        { branch, service, worker, date, slots: [] },
+        { branch, service, worker, date, slots: [], slotGrid: [] },
         "Branch is closed on the selected date"
       );
     }
 
-    // Union across candidates: a slot is offered if at least one eligible
-    // stylist is free for it. With a named worker there is only one candidate,
-    // so this collapses to exactly that stylist's schedule.
+    // Union of free times (back-compat) + status grid across candidates.
+    // A time is AVAILABLE if any eligible stylist is free; BOOKED if every
+    // eligible stylist is busy; PAST if the slot has already passed.
     const union = new Set<string>();
     for (const id of candidateIds) {
       for (const slot of byWorker.get(id) ?? []) union.add(slot);
     }
     const slots = Array.from(union).sort();
 
-    return ok({ branch, service, worker, date, slots }, "Available slots fetched successfully");
+    const statusRank = { PAST: 0, BOOKED: 1, AVAILABLE: 2 } as const;
+    const merged = new Map<string, "AVAILABLE" | "BOOKED" | "PAST">();
+    for (const id of candidateIds) {
+      for (const entry of gridByWorker.get(id) ?? []) {
+        const prev = merged.get(entry.time);
+        if (!prev || statusRank[entry.status] > statusRank[prev]) {
+          merged.set(entry.time, entry.status);
+        }
+      }
+    }
+    // When multiple workers: a slot stays BOOKED only if NO worker is AVAILABLE.
+    if (!worker && candidateIds.length > 1) {
+      for (const [time, status] of merged) {
+        if (status === "AVAILABLE") continue;
+        const anyoneFree = candidateIds.some((id) =>
+          (byWorker.get(id) ?? []).includes(time)
+        );
+        if (anyoneFree) merged.set(time, "AVAILABLE");
+      }
+    }
+
+    const slotGrid = Array.from(merged.entries())
+      .map(([time, status]) => ({ time, status }))
+      .sort((a, b) => a.time.localeCompare(b.time));
+
+    return ok(
+      { branch, service, worker, date, slots, slotGrid },
+      "Available slots fetched successfully"
+    );
   } catch (error) {
     console.error("GET Public Slots Error:", error);
     return err("Internal server error", 500);

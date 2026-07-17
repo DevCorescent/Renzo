@@ -166,12 +166,16 @@ export function DashboardHeader({
   greeting,
   dateLabel,
   notifications,
+  hideQuickActions,
+  hideThemeToggle,
 }: {
   role: DashRole;
   userName: string;
   greeting: string;
   dateLabel: string;
   notifications: NotificationItem[];
+  hideQuickActions?: boolean;
+  hideThemeToggle?: boolean;
 }) {
   const cfg = ROLE_CONFIG[role];
   const firstName = userName.split(" ")[0] || userName;
@@ -218,11 +222,11 @@ export function DashboardHeader({
           </form>
 
           <div className="flex items-center gap-0.5 rounded-lg">
-            <ThemeToggle />
+            {!hideThemeToggle && <ThemeToggle />}
             <Notifications items={notifications} />
           </div>
 
-          {cfg.quickActions.length > 0 && (
+          {cfg.quickActions.length > 0 && !hideQuickActions && (
             <>
               <div className="mx-1 hidden h-6 w-px bg-gray-200 sm:block dark:bg-(--sa-border)" />
               <QuickActions actions={cfg.quickActions} />

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { created, err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { writeAudit } from "@/lib/audit";
 import prisma from "@/lib/db";
 import type { CouponType, CouponApplicableTo, Prisma } from "@prisma/client";
 
@@ -9,17 +10,60 @@ const APPLICABLE: CouponApplicableTo[] = [
   "ALL", "SPECIFIC_SERVICE", "SPECIFIC_CATEGORY", "SPECIFIC_BRANCH", "FIRST_BOOKING",
 ];
 
+// A parseable date param, or undefined.
+function parseDate(value: string | null): Date | undefined {
+  if (!value) return undefined;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
 // OWNER: Shalmon | MODULE: Coupons
-// GET /api/v1/admin/coupons — List coupons (paginated, search by code)
+// GET /api/v1/admin/coupons — List coupons (paginated).
+//
+// Backend-driven search + filters (all optional, additive — no param = original
+// behaviour): search (code OR description), status (active / upcoming / expired /
+// disabled — derived live from isActive + validFrom + validUntil, no stored column),
+// type, applicableTo, and a validity date-range overlap (from / to).
 export async function GET(req: NextRequest) {
   const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "MARKETING_MANAGER");
   if (error) return error;
 
   try {
-    const { page, limit, skip, search } = parsePagination(new URL(req.url));
-    const where: Prisma.CouponWhereInput = search
-      ? { code: { contains: search, mode: "insensitive" } }
-      : {};
+    const url = new URL(req.url);
+    const { page, limit, skip, search } = parsePagination(url);
+    const now = new Date();
+
+    const status = url.searchParams.get("status");
+    const type = url.searchParams.get("type");
+    const applicableTo = url.searchParams.get("applicableTo");
+    const from = parseDate(url.searchParams.get("from"));
+    const to = parseDate(url.searchParams.get("to"));
+
+    // Each filter is a separate AND clause so they compose without clobbering each
+    // other's OR groups (search / active-window both use OR internally).
+    const and: Prisma.CouponWhereInput[] = [];
+    if (search) {
+      and.push({
+        OR: [
+          { code: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+        ],
+      });
+    }
+    if (type && TYPES.includes(type as CouponType)) and.push({ type: type as CouponType });
+    if (applicableTo && APPLICABLE.includes(applicableTo as CouponApplicableTo)) {
+      and.push({ applicableTo: applicableTo as CouponApplicableTo });
+    }
+    // Status derived from the three real fields (no new column):
+    if (status === "disabled") and.push({ isActive: false });
+    else if (status === "active") and.push({ isActive: true, validFrom: { lte: now }, OR: [{ validUntil: null }, { validUntil: { gte: now } }] });
+    else if (status === "upcoming") and.push({ isActive: true, validFrom: { gt: now } });
+    else if (status === "expired") and.push({ isActive: true, validUntil: { lt: now } });
+    // Date-range = coupons whose validity window overlaps [from, to].
+    if (from) and.push({ OR: [{ validUntil: null }, { validUntil: { gte: from } }] });
+    if (to) and.push({ validFrom: { lte: to } });
+
+    const where: Prisma.CouponWhereInput = and.length ? { AND: and } : {};
 
     const [items, total] = await Promise.all([
       prisma.coupon.findMany({
@@ -31,7 +75,23 @@ export async function GET(req: NextRequest) {
       }),
       prisma.coupon.count({ where }),
     ]);
-    return paginated(items, total, page, limit);
+
+    // "Number of customers used" = DISTINCT customers per coupon (usages may repeat
+    // per customer). One grouped read over this page's ids, tallied in memory — no
+    // N+1, no distinct-count that Prisma can't express directly.
+    const couponIds = items.map((c) => c.id);
+    const pairs = couponIds.length
+      ? await prisma.couponUsage.findMany({
+          where: { couponId: { in: couponIds } },
+          select: { couponId: true, customerId: true },
+          distinct: ["couponId", "customerId"],
+        })
+      : [];
+    const customerCount = new Map<string, number>();
+    for (const p of pairs) customerCount.set(p.couponId, (customerCount.get(p.couponId) ?? 0) + 1);
+
+    const withStats = items.map((c) => ({ ...c, customersUsed: customerCount.get(c.id) ?? 0 }));
+    return paginated(withStats, total, page, limit);
   } catch {
     return err("Internal server error", 500);
   }
@@ -76,6 +136,7 @@ export async function POST(req: NextRequest) {
         createdBy: user.userId,
       },
     });
+    await writeAudit(user, { action: "CREATE", module: "COUPON", refId: coupon.id, refType: "Coupon", newValue: { code: coupon.code, type: coupon.type, value: coupon.value } });
     return created(coupon, "Coupon created");
   } catch {
     return err("Internal server error", 500);

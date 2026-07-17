@@ -2,6 +2,8 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { ReviewModerationButtons } from "@/components/branch-reviews/review-moderation-buttons";
+import { ReviewInsightsPanel } from "@/components/ai/review-insights-panel";
 
 // OWNER: Hemant | MODULE: Branch Admin — Reviews
 
@@ -31,11 +33,14 @@ export default async function BranchAdminReviewsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">Reviews</h1>
-        <p className="mt-0.5 text-sm text-gray-500">
-          {reviews.length} total · {pending} pending · avg {avgRating} ★
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Reviews</h1>
+          <p className="mt-0.5 text-sm text-gray-500">
+            {reviews.length} total · {pending} pending · avg {avgRating} ★
+          </p>
+        </div>
+        <ReviewInsightsPanel />
       </div>
 
       <Card>
@@ -49,11 +54,12 @@ export default async function BranchAdminReviewsPage() {
               <TH>Comment</TH>
               <TH>Date</TH>
               <TH>Status</TH>
+              <TH className="text-right">Actions</TH>
             </tr>
           </THead>
           <tbody>
             {reviews.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">No reviews yet.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">No reviews yet.</td></tr>
             ) : (
               reviews.map((r) => (
                 <TR key={r.id}>
@@ -67,6 +73,9 @@ export default async function BranchAdminReviewsPage() {
                   <TD className="max-w-[200px] truncate text-xs text-gray-500">{r.comment ?? "—"}</TD>
                   <TD className="font-mono text-xs text-gray-500">{new Date(r.createdAt).toLocaleDateString("en-IN")}</TD>
                   <TD><Badge tone={STATUS_TONE[r.status] ?? "neutral"}>{r.status}</Badge></TD>
+                  <TD className="text-right">
+                    <ReviewModerationButtons reviewId={r.id} status={r.status} />
+                  </TD>
                 </TR>
               ))
             )}

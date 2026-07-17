@@ -1,51 +1,36 @@
 import prisma from "@/lib/db";
-import {
-  CalendarDays, CalendarClock, Activity, PieChart as PieIcon, BarChart3, TrendingUp,
-  IndianRupee, UserCheck, Sparkles, Wallet, Crown, User, ArrowUpRight,
-} from "lucide-react";
+import { CalendarDays, BarChart3, Wallet, Crown, Sparkles, User, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { StatCard } from "@/components/dashboard/stat-card";
-import { Panel, PanelHeader, ChartCard, ViewAllLink } from "@/components/dashboard/card";
-import { AreaTrendChart, BarCompareChart, StatusDonutChart, type DonutSlice } from "@/components/dashboard/charts-lazy";
-import { BookingsTable, type BookingRow } from "@/components/dashboard/bookings-table";
-import { RecentActivity, type ActivityItem } from "@/components/dashboard/recent-activity";
+import { Panel, PanelHeader, ChartCard } from "@/components/dashboard/card";
+import { BarCompareChart } from "@/components/dashboard/charts-lazy";
+import { type BookingRow } from "@/components/dashboard/bookings-table";
+import { BookingDateTimeFilter } from "./date-time-filter";
 import { FadeIn, Stagger, StaggerItem } from "@/components/dashboard/motion";
 import { statusTone } from "@/components/dashboard/status-badge";
 import type { NotificationItem } from "@/components/dashboard/notifications";
 import { THEME_ROOT_ID } from "@/components/dashboard/use-dash-theme";
 
 // OWNER: Devanshi | MODULE: Customer Bookings
-// UI-only redesign — reuses the shared RENZO design system. All queries below are
-// READ-ONLY (counts / aggregates) and customer-scoped. No APIs / mutations / logic.
+// UI-only. Queries below are READ-ONLY (counts / aggregates) and customer-scoped.
 
-/* ── server-side helpers (no client hydration risk) ───────────────────────── */
+/* ── server-side helpers ──────────────────────────────────────────────────── */
 const fullName = (f: string, l?: string | null) => `${f}${l ? ` ${l}` : ""}`.trim();
 
-function relTime(from: Date, now: Date) {
-  const s = Math.max(1, Math.floor((now.getTime() - from.getTime()) / 1000));
-  if (s < 60) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
-const STATUS_META: Record<string, { label: string; color: string }> = {
-  COMPLETED: { label: "Completed", color: "#059669" },
-  CONFIRMED: { label: "Confirmed", color: "#10b981" },
-  CHECKED_IN: { label: "Checked in", color: "#0ea5e9" },
-  STARTED: { label: "In service", color: "#6366f1" },
-  PENDING: { label: "Pending", color: "#f59e0b" },
-  RESCHEDULED: { label: "Rescheduled", color: "#64748b" },
-  NO_SHOW: { label: "No-show", color: "#fb7185" },
-  CANCELLED: { label: "Cancelled", color: "#ef4444" },
+const STATUS_META: Record<string, { label: string }> = {
+  COMPLETED: { label: "Completed" },
+  CONFIRMED: { label: "Confirmed" },
+  CHECKED_IN: { label: "Checked in" },
+  STARTED: { label: "In service" },
+  PENDING: { label: "Pending" },
+  RESCHEDULED: { label: "Rescheduled" },
+  NO_SHOW: { label: "No-show" },
+  CANCELLED: { label: "Cancelled" },
 };
-const STATUS_ORDER = Object.keys(STATUS_META);
 
 export default async function CustomerBookingsPage() {
   const authUser = await getServerUser();
@@ -74,33 +59,12 @@ export default async function CustomerBookingsPage() {
     prisma.appointment.aggregate({ _sum: { paidAmount: true }, where: { customerId } }),
   ]);
 
-  /* ── derive presentational data (all from real reads above) ─────────────── */
+  /* ── derive presentational data ─────────────────────────────────────────── */
   const userName = customer ? fullName(customer.firstName, customer.lastName) : "Guest";
   const totalSpent = Math.round(Number(spentAgg._sum.paidAmount ?? 0));
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const dateLabel = today.toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-  const lastVisit = appointments.length ? new Date(appointments[0].appointmentDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
-
-  // visits over the last 6 months (area)
-  const months = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(today.getFullYear(), today.getMonth() - (5 - i), 1);
-    return { key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString("en-IN", { month: "short" }) };
-  });
-  const monthCounts: Record<string, number> = {};
-  for (const a of appointments) {
-    const d = new Date(a.appointmentDate);
-    const k = `${d.getFullYear()}-${d.getMonth()}`;
-    monthCounts[k] = (monthCounts[k] ?? 0) + 1;
-  }
-  const visitsTrend = months.map((m) => ({ label: m.label, value: monthCounts[m.key] ?? 0 }));
-
-  // status donut
-  const statusCount: Record<string, number> = {};
-  for (const a of appointments) statusCount[a.status] = (statusCount[a.status] ?? 0) + 1;
-  const donut: DonutSlice[] = STATUS_ORDER.filter((s) => statusCount[s]).map((s) => ({
-    label: STATUS_META[s].label, value: statusCount[s], color: STATUS_META[s].color,
-  }));
 
   // favourite services
   const serviceCount: Record<string, number> = {};
@@ -127,23 +91,9 @@ export default async function CustomerBookingsPage() {
     href: `/customer/bookings/${a.id}`,
   }));
 
-  // recent activity + notifications (most recently created bookings)
-  const recent = [...appointments].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 6);
-  const activity: ActivityItem[] = recent.map((a) => ({
-    id: a.id,
-    title: (
-      <span>
-        <span className="font-medium text-gray-900 dark:text-(--sa-text)">{a.services.map((s) => s.service.name).join(", ") || "Appointment"}</span> at {a.branch.name}
-      </span>
-    ),
-    meta: a.appointmentNo,
-    time: relTime(a.createdAt, now),
-    tone: statusTone(a.status),
-    icon: CalendarDays,
-    href: `/customer/bookings/${a.id}`,
-  }));
-
-  const notifications: NotificationItem[] = recent.slice(0, 5).map((a) => ({
+  // notifications (header bell) — most recently created bookings
+  const recent = [...appointments].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 5);
+  const notifications: NotificationItem[] = recent.map((a) => ({
     id: a.id,
     title: `Booking · ${a.appointmentNo}`,
     meta: `${a.branch.name} · ${STATUS_META[a.status]?.label ?? a.status}`,
@@ -151,13 +101,6 @@ export default async function CustomerBookingsPage() {
     unread: a.status === "PENDING" || a.status === "CONFIRMED",
     href: `/customer/bookings/${a.id}`,
   }));
-
-  const glance = [
-    { label: "Upcoming", value: String(upcomingCount), icon: CalendarClock, tone: "text-violet-500" },
-    { label: "Completed visits", value: String(completedCount), icon: UserCheck, tone: "text-emerald-500" },
-    { label: "Last visit", value: lastVisit, icon: CalendarDays, tone: "text-sky-500" },
-    { label: "Total spent", value: `₹${totalSpent.toLocaleString("en-IN")}`, icon: IndianRupee, tone: "text-amber-500" },
-  ];
 
   const quickLinks = [
     { label: "Wallet", href: "/customer/wallet", icon: Wallet },
@@ -173,7 +116,7 @@ export default async function CustomerBookingsPage() {
       className="sa-dash dark -m-6 min-h-[calc(100vh-3.5rem)] p-4 transition-colors duration-300 sm:p-6"
     >
       <div className="mx-auto max-w-350 space-y-6">
-        {/* ── Header ─────────────────────────────────────────────────────── */}
+        {/* ── Header (Quick actions button hidden) ───────────────────────── */}
         <FadeIn>
           <DashboardHeader
             role="customer"
@@ -181,6 +124,8 @@ export default async function CustomerBookingsPage() {
             greeting={greeting}
             dateLabel={dateLabel}
             notifications={notifications}
+            hideQuickActions
+            hideThemeToggle
           />
         </FadeIn>
 
@@ -204,37 +149,19 @@ export default async function CustomerBookingsPage() {
           </StaggerItem>
         </Stagger>
 
-        {/* ── Main grid: analytics + history (left) · side panel (right) ──── */}
+        {/* ── Main grid: history (left) · quick actions (right) ───────────── */}
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           {/* LEFT */}
           <div className="space-y-6 xl:col-span-2">
             <FadeIn>
-              <ChartCard
-                title="Your visits"
-                subtitle="Appointments over the last 6 months"
-                icon={Activity}
-                action={<ViewAllLink href="/customer/loyalty">Rewards</ViewAllLink>}
-              >
-                <AreaTrendChart data={visitsTrend} />
+              <ChartCard title="Favourite services" subtitle="Most booked" icon={BarChart3}>
+                {topServices.length ? (
+                  <BarCompareChart data={topServices} />
+                ) : (
+                  <p className="py-16 text-center text-sm text-gray-400 dark:text-(--sa-muted)">No bookings yet.</p>
+                )}
               </ChartCard>
             </FadeIn>
-
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <FadeIn>
-                <ChartCard title="Booking status" subtitle="Your history" icon={PieIcon}>
-                  <StatusDonutChart data={donut} />
-                </ChartCard>
-              </FadeIn>
-              <FadeIn>
-                <ChartCard title="Favourite services" subtitle="Most booked" icon={BarChart3}>
-                  {topServices.length ? (
-                    <BarCompareChart data={topServices} />
-                  ) : (
-                    <p className="py-16 text-center text-sm text-gray-400 dark:text-(--sa-muted)">No bookings yet.</p>
-                  )}
-                </ChartCard>
-              </FadeIn>
-            </div>
 
             <FadeIn>
               <Panel>
@@ -243,49 +170,13 @@ export default async function CustomerBookingsPage() {
                   subtitle={`${totalBookings} ${totalBookings === 1 ? "booking" : "bookings"}`}
                   icon={CalendarDays}
                 />
-                <BookingsTable rows={bookingRows} />
+                <BookingDateTimeFilter rows={bookingRows} />
               </Panel>
             </FadeIn>
           </div>
 
           {/* RIGHT — side panel */}
           <div className="space-y-6">
-            <FadeIn>
-              <Panel>
-                <PanelHeader title="Recent activity" icon={TrendingUp} action={<ViewAllLink href="/customer/reviews">Reviews</ViewAllLink>} />
-                {activity.length ? (
-                  <RecentActivity items={activity} />
-                ) : (
-                  <p className="px-5 py-10 text-center text-sm text-gray-400 dark:text-(--sa-muted)">No recent activity.</p>
-                )}
-              </Panel>
-            </FadeIn>
-
-            <FadeIn>
-              <Panel>
-                <PanelHeader title="Account summary" icon={Sparkles} />
-                <div className="space-y-1 p-3">
-                  <div className="flex items-center justify-between rounded-lg bg-emerald-50/60 px-3 py-2.5 ring-1 ring-inset ring-emerald-100 dark:bg-emerald-500/10 dark:ring-emerald-500/20">
-                    <span className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                      <Sparkles className="size-4" /> Welcome back, {userName.split(" ")[0]}
-                    </span>
-                    <span className="relative flex size-2 items-center justify-center">
-                      <span className="absolute inline-flex size-2 animate-ping rounded-full bg-emerald-400 opacity-60" />
-                      <span className="relative size-2 rounded-full bg-emerald-500" />
-                    </span>
-                  </div>
-                  {glance.map((g) => (
-                    <div key={g.label} className="flex items-center justify-between px-3 py-2">
-                      <span className="flex items-center gap-2.5 text-sm text-gray-600 dark:text-(--sa-text-2)">
-                        <g.icon className={`size-4 ${g.tone}`} /> {g.label}
-                      </span>
-                      <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-(--sa-text)">{g.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
-            </FadeIn>
-
             <FadeIn>
               <Panel>
                 <PanelHeader title="Quick actions" icon={CalendarDays} />

@@ -3,6 +3,12 @@ import { Prisma } from "@prisma/client";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
+import {
+  addMinutesToTime,
+  durationMinutesBetween,
+  findAppointmentConflict,
+} from "@/lib/appointment-conflict";
+import { DATE_RE } from "@/lib/slots";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -143,11 +149,19 @@ export async function GET(
    PATCH /api/v1/admin/appointments/[id]
 ============================================================================ */
 
+const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const EDITABLE_STATUSES = new Set([
+  "PENDING",
+  "CONFIRMED",
+  "CHECKED_IN",
+  "RESCHEDULED",
+]);
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth(
+  const { user, error } = await requireAuth(
     req,
     "SUPER_ADMIN",
     "OWNER",
@@ -190,6 +204,14 @@ export async function PATCH(
       return err("Appointment not found", 404);
     }
 
+    if (
+      user.userType === "BRANCH_ADMIN" &&
+      user.branchId &&
+      existingAppointment.branchId !== user.branchId
+    ) {
+      return err("Appointment not found", 404);
+    }
+
     // ------------------------------------------------------------------------
     // Validate Worker
     // ------------------------------------------------------------------------
@@ -208,7 +230,7 @@ export async function PATCH(
     }
 
     // ------------------------------------------------------------------------
-    // Validate Appointment Date
+    // Validate Appointment Date / Time
     // ------------------------------------------------------------------------
 
     let parsedAppointmentDate:
@@ -216,9 +238,19 @@ export async function PATCH(
       | undefined;
 
     if (appointmentDate !== undefined) {
-      parsedAppointmentDate = new Date(
-        appointmentDate
-      );
+      const raw =
+        typeof appointmentDate === "string"
+          ? appointmentDate.trim()
+          : "";
+      if (DATE_RE.test(raw)) {
+        parsedAppointmentDate = new Date(
+          `${raw}T00:00:00.000Z`
+        );
+      } else {
+        parsedAppointmentDate = new Date(
+          appointmentDate
+        );
+      }
 
       if (
         Number.isNaN(
@@ -227,6 +259,70 @@ export async function PATCH(
       ) {
         return err("Invalid appointment date");
       }
+    }
+
+    const nextStart =
+      optionalTrimmedString(startTime) ??
+      existingAppointment.startTime;
+    let nextEnd =
+      optionalTrimmedString(endTime) ??
+      existingAppointment.endTime;
+
+    if (startTime !== undefined && !TIME_RE.test(nextStart)) {
+      return err("Invalid start time. Use HH:mm");
+    }
+    if (endTime !== undefined && !TIME_RE.test(nextEnd)) {
+      return err("Invalid end time. Use HH:mm");
+    }
+
+    // If only start moved, keep the same duration.
+    if (
+      startTime !== undefined &&
+      endTime === undefined
+    ) {
+      const duration = durationMinutesBetween(
+        existingAppointment.startTime,
+        existingAppointment.endTime
+      );
+      nextEnd = addMinutesToTime(
+        nextStart,
+        duration || 30
+      );
+    }
+
+    const scheduleChanging =
+      appointmentDate !== undefined ||
+      startTime !== undefined ||
+      endTime !== undefined ||
+      workerId !== undefined;
+
+    if (
+      scheduleChanging &&
+      !EDITABLE_STATUSES.has(existingAppointment.status)
+    ) {
+      return err(
+        "This appointment can no longer be rescheduled",
+        400
+      );
+    }
+
+    if (scheduleChanging) {
+      const nextWorkerId =
+        workerId === undefined
+          ? existingAppointment.workerId
+          : optionalTrimmedString(workerId) ?? null;
+      const nextDate =
+        parsedAppointmentDate ??
+        existingAppointment.appointmentDate;
+
+      const conflict = await findAppointmentConflict({
+        workerId: nextWorkerId,
+        appointmentDate: nextDate,
+        startTime: nextStart,
+        endTime: nextEnd,
+        excludeAppointmentId: id,
+      });
+      if (conflict) return err(conflict, 409);
     }
 
     // ------------------------------------------------------------------------
@@ -245,10 +341,15 @@ export async function PATCH(
               parsedAppointmentDate,
 
             startTime:
-              optionalTrimmedString(startTime),
+              startTime === undefined
+                ? undefined
+                : nextStart,
 
             endTime:
-              optionalTrimmedString(endTime),
+              startTime !== undefined ||
+              endTime !== undefined
+                ? nextEnd
+                : undefined,
 
             workerId:
               workerId === undefined

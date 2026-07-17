@@ -24,7 +24,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_NAME_LENGTH = 50;
 const MIN_PASSWORD_LENGTH = 6;
 
-export const MIN_WORKER_AGE = 18;
+export const MIN_WORKER_AGE = 10;
 
 /** Blank inputs arrive as "" from FormData; the API expects them absent, not empty. */
 const optionalText = z

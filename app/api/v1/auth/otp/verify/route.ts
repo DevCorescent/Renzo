@@ -20,6 +20,16 @@ export async function POST(req: NextRequest) {
     const { phone, email } = parseChannel(body);
     const otp = typeof body.otp === "string" ? body.otp.trim() : "";
 
+    // Optional display name — used only when this OTP auto-registers a NEW
+    // customer (e.g. from the booking flow). Existing accounts keep their name.
+    const nameInput =
+      typeof body.firstName === "string" ? body.firstName.trim()
+      : typeof body.name === "string" ? body.name.trim()
+      : "";
+    const nameParts = nameInput.split(/\s+/).filter(Boolean);
+    const newFirstName = nameParts[0] || "Guest";
+    const newLastName = nameParts.slice(1).join(" ") || null;
+
     const errors: Record<string, string[]> = {};
     if (!phone && !email) errors.identifier = ["Provide a phone or email"];
     if (!otp) errors.otp = ["OTP is required"];
@@ -79,7 +89,8 @@ export async function POST(req: NextRequest) {
           isVerified: true,
           customerProfile: {
             create: {
-              firstName: "Guest",
+              firstName: newFirstName,
+              lastName: newLastName,
               phone: phone ?? undefined,
               email: email ?? undefined,
             },

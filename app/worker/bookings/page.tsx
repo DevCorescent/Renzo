@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { EditAppointmentButton } from "@/components/appointments/edit-appointment-button";
 
 // OWNER: Hemant | MODULE: Worker Bookings
 
@@ -27,8 +29,8 @@ export default async function WorkerBookingsPage() {
     take: 100,
     include: {
       customer: { select: { firstName: true, lastName: true, phone: true } },
-      branch: { select: { name: true } },
-      services: { include: { service: { select: { name: true } } } },
+      branch: { select: { id: true, name: true } },
+      services: { include: { service: { select: { id: true, name: true } } } },
     },
   });
 
@@ -53,12 +55,13 @@ export default async function WorkerBookingsPage() {
               <TH>Branch</TH>
               <TH>Amount</TH>
               <TH>Status</TH>
+              <TH className="text-right">Action</TH>
             </tr>
           </THead>
           <tbody>
             {appointments.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
                   No bookings yet.
                 </td>
               </tr>
@@ -84,6 +87,27 @@ export default async function WorkerBookingsPage() {
                     <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>
                       {a.status.replace(/_/g, " ")}
                     </Badge>
+                  </TD>
+                  <TD className="text-right">
+                    <span className="inline-flex flex-wrap items-start justify-end gap-1.5">
+                      <EditAppointmentButton
+                        appointmentId={a.id}
+                        status={a.status}
+                        appointmentDate={a.appointmentDate}
+                        startTime={a.startTime}
+                        endTime={a.endTime}
+                        branchId={a.branch.id}
+                        serviceId={a.services[0]?.service.id}
+                        workerId={workerId}
+                        mode="worker"
+                      />
+                      <Link
+                        href={`/worker/bookings/${a.id}`}
+                        className="inline-flex items-center rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
+                      >
+                        View
+                      </Link>
+                    </span>
                   </TD>
                 </TR>
               ))

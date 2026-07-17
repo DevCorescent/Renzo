@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/server-session";
 import { LeaveTypesClient } from "@/components/leave-types/leave-types-client";
+import { LeaveManagementTabs } from "@/components/leave-management/leave-management-tabs";
 
 // OWNER: Gauransh | MODULE: Leave Types (HR configuration)
 //
@@ -24,5 +25,12 @@ export default async function LeaveTypesPage() {
     redirect("/login");
   }
 
-  return <LeaveTypesClient />;
+  // The Leave Types config now lives as a tab under the renamed "Leave Management"
+  // area. The tab bar is the only addition — LeaveTypesClient is unchanged.
+  return (
+    <div className="space-y-5">
+      <LeaveManagementTabs />
+      <LeaveTypesClient />
+    </div>
+  );
 }

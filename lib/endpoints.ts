@@ -6,6 +6,14 @@ const BASE = "/api/v1";
 export const API = {
   upload: `${BASE}/upload`,
 
+  // ── Notification center (Gauransh) — any authenticated role ────────────────
+  notifications: {
+    list:        `${BASE}/notifications`,
+    unreadCount: `${BASE}/notifications/unread-count`,
+    readAll:     `${BASE}/notifications/read-all`,
+    read:        (id: string) => `${BASE}/notifications/${id}`,
+  },
+
   // ── Auth (Aman) ────────────────────────────────────────────────────────────
   auth: {
     login:        `${BASE}/auth/login`,
@@ -28,6 +36,7 @@ export const API = {
     packages:     `${BASE}/public/packages`,
     slots:        `${BASE}/public/slots`,
     offers:       `${BASE}/public/offers`,
+    contact:      `${BASE}/public/contact`,
   },
 
   // ── Customer portal (Gauransh + Shalmon) ──────────────────────────────────
@@ -45,6 +54,7 @@ export const API = {
     reviews:      `${BASE}/customer/reviews`,
     review:       (id: string) => `${BASE}/customer/reviews/${id}`,
     giftCards:    `${BASE}/customer/gift-cards`,
+    giftCardShare: `${BASE}/customer/gift-cards/share`,
   },
 
   // ── Worker panel (Aman + Gauransh) ────────────────────────────────────────
@@ -66,6 +76,9 @@ export const API = {
     portfolioStatistics:  `${BASE}/worker/portfolio/statistics`,
     portfolioSkillRatings:`${BASE}/worker/portfolio/skill-ratings`,
     portfolioReviews:     `${BASE}/worker/portfolio/reviews`,
+
+    // Portfolio change requests — approval workflow (Gauransh)
+    portfolioRequests:    `${BASE}/worker/portfolio-requests`,
   },
 
   // ── Reception panel (Gauransh + Shalmon) ──────────────────────────────────
@@ -77,6 +90,7 @@ export const API = {
     bill:         (id: string) => `${BASE}/reception/billing/${id}`,
     payment:      (id: string) => `${BASE}/reception/billing/${id}/payment`,
     applyCoupon:  (id: string) => `${BASE}/reception/billing/${id}/coupon`,
+    applyGiftCard: (id: string) => `${BASE}/reception/billing/${id}/gift-card`,
   },
 
   // ── Admin — Branches & Workers (Aman) ─────────────────────────────────────
@@ -86,6 +100,7 @@ export const API = {
     branchTimings:    (id: string) => `${BASE}/admin/branches/${id}/timings`,
     branchHolidays:   (id: string) => `${BASE}/admin/branches/${id}/holidays`,
     branchSettings:   (id: string) => `${BASE}/admin/branches/${id}/settings`,
+    settings:         `${BASE}/admin/settings`,
     branchStaff:      (id: string) => `${BASE}/admin/branches/${id}/staff`,
     // Admin — Staff / Admin Appointment (Shalmon)
     staff:            `${BASE}/admin/staff`,
@@ -108,13 +123,19 @@ export const API = {
     // Admin — Leave requests / approvals (Gauransh)
     leaves:           `${BASE}/admin/leaves`,
     leavesStats:      `${BASE}/admin/leaves/stats`,
+    leavesBalance:    `${BASE}/admin/leaves/balance`,
     leave:            (id: string) => `${BASE}/admin/leaves/${id}`,
+
+    // Admin — Portfolio change requests / approvals (Gauransh)
+    portfolioRequests:`${BASE}/admin/portfolio-requests`,
+    portfolioRequest: (id: string) => `${BASE}/admin/portfolio-requests/${id}`,
 
     // Admin — Services (Gauransh)
     services:         `${BASE}/admin/services`,
     service:          (id: string) => `${BASE}/admin/services/${id}`,
     categories:       `${BASE}/admin/services/categories`,
     category:         (id: string) => `${BASE}/admin/services/categories/${id}`,
+    serviceSubcategories: `${BASE}/admin/services/subcategories`,
     packages:         `${BASE}/admin/packages`,
     package:          (id: string) => `${BASE}/admin/packages/${id}`,
     addOns:           `${BASE}/admin/add-ons`,
@@ -135,6 +156,7 @@ export const API = {
     product:          (id: string) => `${BASE}/admin/inventory/products/${id}`,
     stock:            `${BASE}/admin/inventory/stock`,
     stockAdjust:      `${BASE}/admin/inventory/stock/adjust`,
+    stockMovements:   `${BASE}/admin/inventory/stock/movements`,
     purchases:        `${BASE}/admin/inventory/purchases`,
     purchase:         (id: string) => `${BASE}/admin/inventory/purchases/${id}`,
     transfers:        `${BASE}/admin/inventory/transfers`,
@@ -147,16 +169,21 @@ export const API = {
     // Admin — Memberships (Shalmon)
     membershipPlans:  `${BASE}/admin/memberships/plans`,
     membershipPlan:   (id: string) => `${BASE}/admin/memberships/plans/${id}`,
+    membershipAnalytics: `${BASE}/admin/memberships/analytics`,
+    membershipPlanCustomers: (id: string) => `${BASE}/admin/memberships/plans/${id}/customers`,
 
     // Admin — Marketing (Shalmon)
     coupons:          `${BASE}/admin/coupons`,
     coupon:           (id: string) => `${BASE}/admin/coupons/${id}`,
+    couponAnalytics:  `${BASE}/admin/coupons/analytics`,
     campaigns:        `${BASE}/admin/campaigns`,
     campaign:         (id: string) => `${BASE}/admin/campaigns/${id}`,
+    campaignAnalytics: `${BASE}/admin/campaigns/analytics`,
     offers:           `${BASE}/admin/offers`,
     offer:            (id: string) => `${BASE}/admin/offers/${id}`,
     giftCards:        `${BASE}/admin/gift-cards`,
     giftCard:         (id: string) => `${BASE}/admin/gift-cards/${id}`,
+    giftCardAnalytics: `${BASE}/admin/gift-cards/analytics`,
 
     // Admin — Branch service pricing (Gauransh)
     branchServices:   `${BASE}/admin/branch-services`,
@@ -171,5 +198,15 @@ export const API = {
     workerReport:     `${BASE}/admin/reports/workers`,
     inventoryReport:  `${BASE}/admin/reports/inventory`,
     appointmentReport:`${BASE}/admin/reports/appointments`,
+  },
+
+  // ── AI (Groq) ──────────────────────────────────────────────────────────────
+  ai: {
+    status:         `${BASE}/ai/status`,
+    bookingSuggest: `${BASE}/ai/booking-suggest`,
+    reviewInsights: `${BASE}/ai/review-insights`,
+    cmsCopy:        `${BASE}/ai/cms-copy`,
+    receptionBrief: `${BASE}/ai/reception-brief`,
+    chat:           `${BASE}/ai/chat`,
   },
 } as const;

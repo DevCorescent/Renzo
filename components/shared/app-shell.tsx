@@ -10,7 +10,7 @@ import {
   UserCheck, Receipt, Users, Boxes, Star, BarChart3, Building2,
   Scissors, Package, Megaphone, ScrollText, Settings, PlusCircle,
   LayoutTemplate, Menu, X, LogOut, ChevronRight,
-  Truck, Tag, Percent, Gift, ArrowLeftRight, ShoppingCart,
+  Truck, Tag, Percent, Gift, ArrowLeftRight, ShoppingCart, ClipboardCheck,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 
@@ -27,6 +27,7 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
       { label: "Attendance", href: "/worker/attendance",  icon: Clock },
       { label: "Leaves",     href: "/worker/leaves",      icon: CalendarOff },
       { label: "Portfolio",  href: "/worker/portfolio",   icon: Images },
+      { label: "Requests",   href: "/worker/portfolio/requests", icon: ClipboardCheck },
       { label: "Profile",    href: "/worker/profile",     icon: User },
     ],
   },
@@ -47,6 +48,7 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
       { label: "Appointments", href: "/branch-admin/appointments", icon: CalendarDays },
       { label: "Workers",      href: "/branch-admin/workers",      icon: Users },
       { label: "Leaves",       href: "/branch-admin/leaves",       icon: CalendarOff },
+      { label: "Portfolio",    href: "/branch-admin/portfolio-requests", icon: ClipboardCheck },
       { label: "Services",     href: "/branch-admin/services",     icon: Scissors },
       { label: "Schedule",     href: "/branch-admin/schedule",     icon: Clock },
       { label: "Inventory",    href: "/branch-admin/inventory",    icon: Boxes },
@@ -60,7 +62,8 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
       { label: "Dashboard",  href: "/super-admin/dashboard",   icon: LayoutDashboard },
       { label: "Branches",   href: "/super-admin/branches",    icon: Building2 },
       { label: "Workers",    href: "/super-admin/workers",     icon: Users },
-      { label: "Leave Types",href: "/super-admin/leave-types", icon: CalendarOff },
+      { label: "Bookings",   href: "/super-admin/bookings",    icon: CalendarDays },
+      { label: "Leave Management",href: "/super-admin/leaves", icon: CalendarOff },
       { label: "Services",   href: "/super-admin/services",    icon: Scissors },
       { label: "Customers",  href: "/super-admin/customers",   icon: UserCheck },
       { label: "Memberships",href: "/super-admin/memberships", icon: Star },
