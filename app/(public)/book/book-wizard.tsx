@@ -18,8 +18,16 @@ import {
   User,
   Award,
   Users,
+  Sparkles,
+  ShieldCheck,
+  Wallet,
+  BadgeCheck,
 } from "lucide-react";
 import { BookingSuggestTips } from "@/components/ai/booking-suggest-tips";
+import {
+  GoogleLoginButton,
+  GOOGLE_ENABLED,
+} from "@/components/shared/google-login-button";
 
 /* ── shared types (exported for use in server page) ────────────────────────── */
 
@@ -1186,83 +1194,141 @@ function ConfirmStep({
   error: string | null;
 }) {
   const end = endTime(slot, service.duration);
+  const priceStr = `₹${service.price.toLocaleString("en-IN")}`;
+  const initials = worker
+    ? workerName(worker)
+        .split(" ")
+        .map((p) => p[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : null;
+
   return (
     <div>
-      <h2 className="mb-1 text-lg font-semibold">Confirm booking</h2>
-      <p className="mb-5 text-sm text-stone-400">
-        Review your appointment details below
-      </p>
+      {/* Heading */}
+      <div className="mb-5 flex items-center gap-3">
+        <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/25">
+          <Sparkles className="size-4" />
+        </span>
+        <div>
+          <h2 className="text-lg font-semibold leading-tight">
+            Confirm booking
+          </h2>
+          <p className="text-sm text-stone-400">
+            You&apos;re one tap away from a fresh new look
+          </p>
+        </div>
+      </div>
 
-      {/* Summary card */}
-      <div className="mb-5 overflow-hidden rounded-2xl border border-white/8 bg-stone-900">
+      {/* Ticket-style summary card */}
+      <div className="mb-5 overflow-hidden rounded-3xl border border-white/10 bg-stone-900 shadow-[0_40px_90px_-70px_rgba(255,255,255,0.5)]">
         {/* Branch banner */}
-        <div className="relative h-24 w-full overflow-hidden bg-stone-800">
+        <div className="relative h-32 w-full overflow-hidden bg-stone-800">
           {branch.coverImage && (
             <Image
               src={branch.coverImage}
               alt={branch.name}
               fill
-              className="object-cover opacity-50"
+              className="object-cover opacity-60 transition duration-700 hover:scale-105"
               sizes="100vw"
             />
           )}
-          <div className="absolute inset-0 bg-linear-to-t from-stone-900 via-transparent to-transparent" />
-          <div className="absolute bottom-3 left-4">
-            <p className="text-xs text-stone-400">Branch</p>
-            <p className="font-semibold text-stone-100">
-              {branch.name} · {branch.city}
+          <div className="absolute inset-0 bg-linear-to-t from-stone-900 via-stone-900/40 to-transparent" />
+          <div className="absolute bottom-4 left-5 right-5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-stone-100 backdrop-blur-sm">
+              <MapPin className="size-3" /> Your appointment
+            </span>
+            <p className="mt-2 text-xl font-bold leading-tight text-white">
+              {branch.name}
             </p>
+            <p className="text-xs text-stone-300">{branch.city}</p>
           </div>
         </div>
 
-        <div className="divide-y divide-white/5 px-4">
-          <Row label="Service">
-            <span className="font-medium text-stone-200">{service.name}</span>
-          </Row>
-          <Row label="Stylist">
+        {/* Detail grid with icons */}
+        <div className="grid grid-cols-1 gap-px bg-white/5 sm:grid-cols-2">
+          <DetailCell icon={Scissors} label="Service" value={service.name} />
+          <DetailCell icon={User} label="Stylist">
             {worker ? (
-              <span className="inline-flex items-center gap-1.5">
-                <span className="font-medium text-stone-200">
-                  {workerName(worker)}
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-flex size-6 items-center justify-center rounded-full bg-stone-700 text-[10px] font-bold text-stone-100">
+                  {initials}
                 </span>
+                <span>{workerName(worker)}</span>
                 {worker.reviewCount > 0 && (
-                  <span className="flex items-center gap-0.5 text-xs text-stone-200">
-                    <Star className="size-3 fill-stone-200" />
+                  <span className="inline-flex items-center gap-0.5 text-xs font-normal text-stone-400">
+                    <Star className="size-3 fill-stone-300 text-stone-300" />
                     {worker.averageRating.toFixed(1)}
                   </span>
                 )}
               </span>
             ) : (
-              <span className="font-medium text-stone-400">
-                Any available stylist
-              </span>
+              <span className="text-stone-400">Any available stylist</span>
             )}
-          </Row>
-          <Row label="Date">
-            <span className="font-medium text-stone-200">{fmtDate(date)}</span>
-          </Row>
-          <Row label="Time">
-            <span className="font-medium text-stone-200">
-              {slot} – {end}{" "}
-              <span className="text-stone-500">({service.duration} min)</span>
-            </span>
-          </Row>
-          <Row label="Amount" highlight>
-            <span className="text-lg font-bold text-stone-100">
-              ₹{service.price.toLocaleString("en-IN")}
-            </span>
-          </Row>
+          </DetailCell>
+          <DetailCell icon={CalendarDays} label="Date" value={fmtDate(date)} />
+          <DetailCell
+            icon={Clock}
+            label="Time"
+            value={`${slot} – ${end}`}
+            sub={`${service.duration} min`}
+          />
+        </div>
+
+        {/* Perforated divider — gives the card a "ticket" feel */}
+        <div className="relative py-1">
+          <span className="absolute -left-2.5 top-1/2 size-5 -translate-y-1/2 rounded-full bg-stone-950" />
+          <div className="mx-5 border-t border-dashed border-white/15" />
+          <span className="absolute -right-2.5 top-1/2 size-5 -translate-y-1/2 rounded-full bg-stone-950" />
+        </div>
+
+        {/* Total */}
+        <div className="flex items-end justify-between px-5 pb-5 pt-2">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-stone-500">
+              Total payable
+            </p>
+            <p className="mt-0.5 text-xs text-stone-500">Pay at the salon</p>
+          </div>
+          <p className="text-3xl font-bold tracking-tight text-stone-50">
+            {priceStr}
+          </p>
         </div>
       </div>
 
+      {/* Trust strip */}
+      <div className="mb-5 grid grid-cols-3 gap-2">
+        {[
+          { icon: ShieldCheck, label: "Free cancellation" },
+          { icon: Wallet, label: "Pay at salon" },
+          { icon: BadgeCheck, label: "Instant confirm" },
+        ].map(({ icon: Icon, label }) => (
+          <div
+            key={label}
+            className="flex flex-col items-center gap-1.5 rounded-2xl border border-white/8 bg-stone-900/60 px-2 py-3 text-center"
+          >
+            <Icon className="size-4 text-emerald-300/80" />
+            <span className="text-[11px] font-medium leading-tight text-stone-400">
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
+
       {/* Notes */}
-      <textarea
-        value={notes}
-        onChange={(e) => onNotes(e.target.value)}
-        placeholder="Any special requests? (optional)"
-        rows={2}
-        className="mb-4 w-full resize-none rounded-2xl border border-white/8 bg-stone-900 px-4 py-3 text-sm text-stone-200 placeholder:text-stone-600 focus:border-stone-300/40 focus:outline-none"
-      />
+      <label className="mb-4 block">
+        <span className="mb-1.5 block text-xs font-medium text-stone-400">
+          Special requests <span className="text-stone-600">(optional)</span>
+        </span>
+        <textarea
+          value={notes}
+          onChange={(e) => onNotes(e.target.value)}
+          placeholder="Anything your stylist should know? Preferred length, allergies…"
+          rows={2}
+          className="w-full resize-none rounded-2xl border border-white/8 bg-stone-900 px-4 py-3 text-sm text-stone-200 placeholder:text-stone-600 focus:border-stone-300/40 focus:outline-none"
+        />
+      </label>
 
       {error && (
         <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
@@ -1273,33 +1339,49 @@ function ConfirmStep({
       <button
         onClick={onConfirm}
         disabled={loading}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-100 py-4 text-base font-bold text-stone-950 transition hover:bg-stone-200 active:scale-[0.98] disabled:opacity-60"
+        className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-100 py-4 text-base font-bold text-stone-950 transition hover:bg-white active:scale-[0.98] disabled:opacity-60"
       >
         {loading && <Loader2 className="size-4 animate-spin" />}
-        {loading ? "Booking…" : "Confirm Appointment →"}
+        {loading ? "Booking…" : "Confirm Appointment"}
+        {!loading && (
+          <ChevronRight className="size-5 transition group-hover:translate-x-0.5" />
+        )}
       </button>
-      <p className="mt-3 text-center text-xs text-stone-600">
-        Pay at the salon · Free cancellation
+      <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-stone-600">
+        <ShieldCheck className="size-3.5" />
+        Secured booking · No charge until you visit
       </p>
     </div>
   );
 }
 
-function Row({
+function DetailCell({
+  icon: Icon,
   label,
+  value,
+  sub,
   children,
-  highlight,
 }: {
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
-  children: React.ReactNode;
-  highlight?: boolean;
+  value?: string;
+  sub?: string;
+  children?: React.ReactNode;
 }) {
   return (
-    <div
-      className={`flex items-center justify-between py-3 ${highlight ? "bg-transparent" : ""}`}
-    >
-      <span className="text-sm text-stone-500">{label}</span>
-      <div className="text-right">{children}</div>
+    <div className="bg-stone-900 px-5 py-4">
+      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-stone-500">
+        <Icon className="size-3.5" />
+        {label}
+      </div>
+      <div className="mt-1.5 text-sm font-semibold text-stone-100">
+        {children ?? value}
+        {sub && (
+          <span className="ml-1.5 text-xs font-normal text-stone-500">
+            ({sub})
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -1319,6 +1401,8 @@ function InlineAuth({
   onSend,
   onVerify,
   onBack,
+  onGoogle,
+  googleLoading,
 }: {
   phase: "phone" | "code";
   name: string;
@@ -1333,6 +1417,8 @@ function InlineAuth({
   onSend: () => void;
   onVerify: () => void;
   onBack: () => void;
+  onGoogle: (credential: string) => void;
+  googleLoading: boolean;
 }) {
   const inputCls =
     "w-full rounded-2xl border border-white/8 bg-stone-900 px-4 py-3 text-sm text-stone-200 placeholder:text-stone-600 focus:border-stone-300/40 focus:outline-none";
@@ -1379,6 +1465,22 @@ function InlineAuth({
             {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? "Sending…" : "Send code"}
           </button>
+
+          {GOOGLE_ENABLED && (
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center gap-3">
+                <span className="h-px flex-1 bg-white/10" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-stone-600">
+                  or
+                </span>
+                <span className="h-px flex-1 bg-white/10" />
+              </div>
+              <GoogleLoginButton loading={googleLoading} onCredential={onGoogle} />
+              <p className="text-center text-[11px] text-stone-600">
+                Continue with Google — no code needed
+              </p>
+            </div>
+          )}
         </form>
       ) : (
         <form
@@ -1471,6 +1573,7 @@ export function BookWizard({
   const [devOtp, setDevOtp] = React.useState<string | null>(null);
   const [authLoading, setAuthLoading] = React.useState(false);
   const [authError, setAuthError] = React.useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = React.useState(false);
 
   function resetWorker() {
     setWorker(null);
@@ -1578,6 +1681,30 @@ export function BookWizard({
       setAuthError(e instanceof Error ? e.message : "Invalid code");
     } finally {
       setAuthLoading(false);
+    }
+  }
+
+  // Alternative inline auth: "Continue with Google". Trades the Google ID token
+  // for the same session cookie (auto-registers a customer if new), then retries
+  // the booking — no OTP round-trip.
+  async function handleGoogleBook(credential: string) {
+    setGoogleLoading(true);
+    setAuthError(null);
+    try {
+      const res = await fetch(API.auth.google, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || json?.success === false || !json?.data)
+        throw new Error(json?.message ?? "Google sign-in failed");
+      setNeedsAuth(false);
+      await handleConfirm();
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Google sign-in failed");
+    } finally {
+      setGoogleLoading(false);
     }
   }
 
@@ -1751,6 +1878,8 @@ export function BookWizard({
                     error={authError}
                     onSend={sendOtp}
                     onVerify={verifyAndBook}
+                    onGoogle={handleGoogleBook}
+                    googleLoading={googleLoading}
                     onBack={() => {
                       setAuthPhase("phone");
                       setOtp("");
