@@ -9,7 +9,7 @@ const ALLOWED = ["INVENTORY_MANAGER", "SUPER_ADMIN", "OWNER"];
 
 export default async function InventoryLayout({ children }: { children: React.ReactNode }) {
   const authUser = await getServerUser();
-  if (!authUser || !ALLOWED.includes(authUser.userType)) redirect("/login");
+  if (!authUser || !ALLOWED.includes(authUser.userType)) redirect("/staff/login");
 
   let userName = "Inventory";
   const staff = await prisma.staffProfile.findFirst({

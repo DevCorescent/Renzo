@@ -131,7 +131,7 @@ export function AppShell({
     try {
       await fetch(API.auth.logout, { method: "POST" });
     } finally {
-      router.push("/login");
+      router.push("/staff/login");
       router.refresh();
     }
   }

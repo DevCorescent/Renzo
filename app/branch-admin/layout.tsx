@@ -7,7 +7,7 @@ import prisma from "@/lib/db";
 
 export default async function BranchAdminLayout({ children }: { children: React.ReactNode }) {
   const authUser = await getServerUser();
-  if (!authUser?.branchId || !["BRANCH_ADMIN", "OWNER"].includes(authUser.userType)) redirect("/login");
+  if (!authUser?.branchId || !["BRANCH_ADMIN", "OWNER"].includes(authUser.userType)) redirect("/staff/login");
 
   let userName = "Admin";
   const staff = await prisma.staffProfile.findFirst({

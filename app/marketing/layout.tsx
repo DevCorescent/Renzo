@@ -9,7 +9,7 @@ const ALLOWED = ["MARKETING_MANAGER", "SUPER_ADMIN", "OWNER"];
 
 export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
   const authUser = await getServerUser();
-  if (!authUser || !ALLOWED.includes(authUser.userType)) redirect("/login");
+  if (!authUser || !ALLOWED.includes(authUser.userType)) redirect("/staff/login");
 
   let userName = "Marketing";
   const staff = await prisma.staffProfile.findFirst({

@@ -11,7 +11,7 @@ export default async function SuperAdminLayout({
   children: React.ReactNode;
 }) {
   const authUser = await getServerUser();
-  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/staff/login");
 
   let userName = "Admin";
   const staff = await prisma.staffProfile.findFirst({

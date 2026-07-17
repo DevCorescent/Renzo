@@ -7,7 +7,7 @@ import prisma from "@/lib/db";
 
 export default async function ReceptionLayout({ children }: { children: React.ReactNode }) {
   const authUser = await getServerUser();
-  if (!authUser?.branchId || authUser.userType !== "RECEPTIONIST") redirect("/login");
+  if (!authUser?.branchId || authUser.userType !== "RECEPTIONIST") redirect("/staff/login");
 
   let userName = "Reception";
   const staff = await prisma.staffProfile.findFirst({
