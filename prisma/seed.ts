@@ -580,7 +580,9 @@ async function main() {
 
   await seedBookingDemo();
 
-  console.log("\nLogin:  POST /api/v1/auth/login  { \"email\": \"super@renzo.dev\", \"password\": \"" + DEMO_PASSWORD + "\" }");
+  console.log("\nStaff UI:  /staff/login");
+  console.log("Customer UI: /login  (OTP / Google)");
+  console.log("Login API:  POST /api/v1/auth/login  { \"email\": \"super@renzo.dev\", \"password\": \"" + DEMO_PASSWORD + "\", \"portal\": \"staff\" }");
 }
 
 main()

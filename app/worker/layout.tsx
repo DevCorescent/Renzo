@@ -7,7 +7,7 @@ import prisma from "@/lib/db";
 
 export default async function WorkerLayout({ children }: { children: React.ReactNode }) {
   const authUser = await getServerUser();
-  if (!authUser?.workerId || authUser.userType !== "WORKER") redirect("/login");
+  if (!authUser?.workerId || authUser.userType !== "WORKER") redirect("/staff/login");
 
   let userName = "Worker";
   const worker = await prisma.workerProfile.findFirst({

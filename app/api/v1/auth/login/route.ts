@@ -4,10 +4,12 @@ import prisma from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
 import { USER_INCLUDE, toPublicUser } from "@/lib/auth-user";
 import { issueSession } from "@/lib/auth-session";
+import { isStaffRole } from "@/lib/auth-paths";
+import type { UserType } from "@/types/api";
 
 // OWNER: Shalmon | MODULE: Auth — Login
-// POST /api/v1/auth/login — Authenticate a staff/admin/customer with
-// email-or-phone + password. Issues a JWT session cookie on success.
+// POST /api/v1/auth/login — Authenticate with email-or-phone + password.
+// Pass portal: "staff" from /staff/login so customers cannot use that entry.
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
@@ -17,6 +19,8 @@ export async function POST(req: NextRequest) {
 
     const identifier: string = (body.email ?? body.phone ?? "").trim();
     const password: string = body.password ?? "";
+    const portal =
+      typeof body.portal === "string" ? body.portal.trim().toLowerCase() : "";
 
     const errors: Record<string, string[]> = {};
     if (!identifier) errors.identifier = ["Email or phone is required"];
@@ -41,6 +45,10 @@ export async function POST(req: NextRequest) {
 
     if (!user.isActive) {
       return err("Account is disabled", 403);
+    }
+
+    if (portal === "staff" && !isStaffRole(user.userType as UserType)) {
+      return err("This portal is for staff and admins only", 403);
     }
 
     const res = ok(
