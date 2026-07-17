@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 import { CancelBookingButton } from "@/components/appointments/cancel-booking-button";
+import { EditAppointmentButton } from "@/components/appointments/edit-appointment-button";
 
 // OWNER: Super Admin — Bookings (all branches)
 // SUPER_ADMIN / OWNER see every branch's appointments and can cancel any active one
@@ -33,9 +34,9 @@ export default async function SuperAdminBookingsPage({
     take: 100,
     include: {
       customer: { select: { firstName: true, lastName: true, phone: true } },
-      branch: { select: { name: true } },
-      worker: { select: { firstName: true, lastName: true } },
-      services: { include: { service: { select: { name: true } } } },
+      branch: { select: { id: true, name: true } },
+      worker: { select: { id: true, firstName: true, lastName: true } },
+      services: { include: { service: { select: { id: true, name: true } } } },
     },
   });
 
@@ -79,7 +80,22 @@ export default async function SuperAdminBookingsPage({
                   <TD className="text-gray-500">{a.worker ? `${a.worker.firstName} ${a.worker.lastName}` : "—"}</TD>
                   <TD className="text-gray-700">₹{Number(a.totalAmount).toLocaleString("en-IN")}</TD>
                   <TD><Badge tone={STATUS_TONE[a.status] ?? "neutral"}>{a.status.replace(/_/g, " ")}</Badge></TD>
-                  <TD className="text-right"><CancelBookingButton appointmentId={a.id} status={a.status} /></TD>
+                  <TD className="text-right">
+                    <span className="inline-flex flex-wrap items-start justify-end gap-1.5">
+                      <EditAppointmentButton
+                        appointmentId={a.id}
+                        status={a.status}
+                        appointmentDate={a.appointmentDate}
+                        startTime={a.startTime}
+                        endTime={a.endTime}
+                        branchId={a.branch.id}
+                        serviceId={a.services[0]?.service.id}
+                        workerId={a.worker?.id}
+                        mode="admin"
+                      />
+                      <CancelBookingButton appointmentId={a.id} status={a.status} />
+                    </span>
+                  </TD>
                 </TR>
               ))
             )}

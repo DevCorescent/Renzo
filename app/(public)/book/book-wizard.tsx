@@ -938,6 +938,7 @@ function SlotStep({
   const [result, setResult] = React.useState<{
     key: string;
     slots: string[];
+    slotGrid: Array<{ time: string; status: "AVAILABLE" | "BOOKED" | "PAST" }>;
     msg: string | null;
   } | null>(null);
 
@@ -961,16 +962,18 @@ function SlotStep({
       .then((j) => {
         if (cancelled) return;
         const list: string[] = j.data?.slots ?? [];
+        const grid: Array<{ time: string; status: "AVAILABLE" | "BOOKED" | "PAST" }> =
+          j.data?.slotGrid ?? list.map((time: string) => ({ time, status: "AVAILABLE" as const }));
         const msg = !j.success
           ? (j.message ?? "Could not load slots")
-          : list.length === 0
+          : grid.length === 0
             ? "No slots available — try another date"
             : null;
-        setResult({ key: reqKey, slots: list, msg });
+        setResult({ key: reqKey, slots: list, slotGrid: grid, msg });
       })
       .catch(() => {
         if (!cancelled)
-          setResult({ key: reqKey, slots: [], msg: "Failed to load slots" });
+          setResult({ key: reqKey, slots: [], slotGrid: [], msg: "Failed to load slots" });
       });
 
     return () => {
@@ -980,26 +983,30 @@ function SlotStep({
 
   const fresh = result?.key === key ? result : null;
   const loading = fresh === null;
-  const slots = fresh?.slots ?? [];
+  const slotGrid = fresh?.slotGrid ?? [];
   const msg = fresh?.msg ?? null;
 
+  // Hide past slots; keep BOOKED visible so customers see the chair is taken.
+  const visible = slotGrid.filter((s) => s.status !== "PAST");
   const sections = [
     {
       label: "Morning",
-      items: slots.filter((slot) => Number(slot.slice(0, 2)) < 12),
+      items: visible.filter((s) => Number(s.time.slice(0, 2)) < 12),
     },
     {
       label: "Afternoon",
-      items: slots.filter((slot) => {
-        const hour = Number(slot.slice(0, 2));
+      items: visible.filter((s) => {
+        const hour = Number(s.time.slice(0, 2));
         return hour >= 12 && hour < 17;
       }),
     },
     {
       label: "Evening",
-      items: slots.filter((slot) => Number(slot.slice(0, 2)) >= 17),
+      items: visible.filter((s) => Number(s.time.slice(0, 2)) >= 17),
     },
-  ];
+  ].filter((s) => s.items.length > 0);
+
+  const availableCount = visible.filter((s) => s.status === "AVAILABLE").length;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -1052,10 +1059,19 @@ function SlotStep({
           <div className="flex justify-center py-12">
             <Loader2 className="size-5 animate-spin text-stone-600" />
           </div>
-        ) : msg ? (
+        ) : msg && visible.length === 0 ? (
           <p className="py-10 text-center text-sm text-stone-500">{msg}</p>
+        ) : sections.length === 0 ? (
+          <p className="py-10 text-center text-sm text-stone-500">
+            No slots available — try another date
+          </p>
         ) : (
           <div className="space-y-6">
+            {availableCount === 0 && (
+              <p className="rounded-xl border border-white/10 bg-stone-950/40 px-3 py-2 text-xs text-stone-400">
+                All remaining times are booked. Pick another date or stylist.
+              </p>
+            )}
             {sections.map(({ label, items }) => (
               <div key={label} className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -1063,19 +1079,35 @@ function SlotStep({
                     {label}
                   </p>
                   <p className="text-xs text-stone-500">
-                    {items.length} slot{items.length === 1 ? "" : "s"}
+                    {items.filter((i) => i.status === "AVAILABLE").length} open
                   </p>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-4">
-                  {items.map((slot) => (
-                    <button
-                      key={slot}
-                      onClick={() => onSelect(selectedDate, slot)}
-                      className="rounded-2xl border border-white/10 bg-stone-900 px-4 py-4 text-sm font-medium text-stone-300 transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_18px_50px_-36px_rgba(255,255,255,0.18)] hover:border-stone-300/50 hover:bg-stone-800 hover:text-stone-100"
-                    >
-                      {slot}
-                    </button>
-                  ))}
+                  {items.map((entry) => {
+                    const booked = entry.status === "BOOKED";
+                    return (
+                      <button
+                        key={entry.time}
+                        type="button"
+                        disabled={booked}
+                        onClick={() => {
+                          if (!booked) onSelect(selectedDate, entry.time);
+                        }}
+                        className={`rounded-2xl border px-4 py-4 text-sm font-medium transition duration-200 ease-out ${
+                          booked
+                            ? "cursor-not-allowed border-white/5 bg-stone-950/60 text-stone-600"
+                            : "border-white/10 bg-stone-900 text-stone-300 hover:-translate-y-0.5 hover:border-stone-300/50 hover:bg-stone-800 hover:text-stone-100 hover:shadow-[0_18px_50px_-36px_rgba(255,255,255,0.18)]"
+                        }`}
+                      >
+                        <span className="block">{entry.time}</span>
+                        {booked && (
+                          <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                            Booked
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))}
