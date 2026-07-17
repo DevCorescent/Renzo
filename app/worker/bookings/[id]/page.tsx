@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, CardBody } from "@/components/shared/ui";
 import { BookingActions } from "@/components/worker/bookings/booking-actions";
+import { EditAppointmentButton } from "@/components/appointments/edit-appointment-button";
 
 // OWNER: Hemant | MODULE: Worker — Booking Detail
 
@@ -21,8 +22,8 @@ export default async function WorkerBookingDetailPage({ params }: { params: Prom
     where: { id },
     include: {
       customer: { select: { firstName: true, lastName: true, phone: true, email: true } },
-      branch: { select: { name: true, address: true, city: true, phone: true } },
-      services: { include: { service: { select: { name: true, duration: true } } } },
+      branch: { select: { id: true, name: true, address: true, city: true, phone: true } },
+      services: { include: { service: { select: { id: true, name: true, duration: true } } } },
       addOns: { include: { addOn: { select: { name: true, price: true } } } },
       invoice: { select: { invoiceNo: true, status: true, totalAmount: true, paidAmount: true } },
       rescheduleRequests: {
@@ -47,7 +48,20 @@ export default async function WorkerBookingDetailPage({ params }: { params: Prom
             {" · "}{appointment.startTime}–{appointment.endTime}
           </p>
         </div>
-        <Badge tone={STATUS_TONE[appointment.status] ?? "neutral"}>{appointment.status.replace(/_/g, " ")}</Badge>
+        <div className="flex flex-col items-end gap-2">
+          <Badge tone={STATUS_TONE[appointment.status] ?? "neutral"}>{appointment.status.replace(/_/g, " ")}</Badge>
+          <EditAppointmentButton
+            appointmentId={appointment.id}
+            status={appointment.status}
+            appointmentDate={appointment.appointmentDate}
+            startTime={appointment.startTime}
+            endTime={appointment.endTime}
+            branchId={appointment.branch.id}
+            serviceId={appointment.services[0]?.service.id}
+            workerId={appointment.workerId}
+            mode="worker"
+          />
+        </div>
       </div>
 
       <BookingActions

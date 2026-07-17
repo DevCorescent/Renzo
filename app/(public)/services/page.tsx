@@ -86,7 +86,7 @@ export default async function ServicesPage({
               href="/services"
               className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
                 !categoryId && !gender && !search
-                  ? "bg-amber-500 text-stone-950"
+                  ? "bg-[#F5F2EB] text-stone-950"
                   : "border border-white/10 text-stone-400 hover:border-white/20"
               }`}
             >
@@ -98,7 +98,7 @@ export default async function ServicesPage({
                 href={`/services?categoryId=${c.id}${gender ? `&gender=${gender}` : ""}`}
                 className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
                   categoryId === c.id
-                    ? "bg-amber-500 text-stone-950"
+                    ? "bg-[#F5F2EB] text-stone-950"
                     : "border border-white/10 text-stone-400 hover:border-white/20"
                 }`}
               >
@@ -137,7 +137,7 @@ export default async function ServicesPage({
                     <Link
                       key={s.id}
                       href={`/book?serviceId=${s.id}`}
-                      className="group relative overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-amber-500/30"
+                      className="group relative overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-[#F5F2EB]/30"
                     >
                       <div className="relative h-40 w-full overflow-hidden bg-stone-800">
                         {s.image ? (
@@ -154,13 +154,13 @@ export default async function ServicesPage({
                           </div>
                         )}
                         {s.isPopular && (
-                          <span className="absolute right-2 top-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase text-stone-950">
+                          <span className="absolute right-2 top-2 rounded-full bg-[#F5F2EB] px-2 py-0.5 text-[10px] font-bold uppercase text-stone-950">
                             Popular
                           </span>
                         )}
                       </div>
                       <div className="p-4">
-                        <h3 className="font-semibold text-stone-100 group-hover:text-amber-400 transition">{s.name}</h3>
+                        <h3 className="font-semibold text-stone-100 transition group-hover:text-[#F5F2EB]">{s.name}</h3>
                         {s.description && (
                           <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">{s.description}</p>
                         )}
@@ -168,10 +168,10 @@ export default async function ServicesPage({
                           <span className="flex items-center gap-1 text-xs text-stone-500">
                             <Clock className="size-3" /> {s.duration} min
                           </span>
-                          <span className="font-semibold text-amber-400">from ₹{s.basePrice.toLocaleString("en-IN")}</span>
+                          <span className="font-semibold text-[#F5F2EB]">from ₹{s.basePrice.toLocaleString("en-IN")}</span>
                         </div>
                         <div className="mt-3">
-                          <span className="block w-full rounded-full bg-amber-500 py-2 text-center text-xs font-bold text-stone-950 transition group-hover:bg-amber-400">
+                          <span className="block w-full rounded-full bg-[#F5F2EB] py-2 text-center text-xs font-bold text-stone-900 transition group-hover:bg-[#EDE8DF]">
                             Book this service →
                           </span>
                         </div>
