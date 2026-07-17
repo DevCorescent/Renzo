@@ -62,6 +62,7 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
       { label: "Dashboard",  href: "/super-admin/dashboard",   icon: LayoutDashboard },
       { label: "Branches",   href: "/super-admin/branches",    icon: Building2 },
       { label: "Workers",    href: "/super-admin/workers",     icon: Users },
+      { label: "Bookings",   href: "/super-admin/bookings",    icon: CalendarDays },
       { label: "Leave Management",href: "/super-admin/leaves", icon: CalendarOff },
       { label: "Services",   href: "/super-admin/services",    icon: Scissors },
       { label: "Customers",  href: "/super-admin/customers",   icon: UserCheck },

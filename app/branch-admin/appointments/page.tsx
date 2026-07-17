@@ -2,6 +2,7 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { CancelBookingButton } from "@/components/appointments/cancel-booking-button";
 
 // OWNER: Hemant | MODULE: Branch Admin Appointments
 
@@ -72,12 +73,13 @@ export default async function BranchAdminAppointmentsPage({
               <TH>Worker</TH>
               <TH>Amount</TH>
               <TH>Status</TH>
+              <TH className="text-right">Action</TH>
             </tr>
           </THead>
           <tbody>
             {appointments.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
                   No appointments found.
                 </td>
               </tr>
@@ -107,6 +109,9 @@ export default async function BranchAdminAppointmentsPage({
                     <Badge tone={STATUS_TONE[a.status] ?? "neutral"}>
                       {a.status.replace(/_/g, " ")}
                     </Badge>
+                  </TD>
+                  <TD className="text-right">
+                    <CancelBookingButton appointmentId={a.id} status={a.status} />
                   </TD>
                 </TR>
               ))

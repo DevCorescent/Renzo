@@ -2,6 +2,7 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { CancelBookingButton } from "@/components/appointments/cancel-booking-button";
 
 // OWNER: Hemant | MODULE: Reception Queue
 
@@ -74,6 +75,7 @@ export default async function ReceptionQueuePage() {
                   <TH>Service</TH>
                   <TH>Worker</TH>
                   <TH>Amount</TH>
+                  <TH className="text-right">Action</TH>
                 </tr>
               </THead>
               <tbody>
@@ -93,6 +95,9 @@ export default async function ReceptionQueuePage() {
                       {a.worker ? `${a.worker.firstName} ${a.worker.lastName}` : "—"}
                     </TD>
                     <TD className="text-gray-700">₹{Number(a.totalAmount).toLocaleString("en-IN")}</TD>
+                    <TD className="text-right">
+                      <CancelBookingButton appointmentId={a.id} status={a.status} />
+                    </TD>
                   </TR>
                 ))}
               </tbody>
