@@ -8,6 +8,7 @@ import {
   MapPin, Scissors, Clock, ChevronLeft, ChevronRight, Check,
   Loader2, CalendarDays, X, Star, User, Award, Users,
 } from "lucide-react";
+import { BookingSuggestTips } from "@/components/ai/booking-suggest-tips";
 
 /* ── shared types (exported for use in server page) ────────────────────────── */
 
@@ -486,10 +487,11 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
 }
 
 function WorkerStep({
-  branchId, serviceId, onSelect,
+  branchId, serviceId, serviceName, onSelect,
 }: {
   branchId: string;
   serviceId: string;
+  serviceName: string;
   onSelect: (worker: ApiWorker | null) => void;
 }) {
   const [expanded, setExpanded] = React.useState<string | null>(null);
@@ -533,6 +535,8 @@ function WorkerStep({
     <div>
       <h2 className="mb-1 text-lg font-semibold">Choose your worker</h2>
       <p className="mb-5 text-sm text-stone-400">Only workers who perform this service at this branch are shown</p>
+
+      <BookingSuggestTips serviceName={serviceName} branchId={branchId} />
 
       {loading ? (
         <div className="flex justify-center py-16"><Loader2 className="size-6 animate-spin text-stone-600" /></div>
@@ -1111,6 +1115,7 @@ export function BookWizard({
             <WorkerStep
               branchId={branch.id}
               serviceId={service.id}
+              serviceName={service.name}
               onSelect={(w) => {
                 setWorker(w); setWorkerChosen(true);
                 setDate(""); setSlot(""); setStep("slot");

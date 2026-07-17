@@ -17,6 +17,10 @@ import {
 import { Badge } from "@/components/shared/ui";
 import { WorkerAvatar } from "@/components/workers/worker-ui";
 import { formatDate } from "@/components/worker-profile/profile-ui";
+import {
+  AddPortfolioWorkButton,
+  WorkerPhotoButton,
+} from "@/components/worker-workspace/worker-image-actions";
 import type { WorkerWorkspaceData } from "@/lib/worker-workspace";
 
 const DAYS = [
@@ -69,7 +73,10 @@ export function WorkerProfileView({ data }: { data: WorkerWorkspaceData }) {
         {/* Hero */}
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-5 sm:flex-row">
-            <WorkerAvatar firstName={worker.firstName} lastName={worker.lastName} photo={worker.profilePhoto} id={worker.id} size={104} />
+            <div className="relative w-fit shrink-0">
+              <WorkerAvatar firstName={worker.firstName} lastName={worker.lastName} photo={worker.profilePhoto} id={worker.id} size={104} />
+              <WorkerPhotoButton workerId={worker.id} />
+            </div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{fullName(worker)}</h1>
@@ -157,7 +164,8 @@ export function WorkerProfileView({ data }: { data: WorkerWorkspaceData }) {
             <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3.5">
               <ImagesIcon className="size-4 text-gray-400" aria-hidden="true" />
               <h2 className="text-sm font-semibold text-gray-800">Portfolio</h2>
-              <span className="ml-auto text-xs text-gray-400">{portfolio.items.length}</span>
+              <span className="text-xs text-gray-400">{portfolio.items.length}</span>
+              <AddPortfolioWorkButton workerId={worker.id} />
             </div>
             <div className="p-4">
               {portfolio.items.length === 0 ? (

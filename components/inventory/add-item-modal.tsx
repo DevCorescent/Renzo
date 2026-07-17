@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { API } from "@/lib/endpoints";
 import { cn } from "@/lib/utils";
+import { ImageUpload } from "@/components/shared/image-upload";
 import type { ApiEnvelope, Option } from "./types";
 
 // Adding an inventory item is two REUSED operations, not a new endpoint:
@@ -55,6 +56,7 @@ export function AddItemModal({
     name: "", sku: "", categoryId: "", supplierId: "", branchId: "",
     purchasePrice: "", sellingPrice: "", quantity: "", unit: "ml",
     reorderLevel: "10", description: "", notes: "", isRetail: false, expiryTracked: false,
+    image: "",
   });
   const [errors, setErrors] = React.useState<Errors>({});
   const [formError, setFormError] = React.useState<string | null>(null);
@@ -75,6 +77,7 @@ export function AddItemModal({
       name: "", sku: "", categoryId: "", supplierId: "", branchId: "",
       purchasePrice: "", sellingPrice: "", quantity: "", unit: "ml",
       reorderLevel: "10", description: "", notes: "", isRetail: false, expiryTracked: false,
+      image: "",
     });
     setErrors({});
     setFormError(null);
@@ -132,6 +135,7 @@ export function AddItemModal({
           reorderLevel: Number(form.reorderLevel) || 0,
           isRetail: form.isRetail,
           expiryTracked: form.expiryTracked,
+          image: form.image.trim() || undefined,
         }),
       });
       const prodJson = (await prodRes.json()) as ApiEnvelope<{ id: string }>;
@@ -205,6 +209,12 @@ export function AddItemModal({
                 <input value={form.sku} onChange={(e) => set("sku", e.target.value)} disabled={submitting} aria-invalid={Boolean(errors.sku?.length)} className={cn(inputCls, "font-mono", errors.sku?.length && invalidCls)} />
               </Field>
             </div>
+
+            <ImageUpload
+              value={form.image || null}
+              onChange={(url) => set("image", url ?? "")}
+              label="Product image"
+            />
 
             <div className="grid grid-cols-2 gap-3">
               <Field label="Category">

@@ -18,6 +18,7 @@ import { statusTone } from "@/components/dashboard/status-badge";
 import type { NotificationItem } from "@/components/dashboard/notifications";
 import { THEME_ROOT_ID } from "@/components/dashboard/use-dash-theme";
 import { DashThemeInit } from "@/components/dashboard/dash-theme-init";
+import { ReceptionBriefButton } from "@/components/ai/reception-brief-button";
 
 // OWNER: Hemant | MODULE: Reception Dashboard
 // UI-only redesign — reuses the shared RENZO design system. All queries below are
@@ -229,6 +230,10 @@ export default async function ReceptionDashboardPage() {
             dateLabel={dateLabel}
             notifications={notifications}
           />
+        </FadeIn>
+
+        <FadeIn>
+          <ReceptionBriefButton />
         </FadeIn>
 
         {/* ── Statistics ─────────────────────────────────────────────────── */}

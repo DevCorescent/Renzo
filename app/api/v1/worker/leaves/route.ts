@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { created, err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
+import { adjustLeaveBalance, leaveDays } from "@/lib/leave-balance";
 import type { AuthUser } from "@/types/api";
 
 async function resolveWorkerId(user: AuthUser): Promise<string | null> {
@@ -73,21 +74,40 @@ export async function POST(req: NextRequest) {
     }
     if (end < start) return err("endDate cannot be before startDate", 422);
 
-    // Inclusive day count.
-    const days =
-      Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1;
+    const days = leaveDays(start, end);
+    const leaveType = await prisma.leaveType.findUnique({
+      where: { id: body.leaveTypeId },
+      select: { id: true, maxPerYear: true, isActive: true },
+    });
+    if (!leaveType || !leaveType.isActive) {
+      return err("Invalid leaveTypeId", 422, { leaveTypeId: ["Leave type not found"] });
+    }
 
-    const leave = await prisma.leave.create({
-      data: {
+    const year = start.getUTCFullYear();
+
+    const leave = await prisma.$transaction(async (tx) => {
+      const createdLeave = await tx.leave.create({
+        data: {
+          workerId,
+          leaveTypeId: body.leaveTypeId,
+          startDate: start,
+          endDate: end,
+          days,
+          reason: body.reason,
+          status: "PENDING",
+        },
+        include: { leaveType: true },
+      });
+      await adjustLeaveBalance(tx, {
         workerId,
         leaveTypeId: body.leaveTypeId,
-        startDate: start,
-        endDate: end,
         days,
-        reason: body.reason,
-        status: "PENDING",
-      },
-      include: { leaveType: true },
+        year,
+        from: null,
+        to: "PENDING",
+        maxPerYear: leaveType.maxPerYear,
+      });
+      return createdLeave;
     });
 
     return created(leave);

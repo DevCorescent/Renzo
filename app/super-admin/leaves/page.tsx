@@ -3,7 +3,7 @@ import { getServerUser } from "@/lib/server-session";
 import prisma from "@/lib/db";
 import { apiGet, type Paginated } from "@/lib/api-server";
 import { PageHeader } from "@/components/shared/ui";
-import { LeavesEmpty, LeavesError } from "@/components/branch-leaves/leaves-ui";
+import { LeavesError } from "@/components/branch-leaves/leaves-ui";
 import { LeaveManagementTabs } from "@/components/leave-management/leave-management-tabs";
 import { SuperLeaveStatsCards } from "@/components/leave-management/super-stats-cards";
 import { SuperLeavesToolbar, type BranchOption } from "@/components/leave-management/super-leaves-toolbar";
@@ -80,8 +80,6 @@ export default async function SuperAdminLeavesPage({
     ? statsResult.data
     : { pending: 0, approved: 0, rejected: 0, cancelled: 0, total: 0, today: 0, onLeaveToday: 0 };
 
-  const filtered = [...params.keys()].some((k) => k !== "page" && k !== "limit");
-
   return (
     <div className="space-y-5">
       <PageHeader eyebrow="HR" title="Leave Management" subtitle="Review and action worker leave requests across every branch." />
@@ -94,8 +92,6 @@ export default async function SuperAdminLeavesPage({
 
       {!listResult.ok ? (
         <LeavesError message={friendlyError(listResult.status, listResult.message)} />
-      ) : listResult.data.items.length === 0 ? (
-        <LeavesEmpty filtered={filtered} />
       ) : (
         <SuperLeavesView
           leaves={listResult.data.items}
@@ -103,6 +99,7 @@ export default async function SuperAdminLeavesPage({
           page={listResult.data.page}
           limit={listResult.data.limit}
           totalPages={listResult.data.totalPages}
+          leaveTypes={leaveTypes}
         />
       )}
     </div>

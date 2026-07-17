@@ -2,6 +2,7 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect, notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, CardBody } from "@/components/shared/ui";
+import { BookingActions } from "@/components/worker/bookings/booking-actions";
 
 // OWNER: Hemant | MODULE: Worker — Booking Detail
 
@@ -24,14 +25,21 @@ export default async function WorkerBookingDetailPage({ params }: { params: Prom
       services: { include: { service: { select: { name: true, duration: true } } } },
       addOns: { include: { addOn: { select: { name: true, price: true } } } },
       invoice: { select: { invoiceNo: true, status: true, totalAmount: true, paidAmount: true } },
+      rescheduleRequests: {
+        where: { status: "PENDING" },
+        select: { id: true },
+        take: 1,
+      },
     },
   });
 
   if (!appointment || appointment.workerId !== authUser.workerId) notFound();
 
+  const hasPendingReschedule = appointment.rescheduleRequests.length > 0;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Appointment #{appointment.appointmentNo}</h1>
           <p className="mt-0.5 text-sm text-gray-500">
@@ -41,6 +49,12 @@ export default async function WorkerBookingDetailPage({ params }: { params: Prom
         </div>
         <Badge tone={STATUS_TONE[appointment.status] ?? "neutral"}>{appointment.status.replace(/_/g, " ")}</Badge>
       </div>
+
+      <BookingActions
+        appointmentId={appointment.id}
+        status={appointment.status}
+        hasPendingReschedule={hasPendingReschedule}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>

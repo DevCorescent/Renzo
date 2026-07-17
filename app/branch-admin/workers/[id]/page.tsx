@@ -3,7 +3,7 @@ import { ChevronLeft } from "lucide-react";
 import { getServerUser } from "@/lib/server-session";
 import { redirect, notFound } from "next/navigation";
 import { getWorkerWorkspace } from "@/lib/worker-workspace";
-import { WorkspaceHeader } from "@/components/worker-workspace/workspace-header";
+import { WorkerProfileView } from "@/components/worker-workspace/worker-profile-view";
 import { Workspace } from "@/components/worker-workspace/workspace";
 
 // OWNER: Gauransh | MODULE: Branch Admin — Worker Workspace
@@ -34,8 +34,19 @@ export default async function BranchAdminWorkerWorkspacePage({ params }: { param
         Back to workers
       </Link>
 
-      <WorkspaceHeader data={data} />
-      <Workspace data={data} />
+      <WorkerProfileView data={data} />
+
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="mb-1">
+          <h2 className="text-base font-semibold text-gray-900">
+            Worker details
+          </h2>
+          <p className="text-xs text-gray-500">
+            Portfolio, schedule, attendance, leave, services, performance and records.
+          </p>
+        </div>
+        <Workspace data={data} includeOverview={false} />
+      </section>
     </div>
   );
 }

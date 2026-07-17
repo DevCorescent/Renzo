@@ -36,6 +36,7 @@ export const API = {
     packages:     `${BASE}/public/packages`,
     slots:        `${BASE}/public/slots`,
     offers:       `${BASE}/public/offers`,
+    contact:      `${BASE}/public/contact`,
   },
 
   // ── Customer portal (Gauransh + Shalmon) ──────────────────────────────────
@@ -197,5 +198,15 @@ export const API = {
     workerReport:     `${BASE}/admin/reports/workers`,
     inventoryReport:  `${BASE}/admin/reports/inventory`,
     appointmentReport:`${BASE}/admin/reports/appointments`,
+  },
+
+  // ── AI (Groq) ──────────────────────────────────────────────────────────────
+  ai: {
+    status:         `${BASE}/ai/status`,
+    bookingSuggest: `${BASE}/ai/booking-suggest`,
+    reviewInsights: `${BASE}/ai/review-insights`,
+    cmsCopy:        `${BASE}/ai/cms-copy`,
+    receptionBrief: `${BASE}/ai/reception-brief`,
+    chat:           `${BASE}/ai/chat`,
   },
 } as const;

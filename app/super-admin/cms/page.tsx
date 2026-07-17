@@ -3,6 +3,7 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { FileText, Image, MessageSquare, HelpCircle, LayoutTemplate } from "lucide-react";
+import { CmsCopyGenerator } from "@/components/ai/cms-copy-generator";
 
 // OWNER: Hemant | MODULE: Super Admin — CMS Hub
 
@@ -48,6 +49,8 @@ export default async function SuperAdminCmsPage() {
           </Link>
         ))}
       </div>
+
+      <CmsCopyGenerator defaultKind="blog" />
     </div>
   );
 }

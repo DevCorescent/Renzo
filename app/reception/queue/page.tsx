@@ -2,7 +2,7 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
-import { CancelBookingButton } from "@/components/appointments/cancel-booking-button";
+import { QueueActions } from "@/components/reception/queue-actions";
 
 // OWNER: Hemant | MODULE: Reception Queue
 
@@ -39,6 +39,7 @@ export default async function ReceptionQueuePage() {
       customer: { select: { firstName: true, lastName: true, phone: true } },
       worker: { select: { firstName: true, lastName: true } },
       services: { include: { service: { select: { name: true } } } },
+      invoice: { select: { id: true } },
     },
   });
 
@@ -75,7 +76,7 @@ export default async function ReceptionQueuePage() {
                   <TH>Service</TH>
                   <TH>Worker</TH>
                   <TH>Amount</TH>
-                  <TH className="text-right">Action</TH>
+                  <TH className="text-right">Actions</TH>
                 </tr>
               </THead>
               <tbody>
@@ -96,7 +97,12 @@ export default async function ReceptionQueuePage() {
                     </TD>
                     <TD className="text-gray-700">₹{Number(a.totalAmount).toLocaleString("en-IN")}</TD>
                     <TD className="text-right">
-                      <CancelBookingButton appointmentId={a.id} status={a.status} />
+                      <QueueActions
+                        appointmentId={a.id}
+                        status={a.status}
+                        workerId={a.workerId}
+                        invoiceId={a.invoice?.id}
+                      />
                     </TD>
                   </TR>
                 ))}

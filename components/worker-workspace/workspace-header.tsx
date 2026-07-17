@@ -11,6 +11,7 @@
 import * as React from "react";
 import { Badge } from "@/components/shared/ui";
 import { WorkerAvatar } from "@/components/workers/worker-ui";
+import { WorkerPhotoEditor } from "@/components/worker-workspace/worker-photo-editor";
 import { Hash, Building2, Briefcase, Star } from "lucide-react";
 import type { WorkerWorkspaceData } from "@/lib/worker-workspace";
 
@@ -46,6 +47,7 @@ export function WorkspaceHeader({ data }: { data: WorkerWorkspaceData }) {
                 <span className="inline-flex items-center gap-1"><Briefcase className="size-3" aria-hidden="true" />{worker.experience} {worker.experience === 1 ? "yr" : "yrs"}</span>
               )}
             </div>
+            <WorkerPhotoEditor workerId={worker.id} currentPhoto={worker.profilePhoto} />
           </div>
         </div>
 

@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { ReviewInsightsPanel } from "@/components/ai/review-insights-panel";
 
 // OWNER: Hemant | MODULE: Super Admin — Reviews
 
@@ -28,9 +29,12 @@ export default async function SuperAdminReviewsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">Reviews</h1>
-        <p className="mt-0.5 text-sm text-gray-500">{reviews.length} total · {pending} pending · {approved} approved</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Reviews</h1>
+          <p className="mt-0.5 text-sm text-gray-500">{reviews.length} total · {pending} pending · {approved} approved</p>
+        </div>
+        <ReviewInsightsPanel />
       </div>
 
       <Card>

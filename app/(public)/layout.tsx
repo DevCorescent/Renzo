@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SiteHeader } from "@/components/public/site-header";
 import { SiteFooter } from "@/components/public/site-footer";
+import { PublicChatbot } from "@/components/ai/public-chatbot";
 import { getServerUser } from "@/lib/server-session";
 import type { UserType } from "@/types/api";
 
@@ -32,6 +33,7 @@ export default async function PublicLayout({ children }: { children: React.React
       <SiteHeader dashboardHref={dashboardHref} />
       <div className="flex-1">{children}</div>
       <SiteFooter />
+      <PublicChatbot />
     </div>
   );
 }

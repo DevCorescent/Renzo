@@ -2,6 +2,7 @@ import { getServerUser } from "@/lib/server-session";
 import { redirect, notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, CardBody } from "@/components/shared/ui";
+import { CollectPaymentForm } from "@/components/reception/collect-payment-form";
 
 // OWNER: Hemant | MODULE: Reception — Invoice Detail
 
@@ -166,6 +167,10 @@ export default async function ReceptionBillingDetailPage({ params }: { params: P
             ))}
           </div>
         </Card>
+      )}
+
+      {(invoice.status === "UNPAID" || invoice.status === "PARTIAL") && Number(invoice.balanceDue) > 0 && (
+        <CollectPaymentForm invoiceId={invoice.id} balanceDue={Number(invoice.balanceDue)} />
       )}
     </div>
   );

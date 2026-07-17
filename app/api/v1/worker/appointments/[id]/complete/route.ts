@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
-import { AppointmentStatus, Prisma } from "@prisma/client";
+import { AppointmentStatus, Prisma, type InvoiceStatus } from "@prisma/client";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
+import { genCode } from "@/lib/codes";
+import { earnLoyaltyPoints } from "@/lib/loyalty";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -69,7 +71,34 @@ export async function POST(
         status: true,
         startedAt: true,
         completedAt: true,
-        services: { select: { id: true, serviceId: true } },
+        customerId: true,
+        branchId: true,
+        taxAmount: true,
+        discountAmount: true,
+        paidAmount: true,
+        services: {
+          select: {
+            id: true,
+            serviceId: true,
+            price: true,
+            service: { select: { name: true } },
+          },
+        },
+        addOns: {
+          select: {
+            addOnId: true,
+            price: true,
+            addOn: { select: { name: true } },
+          },
+        },
+        packages: {
+          select: {
+            packageId: true,
+            price: true,
+            package: { select: { name: true } },
+          },
+        },
+        invoice: { select: { id: true, invoiceNo: true, paidAmount: true, totalAmount: true, status: true } },
       },
     });
 
@@ -141,6 +170,7 @@ export async function POST(
         data: {
           status: AppointmentStatus.COMPLETED,
           completedAt: now,
+          reviewRequested: true,
         },
       });
 
@@ -160,12 +190,99 @@ export async function POST(
         });
       }
 
-      // TODO (Phase 2): generate/finalize invoice
-      // TODO (Phase 2): update customer totalVisits
-      // TODO (Phase 2): request review (reviewRequested flag exists on Appointment)
-      // TODO (Phase 2): loyalty points
-      // TODO (Phase 2): notify customer
-      // TODO (Phase 2): audit log
+      // Phase 2 — invoice: create if missing and billable lines exist; otherwise
+      // leave the existing invoice alone (reception may already have billed).
+      let invoiceId = appointment.invoice?.id ?? null;
+      let invoiceNo = appointment.invoice?.invoiceNo ?? null;
+
+      if (!appointment.invoice) {
+        const items = [
+          ...appointment.services.map((s) => ({
+            type: "SERVICE",
+            refId: s.serviceId,
+            name: s.service.name,
+            quantity: 1,
+            unitPrice: s.price,
+            total: s.price,
+          })),
+          ...appointment.addOns.map((a) => ({
+            type: "ADDON",
+            refId: a.addOnId,
+            name: a.addOn.name,
+            quantity: 1,
+            unitPrice: a.price,
+            total: a.price,
+          })),
+          ...appointment.packages.map((p) => ({
+            type: "PACKAGE",
+            refId: p.packageId,
+            name: p.package.name,
+            quantity: 1,
+            unitPrice: p.price,
+            total: p.price,
+          })),
+        ];
+
+        if (items.length > 0) {
+          const subtotal = items.reduce((sum, i) => sum + i.total, 0);
+          const taxAmount = appointment.taxAmount ?? 0;
+          const discountAmount = appointment.discountAmount ?? 0;
+          const totalAmount = Math.max(0, subtotal + taxAmount - discountAmount);
+          const paidAmount = appointment.paidAmount ?? 0;
+          const balanceDue = Math.max(0, totalAmount - paidAmount);
+          const status: InvoiceStatus =
+            balanceDue <= 0 ? "PAID" : paidAmount > 0 ? "PARTIAL" : "UNPAID";
+
+          const invoice = await tx.invoice.create({
+            data: {
+              invoiceNo: genCode("INV"),
+              appointmentId: appointment.id,
+              customerId: appointment.customerId,
+              branchId: appointment.branchId,
+              subtotal,
+              taxAmount,
+              discountAmount,
+              totalAmount,
+              paidAmount,
+              balanceDue,
+              status,
+              generatedBy: user.userId,
+              items: {
+                create: items.map((i) => ({
+                  type: i.type,
+                  refId: i.refId,
+                  name: i.name,
+                  quantity: i.quantity,
+                  unitPrice: i.unitPrice,
+                  total: i.total,
+                })),
+              },
+            },
+            select: { id: true, invoiceNo: true },
+          });
+          invoiceId = invoice.id;
+          invoiceNo = invoice.invoiceNo;
+        }
+      }
+
+      // Phase 2 — customer visit counter
+      await tx.customer.update({
+        where: { id: appointment.customerId },
+        data: { totalVisits: { increment: 1 } },
+      });
+
+      // Phase 2 — loyalty earn for any amount already paid (helper no-ops when 0)
+      const earnAmount = appointment.paidAmount ?? 0;
+      if (earnAmount > 0) {
+        await earnLoyaltyPoints(tx, appointment.customerId, earnAmount, {
+          refId: invoiceId ?? appointment.id,
+          description: invoiceNo
+            ? `Earned on completed visit (${invoiceNo})`
+            : `Earned on completed appointment ${appointment.id}`,
+        });
+      }
+
+      // Phase 2 skipped: external notify, audit log
 
       return updatedAppointment;
     });
