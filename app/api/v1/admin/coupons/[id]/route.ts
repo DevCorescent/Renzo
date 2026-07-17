@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { writeAudit } from "@/lib/audit";
 import prisma from "@/lib/db";
 
 // OWNER: Shalmon | MODULE: Coupons
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 // PATCH /api/v1/admin/coupons/[id] — Update a coupon
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "MARKETING_MANAGER");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "MARKETING_MANAGER");
   if (error) return error;
 
   try {
@@ -56,6 +57,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...(typeof body.isActive === "boolean" ? { isActive: body.isActive } : {}),
       },
     });
+    await writeAudit(user, { action: "UPDATE", module: "COUPON", refId: id, refType: "Coupon", newValue: { isActive: coupon.isActive } });
     return ok(coupon, "Coupon updated");
   } catch {
     return err("Internal server error", 500);
@@ -64,7 +66,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 // DELETE /api/v1/admin/coupons/[id] — Soft-delete (deactivate)
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "MARKETING_MANAGER");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "MARKETING_MANAGER");
   if (error) return error;
 
   try {
@@ -72,6 +74,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const existing = await prisma.coupon.findUnique({ where: { id } });
     if (!existing) return err("Coupon not found", 404);
     await prisma.coupon.update({ where: { id }, data: { isActive: false } });
+    await writeAudit(user, { action: "DELETE", module: "COUPON", refId: id, refType: "Coupon" });
     return ok(null, "Coupon deactivated");
   } catch {
     return err("Internal server error", 500);

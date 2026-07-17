@@ -53,6 +53,7 @@ export const API = {
     reviews:      `${BASE}/customer/reviews`,
     review:       (id: string) => `${BASE}/customer/reviews/${id}`,
     giftCards:    `${BASE}/customer/gift-cards`,
+    giftCardShare: `${BASE}/customer/gift-cards/share`,
   },
 
   // ── Worker panel (Aman + Gauransh) ────────────────────────────────────────
@@ -88,6 +89,7 @@ export const API = {
     bill:         (id: string) => `${BASE}/reception/billing/${id}`,
     payment:      (id: string) => `${BASE}/reception/billing/${id}/payment`,
     applyCoupon:  (id: string) => `${BASE}/reception/billing/${id}/coupon`,
+    applyGiftCard: (id: string) => `${BASE}/reception/billing/${id}/gift-card`,
   },
 
   // ── Admin — Branches & Workers (Aman) ─────────────────────────────────────
@@ -175,10 +177,12 @@ export const API = {
     couponAnalytics:  `${BASE}/admin/coupons/analytics`,
     campaigns:        `${BASE}/admin/campaigns`,
     campaign:         (id: string) => `${BASE}/admin/campaigns/${id}`,
+    campaignAnalytics: `${BASE}/admin/campaigns/analytics`,
     offers:           `${BASE}/admin/offers`,
     offer:            (id: string) => `${BASE}/admin/offers/${id}`,
     giftCards:        `${BASE}/admin/gift-cards`,
     giftCard:         (id: string) => `${BASE}/admin/gift-cards/${id}`,
+    giftCardAnalytics: `${BASE}/admin/gift-cards/analytics`,
 
     // Admin — Branch service pricing (Gauransh)
     branchServices:   `${BASE}/admin/branch-services`,

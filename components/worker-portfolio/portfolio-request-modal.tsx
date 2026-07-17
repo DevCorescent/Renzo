@@ -62,11 +62,15 @@ export function PortfolioRequestModal({
   summary,
   onClose,
   onCreated,
+  lockedType,
 }: {
   open: boolean;
   summary: PortfolioSummary;
   onClose: () => void;
   onCreated: (request: PortfolioRequest) => void;
+  /** When set (per-section Edit), the modal opens straight to this section and the
+   *  type picker is hidden — the worker edits exactly the section they chose. */
+  lockedType?: PortfolioRequestType;
 }) {
   const dialogRef = React.useRef<HTMLDialogElement>(null);
 
@@ -90,7 +94,7 @@ export function PortfolioRequestModal({
   const [wasOpen, setWasOpen] = React.useState(false);
   if (open && !wasOpen) {
     setWasOpen(true);
-    setType("BIO");
+    setType(lockedType ?? "BIO");
     setBio(summary.bio ?? "");
     setExperience(String(summary.experienceYears ?? 0));
     setLanguages(summary.languages.join(", "));
@@ -241,28 +245,32 @@ export function PortfolioRequestModal({
             </p>
           )}
 
-          <div className="space-y-1">
-            <label htmlFor="pr-type" className="block text-xs font-medium text-gray-700">
-              What would you like to update?
-            </label>
-            <select
-              id="pr-type"
-              value={type}
-              onChange={(e) => {
-                setType(e.target.value as PortfolioRequestType);
-                setErrors({});
-                setFormError(null);
-              }}
-              disabled={submitting}
-              className={inputCls}
-            >
-              {TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* The type picker is shown only in the generic "new request" flow. A
+              per-section Edit locks the type, so the picker is hidden. */}
+          {!lockedType && (
+            <div className="space-y-1">
+              <label htmlFor="pr-type" className="block text-xs font-medium text-gray-700">
+                What would you like to update?
+              </label>
+              <select
+                id="pr-type"
+                value={type}
+                onChange={(e) => {
+                  setType(e.target.value as PortfolioRequestType);
+                  setErrors({});
+                  setFormError(null);
+                }}
+                disabled={submitting}
+                className={inputCls}
+              >
+                {TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* BIO */}
           {type === "BIO" && (

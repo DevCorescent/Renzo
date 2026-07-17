@@ -28,6 +28,7 @@ import { API } from "@/lib/endpoints";
 import { Badge } from "@/components/shared/ui";
 import { cn } from "@/lib/utils";
 import { PortfolioItemModal } from "./portfolio-item-modal";
+import { PortfolioSectionEditor } from "./portfolio-section-editor";
 import type { GalleryItem, PortfolioSummary } from "./types";
 
 type Envelope<T> = { success: boolean; message: string; data?: T };
@@ -200,6 +201,11 @@ export function PortfolioManager() {
       {phase.kind === "ready" && (
         <>
           <CompletionCard summary={phase.summary} workCount={phase.items.length} />
+
+          {/* Per-section editor — bio, experience, languages, certificates & gallery,
+              each submitting through the approval engine with pending-aware gating.
+              Reuses the summary already loaded above (no extra fetch). */}
+          <PortfolioSectionEditor summary={phase.summary} />
 
           {phase.items.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center">

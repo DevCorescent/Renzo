@@ -33,6 +33,7 @@ export function AddItemModal({
   suppliers,
   branches,
   isSuperAdmin,
+  fixedBranchId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -42,6 +43,10 @@ export function AddItemModal({
   /** Non-empty only for a Super Admin — drives the branch selector's visibility. */
   branches: Option[];
   isSuperAdmin: boolean;
+  /** Inventory Manager: a GLOBAL-scoped role, so the branch the backend cannot pin
+   *  is supplied here explicitly (their own branch). When set, no branch selector is
+   *  shown and every write targets this branch. */
+  fixedBranchId?: string;
 }) {
   const router = useRouter();
   const dialogRef = React.useRef<HTMLDialogElement>(null);
@@ -93,7 +98,7 @@ export function AddItemModal({
     if (!form.sku.trim()) e.sku = ["SKU is required"];
     const qty = Number(form.quantity);
     if (!Number.isFinite(qty) || qty <= 0) e.quantity = ["Enter an opening quantity greater than zero"];
-    if (isSuperAdmin && !form.branchId) e.branchId = ["Select a branch"];
+    if (isSuperAdmin && !fixedBranchId && !form.branchId) e.branchId = ["Select a branch"];
     return e;
   }
 
@@ -145,7 +150,7 @@ export function AddItemModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productId: prodJson.data.id,
-          branchId: isSuperAdmin ? form.branchId : undefined,
+          branchId: fixedBranchId ?? (isSuperAdmin ? form.branchId : undefined),
           type: "ADJUSTMENT",
           delta: Number(form.quantity),
           notes: form.notes.trim() || "Opening stock",
