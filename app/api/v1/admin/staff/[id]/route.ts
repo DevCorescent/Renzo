@@ -8,6 +8,18 @@ import prisma from "@/lib/db";
 // SUPER_ADMIN   → full access to any staff record
 // OWNER / BRANCH_ADMIN → only their own branch's staff
 
+// Roles a staff account may hold. Role changes are restricted to this set —
+// switching someone to WORKER/CUSTOMER would orphan them (no WorkerProfile /
+// Customer row), so those transitions are intentionally not allowed here.
+const STAFF_ROLES = [
+  "OWNER",
+  "BRANCH_ADMIN",
+  "RECEPTIONIST",
+  "INVENTORY_MANAGER",
+  "MARKETING_MANAGER",
+  "ACCOUNTANT",
+] as const;
+
 // ─── GET /api/v1/admin/staff/[id] ────────────────────────────────────────────
 export async function GET(
   req: NextRequest,
@@ -104,9 +116,22 @@ export async function PATCH(
       Object.entries(body).filter(([k]) => userAllowed.includes(k))
     );
 
+    // Only Super Admin can change a staff member's role, and only to another
+    // staff role. Branch/Owner admins never reassign roles.
+    if (user.userType === "SUPER_ADMIN" && "userType" in body) {
+      if (!STAFF_ROLES.includes(body.userType)) {
+        return err(`Role must be one of: ${STAFF_ROLES.join(", ")}`, 422);
+      }
+      userData.userType = body.userType;
+    }
+
     if (Object.keys(profileData).length === 0 && Object.keys(userData).length === 0) {
       return err("No valid fields to update", 422);
     }
+
+    // Revoke active sessions when the role changes, so the new permissions take
+    // effect on next request instead of persisting under the old JWT.
+    const roleChanged = "userType" in userData;
 
     await prisma.$transaction(async (tx) => {
       if (Object.keys(profileData).length) {
@@ -114,6 +139,9 @@ export async function PATCH(
       }
       if (Object.keys(userData).length) {
         await tx.user.update({ where: { id: staff.userId }, data: userData });
+      }
+      if (roleChanged) {
+        await tx.session.deleteMany({ where: { userId: staff.userId } });
       }
     });
 

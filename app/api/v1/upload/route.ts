@@ -74,6 +74,19 @@ export async function POST(req: NextRequest) {
     );
   } catch (e) {
     console.error("R2 upload error:", e);
+    // Surface the actual cause instead of one opaque message — an AccessDenied
+    // (bad token / missing write permission / wrong bucket) is a config problem
+    // the operator must fix, not a transient upload failure to retry.
+    const name = (e as { name?: string })?.name;
+    if (name === "AccessDenied") {
+      return err(
+        "Storage access denied — the R2 API token lacks write permission for this bucket (check R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET_NAME).",
+        502
+      );
+    }
+    if (name === "NoSuchBucket") {
+      return err(`Storage bucket "${bucket}" does not exist for this R2 account.`, 502);
+    }
     return err("Failed to upload image", 502);
   }
 

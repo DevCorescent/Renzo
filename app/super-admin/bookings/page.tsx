@@ -4,6 +4,8 @@ import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 import { CancelBookingButton } from "@/components/appointments/cancel-booking-button";
 import { EditAppointmentButton } from "@/components/appointments/edit-appointment-button";
+import { BookingsTabs } from "./bookings-tabs";
+import type { CalEvent } from "@/components/bookings/bookings-calendar";
 
 // OWNER: Super Admin — Bookings (all branches)
 // SUPER_ADMIN / OWNER see every branch's appointments and can cancel any active one
@@ -28,17 +30,48 @@ export default async function SuperAdminBookingsPage({
   const sp = await searchParams;
   const statusFilter = sp.status ?? null;
 
-  const appointments = await prisma.appointment.findMany({
-    where: { ...(statusFilter ? { status: statusFilter as never } : {}) },
-    orderBy: [{ appointmentDate: "desc" }, { startTime: "asc" }],
-    take: 100,
-    include: {
-      customer: { select: { firstName: true, lastName: true, phone: true } },
-      branch: { select: { id: true, name: true } },
-      worker: { select: { id: true, firstName: true, lastName: true } },
-      services: { include: { service: { select: { id: true, name: true } } } },
-    },
-  });
+  // Calendar window: start of the current month → +4 months, across all
+  // branches, so the super-admin can plan ahead.
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), 1);
+  const to = new Date(now.getFullYear(), now.getMonth() + 4, 1);
+
+  const [appointments, upcoming] = await Promise.all([
+    prisma.appointment.findMany({
+      where: { ...(statusFilter ? { status: statusFilter as never } : {}) },
+      orderBy: [{ appointmentDate: "desc" }, { startTime: "asc" }],
+      take: 100,
+      include: {
+        customer: { select: { firstName: true, lastName: true, phone: true } },
+        branch: { select: { id: true, name: true } },
+        worker: { select: { id: true, firstName: true, lastName: true } },
+        services: { include: { service: { select: { id: true, name: true } } } },
+      },
+    }),
+    prisma.appointment.findMany({
+      where: { appointmentDate: { gte: from, lt: to } },
+      orderBy: [{ appointmentDate: "asc" }, { startTime: "asc" }],
+      include: {
+        customer: { select: { firstName: true, lastName: true } },
+        branch: { select: { name: true } },
+        worker: { select: { firstName: true, lastName: true } },
+        services: { include: { service: { select: { name: true } } } },
+      },
+    }),
+  ]);
+
+  const calendarEvents: CalEvent[] = upcoming.map((a) => ({
+    id: a.id,
+    date: a.appointmentDate.toISOString().slice(0, 10),
+    startTime: a.startTime,
+    endTime: a.endTime,
+    title: `${a.customer.firstName} ${a.customer.lastName ?? ""}`.trim(),
+    services: a.services.map((s) => s.service.name).join(", ") || "—",
+    worker: a.worker ? `${a.worker.firstName} ${a.worker.lastName}`.trim() : null,
+    branch: a.branch.name,
+    status: a.status,
+    amount: Number(a.totalAmount),
+  }));
 
   return (
     <div className="space-y-6">
@@ -47,6 +80,7 @@ export default async function SuperAdminBookingsPage({
         <p className="mt-0.5 text-sm text-gray-500">{appointments.length} recent across all branches</p>
       </div>
 
+      <BookingsTabs events={calendarEvents}>
       <Card>
         <CardHeader><CardTitle>All Bookings</CardTitle></CardHeader>
         <Table>
@@ -102,6 +136,7 @@ export default async function SuperAdminBookingsPage({
           </tbody>
         </Table>
       </Card>
+      </BookingsTabs>
     </div>
   );
 }

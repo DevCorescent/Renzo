@@ -24,6 +24,7 @@ import {
 import { Badge, StatCard, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 import { ProfileSection, Field, FieldGrid, formatDate } from "@/components/worker-profile/profile-ui";
 import type { WorkerWorkspaceData } from "@/lib/worker-workspace";
+import { WorkerServicesManager } from "./worker-services-manager";
 
 const LEVELS = ["New", "Skilled", "Proficient", "Advanced", "Expert", "Master"];
 const money = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
@@ -216,24 +217,15 @@ export function LeavesTab({ data }: { data: WorkerWorkspaceData }) {
 }
 
 /* ─── Services ─────────────────────────────────────────────────────────────── */
+// Editable: assign the worker to services offered at their branch. Read-only
+// display is replaced by the interactive branch-scoped picker.
 export function ServicesTab({ data }: { data: WorkerWorkspaceData }) {
-  const services = data.worker.services;
-  if (services.length === 0) return <EmptyState icon={Scissors} title="No services assigned" />;
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {services.map((ws) => (
-        <div key={ws.service.id} className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-gray-50 text-gray-400"><Scissors className="size-4" aria-hidden="true" /></span>
-            <div>
-              <p className="text-sm font-medium text-gray-900">{ws.service.name}</p>
-              <p className="text-xs text-gray-400">{ws.service.duration} min</p>
-            </div>
-          </div>
-          <span className="text-sm font-semibold text-gray-700">{money(ws.service.basePrice)}</span>
-        </div>
-      ))}
-    </div>
+    <WorkerServicesManager
+      workerId={data.worker.id}
+      branch={data.primaryBranch ? { id: data.primaryBranch.id, name: data.primaryBranch.name } : null}
+      assigned={data.worker.services.map((ws) => ws.service)}
+    />
   );
 }
 
