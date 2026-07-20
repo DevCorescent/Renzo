@@ -13,7 +13,7 @@ export function Pricing() {
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <MotionReveal className="mx-auto max-w-2xl text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">Membership</p>
-          <h2 className="mt-3 font-heading text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+          <h2 className="mt-3 font-heading text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
             Luxury Made Affordable
           </h2>
           <p className="mt-4 leading-relaxed text-stone-400">

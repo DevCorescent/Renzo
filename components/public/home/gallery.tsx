@@ -20,7 +20,7 @@ export function Gallery() {
             <div
               key={image.src}
               style={{
-                transform: `rotateY(${offset * -11}deg) translateZ(-${Math.abs(offset) * 26}px)`,
+                transform: `rotateY(${offset * -7}deg) translateZ(-${Math.abs(offset) * 14}px)`,
               }}
               className="relative aspect-[4/5] w-28 shrink-0 overflow-hidden rounded-xl ring-1 ring-white/10 sm:w-40 lg:w-52"
             >
@@ -36,8 +36,8 @@ export function Gallery() {
         })}
       </MotionReveal>
 
-      <MotionReveal className="mx-auto mt-8 max-w-2xl px-4 text-center">
-        <h2 className="font-heading text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+      <MotionReveal className="mx-auto mt-10 max-w-2xl border-t border-white/10 px-4 pt-10 text-center">
+        <h2 className="font-heading text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
           Our Work Speaks for Itself
         </h2>
         <p className="mt-4 leading-relaxed text-stone-400">

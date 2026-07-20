@@ -144,12 +144,12 @@ export function Hero() {
         />
       </div>
 
-      {/* Watermark */}
+      {/* Watermark — repositioned lower-left-of-center so it doesn't clash with the stat rail */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-6 top-0 overflow-hidden"
+        className="pointer-events-none absolute inset-x-0 bottom-24 -z-0 overflow-hidden lg:bottom-32"
       >
-        <span className="-rotate-6 whitespace-nowrap font-heading text-[16vw] font-black tracking-[-0.08em] text-white/[0.03]">
+        <span className="block -rotate-2 whitespace-nowrap text-center font-heading text-[13vw] font-black tracking-[-0.08em] text-white/[0.025]">
           RENZO
         </span>
       </div>
@@ -177,7 +177,7 @@ export function Hero() {
            {/* Headline with word-reveal */}
 <h1
   id="hero-heading"
-  className="mt-8 max-w-4xl font-heading text-6xl font-black leading-[0.94] tracking-[-0.05em] sm:text-7xl xl:text-[104px]"
+  className="mt-8 max-w-4xl font-heading text-2xl font-semibold leading-tight tracking-tight sm:text-3xl md:text-4xl"
 >
   <RevealWords words={["Where", "Beauty"]} className="block" />
 
@@ -261,7 +261,7 @@ export function Hero() {
                     />
                   ))}
                 </div>
-                <div className="text-xs leading-tight text-[#B7BEC8]">
+                <div className="text-xs leading-tight text-[#D3D7DC]">
                   <div className="flex items-center gap-1 text-white">
                     <Star className="h-3.5 w-3.5 fill-[#C8A96A] text-[#C8A96A]" />
                     <span className="font-semibold">{RATING.toFixed(1)}</span>
@@ -275,7 +275,7 @@ export function Hero() {
           {/* Vertical stat rail — desktop only */}
           <motion.div
             variants={fadeUp}
-            className="hidden w-56 shrink-0 divide-y divide-white/10 rounded-[28px] border border-white/10 bg-black/80 backdrop-blur-xl lg:block"
+            className="relative z-10 hidden w-56 shrink-0 divide-y divide-white/10 rounded-[28px] border border-white/10 bg-black/80 backdrop-blur-xl lg:block"
           >
             {STATS.map((stat) => (
               <div key={stat.label} className="px-6 py-5 first:pt-6 last:pb-6">
