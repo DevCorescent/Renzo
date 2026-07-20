@@ -49,7 +49,17 @@ export async function POST(req: NextRequest) {
       data: { phone, email, otp, purpose, expiresAt },
     });
 
-    await deliverOtp({ phone, email }, otp);
+    // Resolve the user's first name for the email greeting (best-effort).
+    let name = "";
+    if (email) {
+      const user = await prisma.user.findFirst({
+        where: { email },
+        select: { customerProfile: { select: { firstName: true } } },
+      });
+      name = user?.customerProfile?.firstName ?? "";
+    }
+
+    await deliverOtp({ phone, email }, otp, { name, purpose });
 
     return ok(
       {

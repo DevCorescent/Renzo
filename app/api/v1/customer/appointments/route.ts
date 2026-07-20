@@ -9,6 +9,8 @@ import {
 import { created, err, paginated } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
+import { sendMail } from "@/lib/mailer";
+import { bookingConfirmationEmail } from "@/lib/email-templates";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -249,7 +251,7 @@ export async function POST(req: NextRequest) {
 
     const customer = await prisma.customer.findUnique({
       where: { id: user.customerId },
-      select: { id: true, isActive: true },
+      select: { id: true, isActive: true, firstName: true, lastName: true, email: true },
     });
 
     if (!customer || !customer.isActive) {
@@ -558,6 +560,24 @@ export async function POST(req: NextRequest) {
 
       return createdAppointment;
     });
+
+    // Send booking confirmation email (non-blocking — never fails the response).
+    if (customer.email) {
+      const workerName = appointment.worker
+        ? `${appointment.worker.firstName} ${appointment.worker.lastName ?? ""}`.trim()
+        : null;
+      const { subject, html, text } = bookingConfirmationEmail({
+        name: `${customer.firstName} ${customer.lastName ?? ""}`.trim(),
+        appointmentNo: appointment.appointmentNo,
+        date: new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(appointment.appointmentDate),
+        time: `${appointment.startTime} – ${appointment.endTime}`,
+        branch: appointment.branch.name,
+        worker: workerName,
+        services: appointment.services.map((s) => s.service.name),
+        totalAmount: appointment.totalAmount,
+      });
+      sendMail({ to: customer.email, subject, html, text });
+    }
 
     return created(appointment, "Appointment booked successfully");
   } catch (error) {

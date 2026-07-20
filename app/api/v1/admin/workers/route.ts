@@ -18,6 +18,8 @@ import { requireAuth } from "@/lib/auth-guard";
 import { hashPassword } from "@/lib/password";
 import prisma from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { sendMail } from "@/lib/mailer";
+import { workerWelcomeEmail } from "@/lib/email-templates";
 
 const GENDERS = ["MALE", "FEMALE", "UNISEX"] as const;
 type Gender = (typeof GENDERS)[number];
@@ -368,7 +370,7 @@ export async function POST(req: NextRequest) {
 
     const branch = await prisma.branch.findUnique({
       where: { id: branchId! },
-      select: { id: true, isActive: true },
+      select: { id: true, name: true, isActive: true },
     });
 
     if (!branch) {
@@ -447,6 +449,17 @@ export async function POST(req: NextRequest) {
         },
       });
     });
+
+    // Send welcome email with login credentials (non-blocking).
+    if (email) {
+      const { subject, html, text } = workerWelcomeEmail({
+        name: firstName!,
+        email,
+        password,
+        branchName: branch.name,
+      });
+      sendMail({ to: email, subject, html, text });
+    }
 
     return created(worker, "Worker created successfully");
   } catch (e: unknown) {

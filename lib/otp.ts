@@ -1,4 +1,6 @@
 import type { OtpPurpose } from "@prisma/client";
+import { sendMail } from "@/lib/mailer";
+import { otpEmail } from "@/lib/email-templates";
 
 // OWNER: Shalmon | MODULE: Auth — OTP helpers
 
@@ -35,12 +37,20 @@ export function parseChannel(body: {
   return { phone, email };
 }
 
-// TODO(Shalmon): wire real delivery once RESEND_API_KEY / WHATSAPP_API_TOKEN
-// are set (see .env). For now log to the server so dev/testing can proceed.
+// Delivers the OTP via email (SMTP) when an email channel is provided.
+// Phone/WhatsApp delivery is a future integration — logs to console for now.
 export async function deliverOtp(
   channel: { phone: string | null; email: string | null },
-  otp: string
+  otp: string,
+  opts?: { name?: string; purpose?: string }
 ): Promise<void> {
-  const target = channel.phone ?? channel.email ?? "unknown";
-  console.log(`[OTP] ${otp} -> ${target}`);
+  if (channel.email) {
+    const { subject, html, text } = otpEmail(opts?.name ?? "", otp, opts?.purpose ?? "LOGIN");
+    await sendMail({ to: channel.email, subject, html, text });
+  }
+
+  if (channel.phone) {
+    // WhatsApp/SMS integration placeholder — log in dev until provider is wired.
+    console.log(`[OTP] ${otp} -> ${channel.phone}`);
+  }
 }

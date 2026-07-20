@@ -4,6 +4,8 @@ import { AppointmentStatus, Prisma } from "@prisma/client";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
+import { sendMail } from "@/lib/mailer";
+import { bookingCancellationEmail } from "@/lib/email-templates";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -79,6 +81,8 @@ export async function POST(
         totalAmount: true,
         appointmentDate: true,
         startTime: true,
+        customer: { select: { firstName: true, lastName: true, email: true } },
+        branch: { select: { name: true } },
       },
     });
 
@@ -128,18 +132,19 @@ export async function POST(
         },
       });
 
-      // TODO (Phase 2): calculate cancellation charges
-      // TODO (Phase 2): process refund
-      // TODO (Phase 2): restore slot availability
-      // TODO (Phase 2): refund loyalty points / wallet
-      // TODO (Phase 2): notify customer
-      // TODO (Phase 2): notify branch / receptionist
-      // TODO (Phase 2): send Email / SMS / WhatsApp
-      // TODO (Phase 2): audit log
-      // TODO (Phase 2): activity log
-
       return updatedAppointment;
     });
+
+    // Send cancellation email (non-blocking).
+    if (appointment.customer?.email) {
+      const { subject, html, text } = bookingCancellationEmail({
+        name: `${appointment.customer.firstName} ${appointment.customer.lastName ?? ""}`.trim(),
+        appointmentNo: appointment.appointmentNo,
+        date: new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(appointment.appointmentDate),
+        branch: appointment.branch?.name ?? "",
+      });
+      sendMail({ to: appointment.customer.email, subject, html, text });
+    }
 
     return ok(cancelledAppointment, "Appointment cancelled successfully");
   } catch (error) {

@@ -5,6 +5,8 @@ import prisma from "@/lib/db";
 import { getOrCreateWallet, debitWallet } from "@/lib/wallet";
 import { giftCardUsableReason, redeemGiftCard } from "@/lib/gift-cards";
 import { earnLoyaltyPoints } from "@/lib/loyalty";
+import { sendMail } from "@/lib/mailer";
+import { invoiceEmail } from "@/lib/email-templates";
 import type { PaymentMethod, InvoiceStatus, PaymentStatus } from "@prisma/client";
 
 const METHODS: PaymentMethod[] = [
@@ -43,7 +45,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return err("Use POST /api/v1/customer/loyalty/redeem to pay with points", 400);
     }
 
-    const invoice = await prisma.invoice.findUnique({ where: { id } });
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: { items: { select: { name: true, quantity: true, unitPrice: true, total: true } } },
+    });
     if (!invoice) return err("Invoice not found", 404);
     if (invoice.status === "CANCELLED") return err("Cannot pay a cancelled invoice", 409);
     if (invoice.status === "PAID") return err("Invoice is already fully paid", 409);
@@ -140,6 +145,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           : null,
       };
     });
+
+    // Send receipt email when invoice is fully paid (non-blocking — fire and forget).
+    if (result.invoice.status === "PAID") {
+      Promise.all([
+        prisma.customer.findUnique({
+          where: { id: invoice.customerId },
+          select: { firstName: true, lastName: true, email: true },
+        }),
+        prisma.branch.findUnique({
+          where: { id: invoice.branchId },
+          select: { name: true },
+        }),
+      ]).then(([customer, branch]) => {
+        if (!customer?.email) return;
+        const { subject, html, text } = invoiceEmail({
+          name: `${customer.firstName} ${customer.lastName ?? ""}`.trim(),
+          invoiceNo: invoice.invoiceNo,
+          date: new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(new Date()),
+          branch: branch?.name ?? "",
+          items: invoice.items.map((item) => ({
+            label: `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+            amount: Number(item.total),
+          })),
+          subtotal: Number(invoice.subtotal),
+          discount: Number(invoice.discountAmount),
+          tax: Number(invoice.taxAmount),
+          total: Number(invoice.totalAmount),
+          paid: Number(result.invoice.paidAmount),
+          balance: Number(result.invoice.balanceDue),
+          method: method.replace(/_/g, " "),
+        });
+        return sendMail({ to: customer.email, subject, html, text });
+      }).catch((e) => console.error("[Mailer] Receipt email failed:", e));
+    }
 
     return created(result, "Payment recorded");
   } catch {
