@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Scissors, ArrowRight, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
 import { API } from "@/lib/endpoints";
+import {
+  GoogleLoginButton,
+  GOOGLE_ENABLED,
+} from "@/components/shared/google-login-button";
 import type { ApiResponse, UserType } from "@/types/api";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -24,6 +28,7 @@ export default function SignupPage() {
   const [devOtp, setDevOtp] = React.useState<string | null>(null);
   const [userName, setUserName] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const [googleLoading, setGoogleLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [countdown, setCountdown] = React.useState(0);
   const inputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
@@ -107,6 +112,26 @@ export default function SignupPage() {
       setTimeout(() => { router.push(HOME_CUSTOMER); router.refresh(); }, 2200);
     } catch (e) { setError(e instanceof Error ? e.message : "Invalid code"); }
     finally { setLoading(false); }
+  }
+
+  // "Continue with Google" — trades the Google ID token for the same session
+  // cookie the OTP flow issues, auto-registering the customer if new, then goes
+  // straight to the success state.
+  async function handleGoogleCredential(credential: string) {
+    setGoogleLoading(true); setError(null);
+    try {
+      const res = await fetch(API.auth.google, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential }),
+      });
+      const data: ApiResponse<{ user: LoggedInUser }> = await res.json();
+      if (!data.success || !data.data) throw new Error(data.message);
+      setUserName(data.data.user.name);
+      setStep("done");
+      setTimeout(() => { router.push(HOME_CUSTOMER); router.refresh(); }, 2200);
+    } catch (e) { setError(e instanceof Error ? e.message : "Google sign-in failed"); }
+    finally { setGoogleLoading(false); }
   }
 
   async function handleResend() {
@@ -227,6 +252,22 @@ export default function SignupPage() {
                     {!loading && <ArrowRight className="size-4" />}
                   </motion.button>
                 </form>
+
+                {GOOGLE_ENABLED && (
+                  <div className="mt-5 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <span className="h-px flex-1 bg-white/10" />
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-stone-600">
+                        or
+                      </span>
+                      <span className="h-px flex-1 bg-white/10" />
+                    </div>
+                    <GoogleLoginButton
+                      loading={googleLoading}
+                      onCredential={handleGoogleCredential}
+                    />
+                  </div>
+                )}
 
                 <p className="mt-6 text-center text-xs text-stone-500">
                   Already have an account?{" "}
