@@ -7,7 +7,7 @@ import Image from "next/image";
 import { ArrowUpRight } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { buttonVariants } from "@/components/ui/button";
-import { PILL_SOLID, GLASS } from "./home-ui";
+import { PILL_SOLID } from "./home-ui";
 import { MotionReveal, MotionStagger, MotionItem } from "./motion";
 import { cn } from "@/lib/utils";
 import { BLOG_POSTS } from "./home-data";
@@ -53,10 +53,9 @@ export function Blog() {
 
   return (
     <section className="relative overflow-hidden bg-[#0A0B0D] py-24 sm:py-32">
-      {/* Ambient silver glow — matches Hero */}
       <div
         aria-hidden
-        className="pointer-events-none absolute right-[-10%] top-0 size-[36rem] rounded-full bg-[#C4C9D1]/[0.06] blur-3xl"
+        className="pointer-events-none absolute right-[-10%] top-0 size-[32rem] rounded-full bg-[#C4C9D1]/[0.06] blur-3xl"
       />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -82,13 +81,8 @@ export function Blog() {
         </div>
 
         <MotionReveal className="grid gap-8 lg:grid-cols-2 lg:items-end">
-          <div>
-            <div
-              className={cn(
-                GLASS,
-                "mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-1.5"
-              )}
-            >
+          <div className="min-w-0">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-4 py-1.5 backdrop-blur-xl">
               <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#C4C9D1]">
                 Journal
               </span>
@@ -168,9 +162,17 @@ export function Blog() {
                           ? "(max-width: 1024px) 100vw, 50vw"
                           : "(max-width: 1024px) 50vw, 22rem"
                       }
-                      className="object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+                      className="object-cover saturate-[0.85] brightness-[0.9] contrast-[1.05] transition-transform duration-700 group-hover:scale-[1.06]"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0A0B0D]/80 via-transparent to-transparent" />
+                    {/* Uniform tone wash — brings every image to the same warm-dark
+                        register regardless of its original exposure/saturation, so a
+                        bright/warm photo (e.g. the nails shot) no longer stands out
+                        against the moodier portrait and interior shots beside it. */}
+                    <div
+                      aria-hidden
+                      className="absolute inset-0 bg-[#0A0B0D]/25 mix-blend-multiply"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0A0B0D]/85 via-[#0A0B0D]/10 to-transparent" />
                   </div>
 
                   <div className="relative z-20 flex flex-1 flex-col p-6 sm:p-7">

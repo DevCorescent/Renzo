@@ -34,7 +34,7 @@ function StatItem({ stat, start, index }: { stat: Stat; start: boolean; index: n
         {value}
         {stat.suffix}
       </p>
-      <p className="mt-3 text-sm font-medium uppercase tracking-wide text-[#B7BEC8]">
+      <p className="mt-4 text-sm font-medium uppercase tracking-wide text-[#B7BEC8] sm:mt-5">
         <span className="sr-only">
           {stat.value}
           {stat.suffix} —{" "}
@@ -51,24 +51,21 @@ export function Experience() {
 
   return (
     <section id="about" className="relative overflow-hidden bg-[#0A0B0D] py-12 sm:py-14">
-      {/* Ambient silver glow — matches Hero/Blog */}
       <div
         aria-hidden
         className="pointer-events-none absolute left-[-10%] top-1/3 size-[32rem] rounded-full bg-[#C4C9D1]/[0.06] blur-3xl"
       />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <MotionReveal className="grid gap-8 lg:grid-cols-2 lg:items-end">
-          <div>
+        <MotionReveal className="grid gap-8 lg:grid-cols-2 lg:items-start">
+          <div className="min-w-0">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-4 py-1.5 backdrop-blur-xl">
               <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#C4C9D1]">
                 Our Story
               </span>
             </div>
-            <h2 className="group max-w-xl font-heading text-4xl font-black leading-[0.98] tracking-[-0.03em] text-white sm:text-5xl xl:text-6xl">
-              More Than a Salon,
-              <br />
-              An{" "}
+            <h2 className="group max-w-xl font-heading text-2xl font-medium leading-tight tracking-tight text-white sm:text-3xl md:text-4xl">
+              More Than a Salon, An{" "}
               <motion.span
                 className="inline-block bg-[length:200%_100%] bg-gradient-to-r from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text text-transparent transition-transform duration-500 group-hover:translate-x-1.5"
                 animate={
@@ -86,7 +83,7 @@ export function Experience() {
               </motion.span>
             </h2>
           </div>
-          <div className="space-y-5 lg:pb-2">
+          <div className="space-y-5 lg:pt-[2.85rem]">
             <p className="max-w-md leading-relaxed text-[#B7BEC8]">
               At Renzo, we believe beauty is more than just a look — it&apos;s a feeling. Our
               mission is to create a space where every visit leaves you more confident than the
@@ -106,15 +103,13 @@ export function Experience() {
           </div>
         </MotionReveal>
 
-        {/* Shared blurb line above the stat rail */}
         <p className="relative mt-8 max-w-lg text-sm leading-relaxed text-[#8D96A0]">
           {STATS_BLURB}
         </p>
 
-        {/* Bento-style stat rail */}
         <div
           ref={ref}
-          className="relative mt-4 grid grid-cols-2 gap-x-4 gap-y-4 rounded-[28px] border border-white/10 bg-black/80 p-4 backdrop-blur-xl sm:grid-cols-4 sm:gap-0 sm:p-6"
+          className="relative mt-4 grid grid-cols-2 gap-x-4 gap-y-6 rounded-[28px] border border-white/10 bg-black/80 p-4 backdrop-blur-xl sm:grid-cols-4 sm:gap-0 sm:p-6"
         >
           {STATS.map((stat, i) => (
             <StatItem key={stat.label} stat={stat} start={inView} index={i} />

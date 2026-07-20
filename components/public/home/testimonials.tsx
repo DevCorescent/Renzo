@@ -39,30 +39,30 @@ export function Testimonials() {
               type="button"
               onClick={() => scrollByCards(-1)}
               aria-label="Previous testimonials"
-              className="inline-flex size-11 items-center justify-center rounded-full border border-white/20 text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              className="inline-flex size-12 items-center justify-center rounded-full border border-white/30 bg-white/5 text-white shadow-lg shadow-black/20 transition-all hover:border-white/50 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              <ArrowLeft className="size-4" />
+              <ArrowLeft className="size-5" />
             </button>
             <button
               type="button"
               onClick={() => scrollByCards(1)}
               aria-label="Next testimonials"
-              className="inline-flex size-11 items-center justify-center rounded-full bg-white text-stone-900 transition-colors hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              className="inline-flex size-12 items-center justify-center rounded-full bg-white text-stone-900 shadow-lg shadow-black/20 transition-all hover:bg-white/90 hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              <ArrowRight className="size-4" />
+              <ArrowRight className="size-5" />
             </button>
           </div>
         </div>
 
         <div
           ref={scroller}
-          className="mt-14 flex snap-x gap-6 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="mt-14 flex snap-x gap-8 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {TESTIMONIALS.map((t, i) => (
             <figure
               key={t.name}
               className={cn(
-                "flex w-[85%] shrink-0 snap-start flex-col rounded-2xl border p-8 sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]",
+                "flex w-[88%] shrink-0 snap-start flex-col rounded-2xl border p-8 sm:w-[calc(50%-1rem)] sm:p-10 lg:w-[calc(33.333%-1.34rem)]",
                 i === 1
                   ? "border-white/15 bg-stone-900 shadow-2xl"
                   : "border-white/10 bg-stone-900/40 opacity-90",
@@ -76,11 +76,11 @@ export function Testimonials() {
                 </div>
                 <span className="text-sm text-stone-400">({t.rating.toFixed(1)})</span>
               </div>
-              <blockquote className="mt-6 flex-1 text-sm leading-relaxed text-stone-300">
+              <blockquote className="mt-7 flex-1 text-base leading-relaxed text-stone-300">
                 &ldquo;{t.text}&rdquo;
               </blockquote>
-              <figcaption className="mt-6 flex items-center gap-3">
-                <span className="inline-flex size-10 items-center justify-center rounded-full bg-[#C4C9D1]/15 font-heading text-sm font-semibold text-[#C4C9D1] ring-1 ring-[#C4C9D1]/20">
+              <figcaption className="mt-8 flex items-center gap-3">
+                <span className="inline-flex size-11 items-center justify-center rounded-full bg-[#C4C9D1]/15 font-heading text-sm font-semibold text-[#C4C9D1] ring-1 ring-[#C4C9D1]/20">
                   {initials(t.name)}
                 </span>
                 <span>
