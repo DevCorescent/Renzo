@@ -4,6 +4,9 @@ import { redirect, notFound } from "next/navigation";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 import { AssignStaffForm } from "./assign-staff-form";
 import { BranchCoverUpload } from "./branch-cover-upload";
+import { BranchStatusToggle } from "./branch-status-toggle";
+import { DeleteBranchButton } from "./delete-branch-button";
+import { BranchStaffList } from "./branch-staff-list";
 
 // OWNER: Hemant | MODULE: Super Admin — Branch Detail
 
@@ -18,7 +21,7 @@ export default async function SuperAdminBranchDetailPage({ params }: { params: P
       timings: { orderBy: { dayOfWeek: "asc" } },
       setting: true,
       staffProfiles: {
-        include: { user: { select: { userType: true } } },
+        include: { user: { select: { userType: true, isActive: true, email: true, phone: true } } },
         orderBy: { createdAt: "desc" },
       },
       workerBranches: {
@@ -43,7 +46,11 @@ export default async function SuperAdminBranchDetailPage({ params }: { params: P
         </div>
         <div className="flex items-start gap-4">
           <BranchCoverUpload branchId={id} currentImage={branch.coverImage ?? null} />
-          <Badge tone={branch.isActive ? "success" : "danger"}>{branch.isActive ? "Active" : "Inactive"}</Badge>
+          <div className="flex flex-col items-end gap-2">
+            <Badge tone={branch.isActive ? "success" : "danger"}>{branch.isActive ? "Active" : "Inactive"}</Badge>
+            <BranchStatusToggle branchId={id} branchName={branch.name} isActive={branch.isActive} />
+            <DeleteBranchButton branchId={id} branchName={branch.name} />
+          </div>
         </div>
       </div>
 
@@ -89,18 +96,17 @@ export default async function SuperAdminBranchDetailPage({ params }: { params: P
             <CardTitle>Staff</CardTitle>
             <AssignStaffForm branchId={id} />
           </CardHeader>
-          <div className="divide-y divide-gray-50">
-            {branch.staffProfiles.map((s) => (
-              <div key={s.id} className="flex items-center justify-between px-4 py-2.5">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{s.firstName} {s.lastName}</p>
-                  <p className="text-xs text-gray-400">{s.user.userType.replace(/_/g, " ")}</p>
-                </div>
-                <Badge tone={s.isActive ? "success" : "neutral"}>{s.isActive ? "Active" : "Off"}</Badge>
-              </div>
-            ))}
-            {branch.staffProfiles.length === 0 && <p className="px-4 py-4 text-sm text-gray-400">No staff assigned.</p>}
-          </div>
+          <BranchStaffList
+            staff={branch.staffProfiles.map((s) => ({
+              id: s.id,
+              firstName: s.firstName,
+              lastName: s.lastName,
+              email: s.user.email,
+              phone: s.user.phone,
+              userType: s.user.userType,
+              isActive: s.user.isActive && s.isActive,
+            }))}
+          />
         </Card>
       </div>
 
