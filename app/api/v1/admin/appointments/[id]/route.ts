@@ -9,6 +9,8 @@ import {
   findAppointmentConflict,
 } from "@/lib/appointment-conflict";
 import { DATE_RE } from "@/lib/slots";
+import { sendMail } from "@/lib/mailer";
+import { appointmentRescheduleEmail } from "@/lib/email-templates";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -385,6 +387,7 @@ export async function PATCH(
                 firstName: true,
                 lastName: true,
                 phone: true,
+                email: true,
               },
             },
 
@@ -409,6 +412,22 @@ export async function PATCH(
             addOns: true,
           },
         });
+
+      // Non-blocking reschedule notification when date or time changed.
+      const dateTimeChanged =
+        appointmentDate !== undefined ||
+        startTime !== undefined ||
+        endTime !== undefined;
+      if (dateTimeChanged && appointment.customer?.email) {
+        const { subject, html, text } = appointmentRescheduleEmail({
+          name: `${appointment.customer.firstName} ${appointment.customer.lastName ?? ""}`.trim(),
+          appointmentNo: appointment.appointmentNo,
+          date: new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(appointment.appointmentDate),
+          time: appointment.startTime,
+          branch: appointment.branch?.name ?? "",
+        });
+        sendMail({ to: appointment.customer.email, subject, html, text });
+      }
 
       return ok(
         appointment,

@@ -1,5 +1,4 @@
 // Server-only — never import from client components.
-import React from "react";
 import path from "path";
 import { Document, Page, View, Text, StyleSheet, Font, renderToBuffer } from "@react-pdf/renderer";
 
@@ -12,68 +11,120 @@ Font.register({
   ],
 });
 
-// Prevent widow words inside Text elements.
 Font.registerHyphenationCallback((w) => [w]);
 
-const GOLD  = "#C8A96A";
-const INK   = "#18181b";
-const MUTED = "#71717a";
-const RULE  = "#e4e4e7";
-const PALE  = "#fafaf9";
+// ── Palette — elegant rose / blush matching reference ──
+const ROSE       = "#D4687A";   // accent / headers
+const ROSE_LIGHT = "#FBE8EC";   // table header bg, total row bg
+const ROSE_MID   = "#F2D0D8";   // decorative circle fills
+const INK        = "#2B2B2B";
+const MUTED      = "#888888";
+const RULE       = "#EED8DC";
+const WHITE      = "#FFFFFF";
 
 const s = StyleSheet.create({
   page: {
     fontFamily: "Inter", fontSize: 10, color: INK,
-    backgroundColor: "#ffffff", padding: "44 52 52 52",
+    backgroundColor: WHITE, paddingHorizontal: 52, paddingVertical: 44,
   },
 
-  /* ── header ─────────────────────────────────────────────── */
-  hdr:     { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 },
-  logo:    { fontSize: 20, fontWeight: 700, letterSpacing: 3, color: INK },
-  tagline: { fontSize: 7.5, color: MUTED, letterSpacing: 2, marginTop: 4, textTransform: "uppercase" },
-  rhs:     { alignItems: "flex-end" },
-  invLbl:  { fontSize: 16, fontWeight: 700, color: GOLD, letterSpacing: 5 },
-  invNo:   { fontSize: 10, fontWeight: 700, marginTop: 4 },
-  invDate: { fontSize: 9, color: MUTED, marginTop: 2 },
+  /* ── decorative circles (top-right & bottom-left) ────────── */
+  decCircleTR: {
+    position: "absolute", top: -30, right: -30,
+    width: 150, height: 150, borderRadius: 75,
+    backgroundColor: ROSE_MID, opacity: 0.45,
+  },
+  decCircleBL: {
+    position: "absolute", bottom: -20, left: -20,
+    width: 110, height: 110, borderRadius: 55,
+    backgroundColor: ROSE_MID, opacity: 0.35,
+  },
 
-  /* ── gold rule ───────────────────────────────────────────── */
-  goldRule: { height: 1.5, backgroundColor: GOLD, marginBottom: 24 },
+  /* ── logo block (centered) ───────────────────────────────── */
+  logoWrap:    { alignItems: "center", marginBottom: 8 },
+  logoCircle:  {
+    width: 52, height: 52, borderRadius: 26,
+    borderWidth: 1.5, borderColor: ROSE,
+    alignItems: "center", justifyContent: "center",
+    marginBottom: 6,
+  },
+  logoInitial: { fontSize: 18, fontWeight: 700, color: ROSE },
+  brandName:   { fontSize: 9, fontWeight: 700, letterSpacing: 3, color: INK, textTransform: "uppercase" },
+  tagline:     { fontSize: 7, color: MUTED, letterSpacing: 2, marginTop: 2, textTransform: "uppercase" },
 
-  /* ── bill-to / branch ────────────────────────────────────── */
-  infoRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 28 },
-  infoLbl: { fontSize: 7.5, fontWeight: 700, color: MUTED, letterSpacing: 1.5, marginBottom: 5, textTransform: "uppercase" },
-  infoVal: { fontSize: 12, fontWeight: 700 },
-  infoR:   { alignItems: "flex-end" },
+  /* ── "INVOICE" title ─────────────────────────────────────── */
+  invoiceTitle: {
+    fontSize: 34, fontWeight: 700, color: INK,
+    letterSpacing: 6, textAlign: "center", marginBottom: 4,
+  },
 
-  /* ── items table ─────────────────────────────────────────── */
-  thRow:   { flexDirection: "row", backgroundColor: PALE, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 4, marginBottom: 2 },
-  th:      { fontSize: 7.5, fontWeight: 700, color: MUTED, letterSpacing: 1.5 },
-  tdRow:   { flexDirection: "row", paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: RULE },
+  /* ── thin decorative rule ────────────────────────────────── */
+  ruleWrap:    { marginVertical: 14 },
+  ruleLine:    { height: 1, backgroundColor: RULE },
+
+  /* ── info columns: INVOICE TO / INVOICE NO. / DATE ─────── */
+  infoRow:     { flexDirection: "row", justifyContent: "space-between", marginBottom: 22 },
+  infoBlock:   { flex: 1 },
+  infoBlockR:  { flex: 1, alignItems: "flex-end" },
+  infoLbl:     { fontSize: 7.5, fontWeight: 700, color: MUTED, letterSpacing: 1.5, marginBottom: 4, textTransform: "uppercase" },
+  infoVal:     { fontSize: 11, fontWeight: 700, color: INK },
+  infoSub:     { fontSize: 9, color: MUTED, marginTop: 2 },
+
+  /* ── table ───────────────────────────────────────────────── */
+  thRow:  {
+    flexDirection: "row",
+    backgroundColor: ROSE_LIGHT,
+    paddingVertical: 7, paddingHorizontal: 10,
+  },
+  th:      { fontSize: 7.5, fontWeight: 700, color: ROSE, letterSpacing: 1.2, textTransform: "uppercase" },
+  tdRow:   {
+    flexDirection: "row",
+    paddingVertical: 9, paddingHorizontal: 10,
+    borderBottomWidth: 1, borderBottomColor: RULE,
+  },
   tdLast:  { borderBottomWidth: 0 },
-  tdDesc:  { flex: 1, fontSize: 10, color: INK },
-  tdAmt:   { width: 80, textAlign: "right", fontSize: 10, color: INK },
 
-  /* ── totals ──────────────────────────────────────────────── */
-  totWrap:   { marginTop: 16, marginLeft: "auto", width: 220 },
-  thinRule:  { height: 1, backgroundColor: RULE, marginBottom: 8 },
-  tRow:      { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3.5 },
-  tLbl:      { fontSize: 10, color: MUTED },
-  tVal:      { fontSize: 10, color: INK },
-  tDiscount: { fontSize: 10, color: "#16a34a" },
-  grandRow:  { flexDirection: "row", justifyContent: "space-between", paddingVertical: 9, borderTopWidth: 2, borderTopColor: GOLD, marginTop: 4 },
-  grandLbl:  { fontSize: 12, fontWeight: 700 },
-  grandVal:  { fontSize: 13, fontWeight: 700, color: GOLD },
-  paidRow:   { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3.5 },
-  paidLbl:   { fontSize: 10, color: "#16a34a" },
-  paidVal:   { fontSize: 10, fontWeight: 700, color: "#16a34a" },
-  balRow:    { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3.5 },
-  balLbl:    { fontSize: 10, fontWeight: 700, color: "#dc2626" },
-  balVal:    { fontSize: 10, fontWeight: 700, color: "#dc2626" },
+  /* column widths */
+  colDesc: { flex: 1 },
+  colQty:  { width: 36, textAlign: "center" },
+  colRate: { width: 72, textAlign: "right" },
+  colAmt:  { width: 72, textAlign: "right" },
+
+  tdText:  { fontSize: 9.5, color: INK },
+  tdMuted: { fontSize: 9.5, color: MUTED },
+
+  /* ── totals block ────────────────────────────────────────── */
+  totWrap: { marginTop: 14, marginLeft: "auto", width: 210 },
+  tRow:    { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
+  tLbl:    { fontSize: 9.5, color: MUTED },
+  tVal:    { fontSize: 9.5, color: INK },
+  tGreen:  { fontSize: 9.5, color: "#15803d" },
+
+  /* highlighted total row */
+  grandRow: {
+    flexDirection: "row", justifyContent: "space-between",
+    paddingVertical: 8, paddingHorizontal: 8,
+    backgroundColor: ROSE_LIGHT, marginTop: 4,
+  },
+  grandLbl: { fontSize: 11, fontWeight: 700, color: ROSE },
+  grandVal: { fontSize: 11, fontWeight: 700, color: ROSE },
+
+  paidRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
+  paidLbl: { fontSize: 9, color: "#15803d" },
+  paidVal: { fontSize: 9, fontWeight: 700, color: "#15803d" },
+
+  balRow:  { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
+  balLbl:  { fontSize: 9, fontWeight: 700, color: "#dc2626" },
+  balVal:  { fontSize: 9, fontWeight: 700, color: "#dc2626" },
 
   /* ── footer ──────────────────────────────────────────────── */
-  footer:   { marginTop: "auto", paddingTop: 20, borderTopWidth: 1, borderTopColor: RULE, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  ftNote:   { fontSize: 8, color: MUTED },
-  ftBrand:  { fontSize: 8, fontWeight: 700, color: GOLD, letterSpacing: 2 },
+  footerRule:  { height: 1, backgroundColor: RULE, marginTop: 28, marginBottom: 16 },
+  footerRow:   { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
+  thankYou:    { fontSize: 22, fontWeight: 700, color: ROSE, letterSpacing: 1 },
+  ftBrand:     { fontSize: 8, fontWeight: 700, color: INK, letterSpacing: 1, marginBottom: 2 },
+  ftContact:   { fontSize: 7.5, color: MUTED, marginTop: 1 },
+  ftRight:     { alignItems: "flex-end" },
+  ftWebsite:   { fontSize: 7.5, color: MUTED },
 });
 
 export type InvoicePdfData = {
@@ -81,6 +132,7 @@ export type InvoicePdfData = {
   date: string;
   branch: string;
   customerName: string;
+  customerPhone?: string;
   items: { label: string; amount: number }[];
   subtotal: number;
   discount: number;
@@ -95,60 +147,73 @@ const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
 function InvoiceDoc({ d }: { d: InvoicePdfData }) {
   return (
-    <Document title={`Invoice ${d.invoiceNo} — Renzo Salon`} author="Renzo Salon">
+    <Document title={`Invoice ${d.invoiceNo} — Renzo`} author="Renzo Salon">
       <Page size="A4" style={s.page}>
 
-        {/* Header */}
-        <View style={s.hdr}>
-          <View>
-            <Text style={s.logo}>RENZO</Text>
-            <Text style={s.tagline}>Premium Salon & Spa</Text>
+        {/* Decorative background circles */}
+        <View style={s.decCircleTR} fixed />
+        <View style={s.decCircleBL} fixed />
+
+        {/* Centered logo + brand */}
+        <View style={s.logoWrap}>
+          <View style={s.logoCircle}>
+            <Text style={s.logoInitial}>R</Text>
           </View>
-          <View style={s.rhs}>
-            <Text style={s.invLbl}>INVOICE</Text>
-            <Text style={s.invNo}>{d.invoiceNo}</Text>
-            <Text style={s.invDate}>{d.date}</Text>
-          </View>
+          <Text style={s.brandName}>Renzo</Text>
+          <Text style={s.tagline}>Hair &amp; Beauty Salon</Text>
         </View>
 
-        <View style={s.goldRule} />
+        {/* "INVOICE" heading */}
+        <Text style={s.invoiceTitle}>INVOICE</Text>
 
-        {/* Bill-to / Branch */}
+        {/* Thin rule */}
+        <View style={s.ruleWrap}>
+          <View style={s.ruleLine} />
+        </View>
+
+        {/* INVOICE TO / INVOICE NO. / DATE */}
         <View style={s.infoRow}>
-          <View>
-            <Text style={s.infoLbl}>Billed To</Text>
+          <View style={s.infoBlock}>
+            <Text style={s.infoLbl}>Invoice To</Text>
             <Text style={s.infoVal}>{d.customerName}</Text>
+            {d.customerPhone && <Text style={s.infoSub}>{d.customerPhone}</Text>}
           </View>
-          <View style={s.infoR}>
-            <Text style={s.infoLbl}>Branch</Text>
-            <Text style={s.infoVal}>{d.branch}</Text>
+          <View style={s.infoBlockR}>
+            <Text style={s.infoLbl}>Invoice No.</Text>
+            <Text style={s.infoVal}>{d.invoiceNo}</Text>
+            <Text style={[s.infoLbl, { marginTop: 8 }]}>Date</Text>
+            <Text style={s.infoVal}>{d.date}</Text>
           </View>
         </View>
 
-        {/* Items */}
+        {/* Table header */}
         <View style={s.thRow}>
-          <Text style={[s.th, { flex: 1 }]}>Description</Text>
-          <Text style={[s.th, { width: 80, textAlign: "right" }]}>Amount</Text>
+          <Text style={[s.th, s.colDesc]}>Description</Text>
+          <Text style={[s.th, s.colQty]}>Qty</Text>
+          <Text style={[s.th, s.colRate]}>Rate</Text>
+          <Text style={[s.th, s.colAmt]}>Amount</Text>
         </View>
 
+        {/* Table rows */}
         {d.items.map((item, i) => (
           <View key={i} style={[s.tdRow, i === d.items.length - 1 ? s.tdLast : {}]}>
-            <Text style={s.tdDesc}>{item.label}</Text>
-            <Text style={s.tdAmt}>{inr(item.amount)}</Text>
+            <Text style={[s.tdText, s.colDesc]}>{item.label}</Text>
+            <Text style={[s.tdMuted, s.colQty]}>1</Text>
+            <Text style={[s.tdMuted, s.colRate]}>{inr(item.amount)}</Text>
+            <Text style={[s.tdText, s.colAmt]}>{inr(item.amount)}</Text>
           </View>
         ))}
 
         {/* Totals */}
         <View style={s.totWrap}>
-          <View style={s.thinRule} />
           <View style={s.tRow}>
-            <Text style={s.tLbl}>Subtotal</Text>
+            <Text style={s.tLbl}>Sub-Total</Text>
             <Text style={s.tVal}>{inr(d.subtotal)}</Text>
           </View>
           {d.discount > 0 && (
             <View style={s.tRow}>
               <Text style={s.tLbl}>Discount</Text>
-              <Text style={s.tDiscount}>– {inr(d.discount)}</Text>
+              <Text style={s.tGreen}>– {inr(d.discount)}</Text>
             </View>
           )}
           {d.tax > 0 && (
@@ -174,9 +239,16 @@ function InvoiceDoc({ d }: { d: InvoicePdfData }) {
         </View>
 
         {/* Footer */}
-        <View style={s.footer}>
-          <Text style={s.ftNote}>Thank you for choosing Renzo Salon. We look forward to seeing you again!</Text>
-          <Text style={s.ftBrand}>RENZO</Text>
+        <View style={s.footerRule} />
+        <View style={s.footerRow}>
+          <View>
+            <Text style={s.thankYou}>Thank You!</Text>
+            <Text style={[s.ftBrand, { marginTop: 6 }]}>Renzo Hair &amp; Beauty Salon</Text>
+            <Text style={s.ftContact}>{d.branch}</Text>
+          </View>
+          <View style={s.ftRight}>
+            <Text style={s.ftWebsite}>renzosalon.com</Text>
+          </View>
         </View>
 
       </Page>
