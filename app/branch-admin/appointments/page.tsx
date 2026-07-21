@@ -4,6 +4,8 @@ import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 import { CancelBookingButton } from "@/components/appointments/cancel-booking-button";
 import { EditAppointmentButton } from "@/components/appointments/edit-appointment-button";
+import { ConfirmAppointmentButton } from "@/components/appointments/confirm-appointment-button";
+import { AssignWorkerSelect } from "@/components/reception/assign-worker-select";
 
 // OWNER: Hemant | MODULE: Branch Admin Appointments
 
@@ -113,6 +115,15 @@ export default async function BranchAdminAppointmentsPage({
                   </TD>
                   <TD className="text-right">
                     <span className="inline-flex flex-wrap items-start justify-end gap-1.5">
+                      {/* Review/assign the worker (reuses the shared selector via the
+                          admin assign route) then confirm — both over existing APIs. */}
+                      <AssignWorkerSelect
+                        appointmentId={a.id}
+                        status={a.status}
+                        currentWorkerId={a.worker?.id}
+                        mode="admin"
+                      />
+                      <ConfirmAppointmentButton appointmentId={a.id} status={a.status} />
                       <EditAppointmentButton
                         appointmentId={a.id}
                         status={a.status}

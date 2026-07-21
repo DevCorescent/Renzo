@@ -133,3 +133,84 @@ export async function notifyCustomerAppointmentRescheduled(
     tx
   );
 }
+
+/**
+ * Tell the customer (and their assigned worker, if any) that an appointment was
+ * CONFIRMED. Same shared Notification path as every other alert; pass the tx so the
+ * notifications commit atomically with the status change. `workerUserId` is optional
+ * because an appointment can be confirmed before a worker is assigned.
+ */
+export async function notifyAppointmentConfirmed(
+  tx: Tx,
+  appointment: {
+    id: string;
+    appointmentNo: string;
+    appointmentDate: Date;
+    startTime: string;
+    customerUserId: string;
+    workerUserId?: string | null;
+  }
+): Promise<void> {
+  const when = formatAppointmentWhen(appointment.appointmentDate, appointment.startTime);
+
+  await notify(
+    appointment.customerUserId,
+    {
+      type: "SUCCESS",
+      title: "Appointment confirmed",
+      message: `Your appointment ${appointment.appointmentNo} is confirmed for ${when}.`,
+      href: `/customer/bookings/${appointment.id}`,
+      refType: "Appointment",
+      refId: appointment.id,
+    },
+    tx
+  );
+
+  if (appointment.workerUserId) {
+    await notify(
+      appointment.workerUserId,
+      {
+        type: "INFO",
+        title: "Appointment confirmed",
+        message: `Appointment ${appointment.appointmentNo} on ${when} is confirmed.`,
+        href: `/worker/bookings/${appointment.id}`,
+        refType: "Appointment",
+        refId: appointment.id,
+      },
+      tx
+    );
+  }
+}
+
+/**
+ * Tell a worker they were assigned to an appointment. Reuses the shared Notification
+ * path; pass the tx so it commits atomically with the assignment. Callers should only
+ * invoke this when the worker actually CHANGED, so re-saving the same worker never
+ * re-notifies (no duplicates).
+ */
+export async function notifyWorkerAppointmentAssigned(
+  tx: Tx,
+  appointment: {
+    id: string;
+    appointmentNo: string;
+    appointmentDate: Date;
+    startTime: string;
+    workerUserId: string;
+  }
+): Promise<void> {
+  await notify(
+    appointment.workerUserId,
+    {
+      type: "INFO",
+      title: "New appointment assigned",
+      message: `You've been assigned appointment ${appointment.appointmentNo} on ${formatAppointmentWhen(
+        appointment.appointmentDate,
+        appointment.startTime
+      )}.`,
+      href: `/worker/bookings/${appointment.id}`,
+      refType: "Appointment",
+      refId: appointment.id,
+    },
+    tx
+  );
+}

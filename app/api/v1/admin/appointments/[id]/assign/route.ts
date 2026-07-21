@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
+import { notifyWorkerAppointmentAssigned } from "@/lib/notifications";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -78,18 +79,25 @@ export async function PATCH(
       where: {
         id: workerId.trim(),
       },
+      select: { id: true, userId: true },
     });
 
     if (!worker) {
       return err("Worker not found", 404);
     }
 
+    // Only a real change should notify — re-assigning the same worker is a no-op alert.
+    const workerChanged = appointment.workerId !== worker.id;
+
     // ------------------------------------------------------------------------
-    // Assign Worker
+    // Assign Worker (+ notify the newly-assigned worker)
+    //
+    // Update and notify in ONE transaction, reusing the shared Notification
+    // service, so the worker's assignment alert commits atomically with the write.
     // ------------------------------------------------------------------------
 
-    const updatedAppointment =
-      await prisma.appointment.update({
+    const updatedAppointment = await prisma.$transaction(async (tx) => {
+      const updated = await tx.appointment.update({
         where: {
           id,
         },
@@ -125,6 +133,19 @@ export async function PATCH(
           },
         },
       });
+
+      if (workerChanged && worker.userId) {
+        await notifyWorkerAppointmentAssigned(tx, {
+          id: updated.id,
+          appointmentNo: updated.appointmentNo,
+          appointmentDate: updated.appointmentDate,
+          startTime: updated.startTime,
+          workerUserId: worker.userId,
+        });
+      }
+
+      return updated;
+    });
 
     return ok(
       updatedAppointment,

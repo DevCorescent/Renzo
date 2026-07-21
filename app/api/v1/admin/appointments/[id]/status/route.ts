@@ -6,6 +6,7 @@ import {
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
+import { notifyAppointmentConfirmed } from "@/lib/notifications";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -107,11 +108,17 @@ export async function PATCH(
     }
 
     // ------------------------------------------------------------------------
-    // Update Appointment
+    // Update Appointment (+ notify on confirmation)
+    //
+    // Update and notify inside ONE transaction, reusing the shared Notification
+    // service: when an appointment is CONFIRMED the customer — and the assigned
+    // worker, if any — are told, atomically with the status change. Only the
+    // PENDING → CONFIRMED-and-similar transition fans out here; other transitions
+    // keep their existing behaviour untouched.
     // ------------------------------------------------------------------------
 
-    const appointment =
-      await prisma.appointment.update({
+    const appointment = await prisma.$transaction(async (tx) => {
+      const updated = await tx.appointment.update({
         where: {
           id,
         },
@@ -122,6 +129,7 @@ export async function PATCH(
           customer: {
             select: {
               id: true,
+              userId: true,
               firstName: true,
               lastName: true,
               phone: true,
@@ -138,6 +146,7 @@ export async function PATCH(
           worker: {
             select: {
               id: true,
+              userId: true,
               firstName: true,
               lastName: true,
               displayName: true,
@@ -145,6 +154,24 @@ export async function PATCH(
           },
         },
       });
+
+      if (
+        (status as AppointmentStatus) === AppointmentStatus.CONFIRMED &&
+        existingAppointment.status !== AppointmentStatus.CONFIRMED &&
+        updated.customer?.userId
+      ) {
+        await notifyAppointmentConfirmed(tx, {
+          id: updated.id,
+          appointmentNo: updated.appointmentNo,
+          appointmentDate: updated.appointmentDate,
+          startTime: updated.startTime,
+          customerUserId: updated.customer.userId,
+          workerUserId: updated.worker?.userId ?? null,
+        });
+      }
+
+      return updated;
+    });
 
     return ok(
       appointment,
