@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Receipt } from "lucide-react";
 import { CheckInButton } from "@/components/reception/check-in-button";
 import { AssignWorkerSelect } from "@/components/reception/assign-worker-select";
+import { ConfirmAppointmentButton } from "@/components/appointments/confirm-appointment-button";
 import { CancelBookingButton } from "@/components/appointments/cancel-booking-button";
 
 export function QueueActions({
@@ -21,6 +22,8 @@ export function QueueActions({
 
   return (
     <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
+      {/* Confirm a still-pending booking before check-in — shared status route. */}
+      <ConfirmAppointmentButton appointmentId={appointmentId} status={status} />
       <CheckInButton appointmentId={appointmentId} status={status} />
       <AssignWorkerSelect
         appointmentId={appointmentId}

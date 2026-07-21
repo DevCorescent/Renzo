@@ -1,12 +1,10 @@
-export const dynamic = "force-dynamic";
-
 import { getServerUser } from "@/lib/server-session";
 import { redirect, notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge } from "@/components/shared/ui";
 import { ReviewDialog } from "@/components/customer/review-dialog";
-import { CustomerCancelBookingButton } from "@/components/customer/cancel-booking-button";
-import { CustomerRescheduleButton } from "@/components/customer/reschedule-booking-button";
+import { CancelBookingButton } from "@/components/customer/cancel-booking";
+import { RescheduleBookingButton } from "@/components/customer/reschedule-booking";
 import Link from "next/link";
 
 const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info" | "primary"> = {
@@ -39,6 +37,9 @@ export default async function CustomerBookingDetailPage({ params }: { params: Pr
   if (!appointment || appointment.customerId !== authUser.customerId) return notFound();
 
   const canCancel = ["PENDING", "CONFIRMED"].includes(appointment.status);
+  // Same eligibility as cancel; the reschedule API re-checks (not COMPLETED /
+  // CANCELLED / NO_SHOW, not past, one pending request at a time).
+  const canReschedule = ["PENDING", "CONFIRMED"].includes(appointment.status);
 
   // A stylist can only be rated once the appointment is actually COMPLETED.
   // If a review already exists we show it (and let them edit) instead of
@@ -74,14 +75,16 @@ export default async function CustomerBookingDetailPage({ params }: { params: Pr
         </div>
         <div className="flex flex-col items-end gap-2">
           <Badge tone={STATUS_TONE[appointment.status] ?? "neutral"}>{appointment.status.replace(/_/g, " ")}</Badge>
-          <CustomerRescheduleButton
-            appointmentId={appointment.id}
-            status={appointment.status}
-            currentDate={appointment.appointmentDate.toISOString().slice(0, 10)}
-          />
-          {canCancel && (
-            <CustomerCancelBookingButton appointmentId={appointment.id} status={appointment.status} />
+          {/* Server owns every rule; these client components drive the existing
+              reschedule + cancel APIs (native date/time pickers, no new workflow). */}
+          {canReschedule && (
+            <RescheduleBookingButton
+              appointmentId={appointment.id}
+              currentDate={new Date(appointment.appointmentDate).toISOString().slice(0, 10)}
+              currentTime={appointment.startTime}
+            />
           )}
+          {canCancel && <CancelBookingButton appointmentId={appointment.id} />}
         </div>
       </div>
 

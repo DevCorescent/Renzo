@@ -13,11 +13,22 @@ export function AssignWorkerSelect({
   appointmentId,
   status,
   currentWorkerId,
+  mode = "reception",
 }: {
   appointmentId: string;
   status: string;
   currentWorkerId?: string | null;
+  /**
+   * Which assign route to hit — defaults to reception so existing callers are
+   * unchanged. Branch/Super Admin screens pass "admin" to reuse this exact selector
+   * (and its worker-assigned notification) via the admin assign route instead of a
+   * second component. Both routes share the same { workerId } contract and RBAC.
+   * A plain string (not a function) so it is serialisable from a Server Component.
+   */
+  mode?: "reception" | "admin";
 }) {
+  // Resolved on the client, so no non-serialisable prop crosses the boundary.
+  const assign = mode === "admin" ? API.admin.appointmentAssign : API.reception.assign;
   const router = useRouter();
   const [workers, setWorkers] = React.useState<Worker[]>([]);
   const [busy, setBusy] = React.useState(false);
@@ -41,7 +52,7 @@ export function AssignWorkerSelect({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(API.reception.assign(appointmentId), {
+      const res = await fetch(assign(appointmentId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

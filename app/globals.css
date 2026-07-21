@@ -89,6 +89,15 @@
   --sidebar-accent-foreground: oklch(0.214 0.009 43.1);
   --sidebar-border: oklch(0.922 0.005 34.3);
   --sidebar-ring: oklch(0.714 0.014 41.2);
+
+  /* Light chart-axis defaults (dashboards). The `--sa-*` surface/text tokens the
+     dark theme uses live under `.dark` below — components only ever read them
+     through `dark:` variants, so no light values are needed for those. */
+  --sa-axis: #94a3b8;
+  --sa-grid: #eef2f6;
+  --sa-ink: #0f172a;
+
+  color-scheme: light;
 }
 
 .dark {
@@ -127,6 +136,72 @@
   --sidebar-accent-foreground: oklch(0.986 0.002 67.8);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.547 0.021 43.1);
+
+  /* ── Global dark theme — neutral ramp inversion ──────────────────────────────
+     THE single mechanism that themes the whole admin surface. Tailwind v4 compiles
+     every SOLID neutral utility to `var(--color-*)` (verified: `.bg-white` →
+     `var(--color-white)`, `.text-gray-900` → `var(--color-gray-900)`), so redefining
+     the neutral tokens here re-skins `bg-white`, `text-gray-*`, `border-gray-*`,
+     `bg-slate-50`, etc. across every page and component with NO per-file class churn
+     — the same sanctioned pattern `.renzo-luxe` uses for the public site. Opacity
+     variants (`bg-white/5`, `bg-black/30`…) inline their literal `#fff`/`#000`, so
+     overlays, backdrops and elevation tints stay correctly dark and are untouched.
+     Accent hues (indigo/emerald/red…) are intentionally left as-is: the shared
+     primitives (Badge/StatCard/Card) already carry tuned `dark:` accent variants,
+     and inverting an accent ramp would break its contrast. Values align with the
+     `--sa-*` luxe tokens below so converted and unconverted components match. */
+  --color-white: #18181b;   /* card / raised surface */
+  --color-black: #fafafa;   /* text-black → light ink */
+
+  --color-gray-50:  #131316; /* subtle raised fill */
+  --color-gray-100: #1f1f23; /* hover / neutral chip */
+  --color-gray-200: #2a2a30; /* borders / dividers */
+  --color-gray-300: #3a3a42; /* stronger border / track */
+  --color-gray-400: #8b8b93; /* muted icons / placeholder */
+  --color-gray-500: #a1a1aa; /* secondary text */
+  --color-gray-600: #b7b7bf; /* secondary strong */
+  --color-gray-700: #d2d2d7; /* body text */
+  --color-gray-800: #e7e7ea; /* strong text */
+  --color-gray-900: #fafafa; /* headings */
+  --color-gray-950: #ffffff;
+
+  --color-slate-50:  #0c0c0c; /* dashboard page background (= --sa-bg) */
+  --color-slate-100: #1f1f23;
+  --color-slate-200: #2a2a30;
+  --color-slate-300: #3a3a42;
+  --color-slate-400: #8b8b93;
+  --color-slate-500: #a1a1aa;
+  --color-slate-600: #b7b7bf;
+  --color-slate-700: #d2d2d7;
+  --color-slate-800: #e7e7ea;
+  --color-slate-900: #fafafa;
+  --color-slate-950: #ffffff;
+
+  /* Minor neutral families used only by avatar tints. */
+  --color-zinc-100: #1f1f23;
+  --color-zinc-600: #b7b7bf;
+  --color-neutral-100: #1f1f23;
+  --color-neutral-600: #b7b7bf;
+
+  /* Luxe dashboard tokens — now global (were scoped to `.sa-dash.dark`) so every
+     converted `dark:*-(--sa-*)` utility resolves anywhere in the app, not just on
+     dashboard roots. */
+  --sa-bg: #0c0c0c;
+  --sa-surface: #18181b;
+  --sa-surface-2: #141417;
+  --sa-elevated: #202124;
+  --sa-sidebar: #111114;
+  --sa-border: rgba(255, 255, 255, 0.08);
+  --sa-text: #fafafa;
+  --sa-text-2: #a1a1aa;
+  --sa-muted: #71717a;
+  --sa-hover: #2a2a2a;
+  --sa-tile: rgba(255, 255, 255, 0.05);
+  --sa-axis: #8a8a8a;
+  --sa-grid: rgba(255, 255, 255, 0.07);
+  --sa-ink: #fafafa;
+
+  color-scheme: dark;
 }
 
 @layer base {
@@ -179,33 +254,10 @@
   color-scheme: dark;
 }
 
-/* ── Super Admin dashboard theme tokens ──────────────────────────────────────
-   Scoped to `.sa-dash` (the dashboard root only) so no other page/role is
-   affected. Light values equal the existing hard-coded chart colours, so the
-   light theme is unchanged; the `.sa-dash.dark` block is the new luxury dark
-   theme. Components reference these via `dark:*-[var(--sa-*)]` utilities. */
-.sa-dash {
-  --sa-axis: #94a3b8;
-  --sa-grid: #eef2f6;
-  --sa-ink: #0f172a;
-}
-.sa-dash.dark {
-  --sa-bg: #0c0c0c;
-  --sa-surface: #18181b;
-  --sa-surface-2: #141417;
-  --sa-elevated: #202124;
-  --sa-sidebar: #111114;
-  --sa-border: rgba(255, 255, 255, 0.08);
-  --sa-text: #fafafa;
-  --sa-text-2: #a1a1aa;
-  --sa-muted: #71717a;
-  --sa-hover: #2a2a2a;
-  --sa-tile: rgba(255, 255, 255, 0.05);
-  --sa-axis: #8a8a8a;
-  --sa-grid: rgba(255, 255, 255, 0.07);
-  --sa-ink: #fafafa;
-
-  color-scheme: dark;
-  background-color: var(--sa-bg);
-  color: var(--sa-text);
-}
+/* ── Dashboard luxe tokens ────────────────────────────────────────────────────
+   The `--sa-*` tokens formerly scoped to `.sa-dash.dark` now live in the global
+   `:root` / `.dark` blocks above, so a page no longer has to carry the `.dark`
+   class on its own root to consume them — the global theme on <html> drives them
+   everywhere. `.sa-dash` remains only as a harmless layout marker on dashboard
+   roots (their full-bleed `bg-slate-50` now inverts to `--sa-bg` in dark on its
+   own via the neutral ramp), and DashThemeInit is retired to a no-op. */

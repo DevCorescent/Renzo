@@ -32,7 +32,7 @@ export function ProfileSection({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {Icon && <Icon className="size-4 text-gray-400" />}
+          {Icon && <Icon className="size-4 text-gray-400 dark:text-(--sa-muted)" />}
           {title}
         </CardTitle>
         {action}
@@ -59,9 +59,9 @@ export function Field({
     value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0);
 
   return (
-    <div className={cn("rounded-lg border border-gray-100 bg-gray-50/40 p-3 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)]", className)}>
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-[var(--sa-muted)]">{label}</dt>
-      <dd className="mt-1 break-words text-sm text-gray-800 dark:text-[var(--sa-text)]">{isEmpty ? "—" : value}</dd>
+    <div className={cn("rounded-lg border border-gray-100 bg-gray-50/40 p-3 dark:border-(--sa-border) dark:bg-white/5", className)}>
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-(--sa-muted)">{label}</dt>
+      <dd className="mt-1 break-words text-sm text-gray-800 dark:text-(--sa-text)">{isEmpty ? "—" : value}</dd>
     </div>
   );
 }

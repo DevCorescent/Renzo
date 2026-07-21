@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 import { CancelBookingButton } from "@/components/appointments/cancel-booking-button";
-import { ConfirmAppointmentButton } from "@/components/appointments/confirm-appointment-button";
 import { EditAppointmentButton } from "@/components/appointments/edit-appointment-button";
+import { ConfirmAppointmentButton } from "@/components/appointments/confirm-appointment-button";
+import { AssignWorkerSelect } from "@/components/reception/assign-worker-select";
 
 // OWNER: Hemant | MODULE: Branch Admin Appointments
 
@@ -57,8 +58,8 @@ export default async function BranchAdminAppointmentsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-[var(--sa-text)]">Appointments</h1>
-        <p className="mt-0.5 text-sm text-gray-500 dark:text-[var(--sa-muted)]">{appointments.length} records</p>
+        <h1 className="text-xl font-semibold text-gray-900">Appointments</h1>
+        <p className="mt-0.5 text-sm text-gray-500">{appointments.length} records</p>
       </div>
 
       <Card>
@@ -81,30 +82,30 @@ export default async function BranchAdminAppointmentsPage({
           <tbody>
             {appointments.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400 dark:text-[var(--sa-muted)]">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
                   No appointments found.
                 </td>
               </tr>
             ) : (
               appointments.map((a) => (
                 <TR key={a.id}>
-                  <TD className="font-mono text-xs text-gray-500 dark:text-[var(--sa-muted)]">
+                  <TD className="font-mono text-xs text-gray-500">
                     {new Date(a.appointmentDate).toLocaleDateString("en-IN")}
                   </TD>
-                  <TD className="font-mono text-xs text-gray-600 dark:text-[var(--sa-text-2)]">
+                  <TD className="font-mono text-xs text-gray-600">
                     {a.startTime}–{a.endTime}
                   </TD>
-                  <TD className="font-medium text-gray-900 dark:text-[var(--sa-text)]">
+                  <TD className="font-medium text-gray-900">
                     {a.customer.firstName} {a.customer.lastName}
-                    <p className="text-[11px] font-normal text-gray-400 dark:text-[var(--sa-muted)]">{a.customer.phone}</p>
+                    <p className="text-[11px] font-normal text-gray-400">{a.customer.phone}</p>
                   </TD>
-                  <TD className="text-gray-600 dark:text-[var(--sa-text-2)]">
+                  <TD className="text-gray-600">
                     {a.services.map((s) => s.service.name).join(", ") || "—"}
                   </TD>
-                  <TD className="text-gray-500 dark:text-[var(--sa-muted)]">
+                  <TD className="text-gray-500">
                     {a.worker ? `${a.worker.firstName} ${a.worker.lastName}` : "—"}
                   </TD>
-                  <TD className="text-gray-700 dark:text-[var(--sa-text-2)]">
+                  <TD className="text-gray-700">
                     ₹{Number(a.totalAmount).toLocaleString("en-IN")}
                   </TD>
                   <TD>
@@ -114,6 +115,14 @@ export default async function BranchAdminAppointmentsPage({
                   </TD>
                   <TD className="text-right">
                     <span className="inline-flex flex-wrap items-start justify-end gap-1.5">
+                      {/* Review/assign the worker (reuses the shared selector via the
+                          admin assign route) then confirm — both over existing APIs. */}
+                      <AssignWorkerSelect
+                        appointmentId={a.id}
+                        status={a.status}
+                        currentWorkerId={a.worker?.id}
+                        mode="admin"
+                      />
                       <ConfirmAppointmentButton appointmentId={a.id} status={a.status} />
                       <EditAppointmentButton
                         appointmentId={a.id}

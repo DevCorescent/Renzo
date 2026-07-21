@@ -7,6 +7,7 @@ import { ConfirmAppointmentButton } from "@/components/appointments/confirm-appo
 import { EditAppointmentButton } from "@/components/appointments/edit-appointment-button";
 import { BookingsTabs } from "./bookings-tabs";
 import type { CalEvent } from "@/components/bookings/bookings-calendar";
+import { AssignWorkerSelect } from "@/components/reception/assign-worker-select";
 
 // OWNER: Super Admin — Bookings (all branches)
 // SUPER_ADMIN / OWNER see every branch's appointments and can cancel any active one
@@ -117,6 +118,12 @@ export default async function SuperAdminBookingsPage({
                   <TD><Badge tone={STATUS_TONE[a.status] ?? "neutral"}>{a.status.replace(/_/g, " ")}</Badge></TD>
                   <TD className="text-right">
                     <span className="inline-flex flex-wrap items-start justify-end gap-1.5">
+                      <AssignWorkerSelect
+                        appointmentId={a.id}
+                        status={a.status}
+                        currentWorkerId={a.worker?.id}
+                        mode="admin"
+                      />
                       <ConfirmAppointmentButton appointmentId={a.id} status={a.status} />
                       <EditAppointmentButton
                         appointmentId={a.id}

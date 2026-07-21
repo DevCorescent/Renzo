@@ -6,7 +6,7 @@ import {
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
-import { notify } from "@/lib/notifications";
+import { notifyAppointmentConfirmed } from "@/lib/notifications";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -108,11 +108,17 @@ export async function PATCH(
     }
 
     // ------------------------------------------------------------------------
-    // Update Appointment
+    // Update Appointment (+ notify on confirmation)
+    //
+    // Update and notify inside ONE transaction, reusing the shared Notification
+    // service: when an appointment is CONFIRMED the customer — and the assigned
+    // worker, if any — are told, atomically with the status change. Only the
+    // PENDING → CONFIRMED-and-similar transition fans out here; other transitions
+    // keep their existing behaviour untouched.
     // ------------------------------------------------------------------------
 
-    const appointment =
-      await prisma.appointment.update({
+    const appointment = await prisma.$transaction(async (tx) => {
+      const updated = await tx.appointment.update({
         where: {
           id,
         },
@@ -140,6 +146,7 @@ export async function PATCH(
           worker: {
             select: {
               id: true,
+              userId: true,
               firstName: true,
               lastName: true,
               displayName: true,
@@ -148,27 +155,23 @@ export async function PATCH(
         },
       });
 
-    // Notify the customer whenever their appointment status changes (non-blocking).
-    if (appointment.customer?.userId) {
-      const statusLabel: Record<string, string> = {
-        CONFIRMED: "confirmed",
-        CHECKED_IN: "checked in",
-        STARTED: "started",
-        COMPLETED: "completed",
-        CANCELLED: "cancelled",
-        NO_SHOW: "marked as no-show",
-        RESCHEDULED: "rescheduled",
-      };
-      const label = statusLabel[status] ?? status.toLowerCase().replace(/_/g, " ");
-      notify(appointment.customer.userId, {
-        type: status === "CANCELLED" || status === "NO_SHOW" ? "WARNING" : "INFO",
-        title: "Appointment Update",
-        message: `Your appointment #${appointment.appointmentNo} has been ${label}`,
-        href: `/customer/bookings/${id}`,
-        refType: "APPOINTMENT",
-        refId: id,
-      }).catch(() => {});
-    }
+      if (
+        (status as AppointmentStatus) === AppointmentStatus.CONFIRMED &&
+        existingAppointment.status !== AppointmentStatus.CONFIRMED &&
+        updated.customer?.userId
+      ) {
+        await notifyAppointmentConfirmed(tx, {
+          id: updated.id,
+          appointmentNo: updated.appointmentNo,
+          appointmentDate: updated.appointmentDate,
+          startTime: updated.startTime,
+          customerUserId: updated.customer.userId,
+          workerUserId: updated.worker?.userId ?? null,
+        });
+      }
+
+      return updated;
+    });
 
     return ok(
       appointment,

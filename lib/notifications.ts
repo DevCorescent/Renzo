@@ -85,3 +85,132 @@ export async function notifyBranchAdmins(branchId: string, input: NotifyInput, t
   });
   await notifyMany(admins.map((a) => a.id), input, tx);
 }
+
+/** "21 Jul 2026, 3:30 PM" — UTC-pinned date (matching how times are stored) + 12h clock. */
+function formatAppointmentWhen(date: Date, time: string): string {
+  const day = date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const [h, m] = time.split(":").map(Number);
+  const meridiem = h < 12 ? "AM" : "PM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${day}, ${hour12}:${String(m).padStart(2, "0")} ${meridiem}`;
+}
+
+/**
+ * Tell a customer their appointment was moved to a new date/time. Reuses the same
+ * in-app Notification every other alert flows through, so it lands in the customer's
+ * Notification Center with one consistent wording — callers pass the transaction
+ * client so the alert commits ATOMICALLY with the appointment update (both, or
+ * neither). One call per successful update keeps it exactly-once, no duplicates.
+ */
+export async function notifyCustomerAppointmentRescheduled(
+  tx: Tx,
+  appointment: {
+    id: string;
+    appointmentNo: string;
+    appointmentDate: Date;
+    startTime: string;
+    customerUserId: string;
+  }
+): Promise<void> {
+  await notify(
+    appointment.customerUserId,
+    {
+      type: "INFO",
+      title: "Appointment rescheduled",
+      message: `Your appointment ${appointment.appointmentNo} has been rescheduled to ${formatAppointmentWhen(
+        appointment.appointmentDate,
+        appointment.startTime
+      )}.`,
+      href: `/customer/bookings/${appointment.id}`,
+      refType: "Appointment",
+      refId: appointment.id,
+    },
+    tx
+  );
+}
+
+/**
+ * Tell the customer (and their assigned worker, if any) that an appointment was
+ * CONFIRMED. Same shared Notification path as every other alert; pass the tx so the
+ * notifications commit atomically with the status change. `workerUserId` is optional
+ * because an appointment can be confirmed before a worker is assigned.
+ */
+export async function notifyAppointmentConfirmed(
+  tx: Tx,
+  appointment: {
+    id: string;
+    appointmentNo: string;
+    appointmentDate: Date;
+    startTime: string;
+    customerUserId: string;
+    workerUserId?: string | null;
+  }
+): Promise<void> {
+  const when = formatAppointmentWhen(appointment.appointmentDate, appointment.startTime);
+
+  await notify(
+    appointment.customerUserId,
+    {
+      type: "SUCCESS",
+      title: "Appointment confirmed",
+      message: `Your appointment ${appointment.appointmentNo} is confirmed for ${when}.`,
+      href: `/customer/bookings/${appointment.id}`,
+      refType: "Appointment",
+      refId: appointment.id,
+    },
+    tx
+  );
+
+  if (appointment.workerUserId) {
+    await notify(
+      appointment.workerUserId,
+      {
+        type: "INFO",
+        title: "Appointment confirmed",
+        message: `Appointment ${appointment.appointmentNo} on ${when} is confirmed.`,
+        href: `/worker/bookings/${appointment.id}`,
+        refType: "Appointment",
+        refId: appointment.id,
+      },
+      tx
+    );
+  }
+}
+
+/**
+ * Tell a worker they were assigned to an appointment. Reuses the shared Notification
+ * path; pass the tx so it commits atomically with the assignment. Callers should only
+ * invoke this when the worker actually CHANGED, so re-saving the same worker never
+ * re-notifies (no duplicates).
+ */
+export async function notifyWorkerAppointmentAssigned(
+  tx: Tx,
+  appointment: {
+    id: string;
+    appointmentNo: string;
+    appointmentDate: Date;
+    startTime: string;
+    workerUserId: string;
+  }
+): Promise<void> {
+  await notify(
+    appointment.workerUserId,
+    {
+      type: "INFO",
+      title: "New appointment assigned",
+      message: `You've been assigned appointment ${appointment.appointmentNo} on ${formatAppointmentWhen(
+        appointment.appointmentDate,
+        appointment.startTime
+      )}.`,
+      href: `/worker/bookings/${appointment.id}`,
+      refType: "Appointment",
+      refId: appointment.id,
+    },
+    tx
+  );
+}

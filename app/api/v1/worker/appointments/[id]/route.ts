@@ -9,10 +9,7 @@ import {
   findAppointmentConflict,
 } from "@/lib/appointment-conflict";
 import { DATE_RE } from "@/lib/slots";
-import { sendMail } from "@/lib/mailer";
-import { appointmentRescheduleEmail } from "@/lib/email-templates";
-import { revalidatePath } from "next/cache";
-import { notify } from "@/lib/notifications";
+import { notifyCustomerAppointmentRescheduled } from "@/lib/notifications";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -173,55 +170,51 @@ export async function PATCH(
     });
     if (conflict) return err(conflict, 409);
 
-    const appointment = await prisma.appointment.update({
-      where: { id },
-      data: {
-        appointmentDate: parsedDate,
-        startTime: nextStart,
-        endTime: nextEnd,
-        status:
-          existing.status === AppointmentStatus.PENDING
-            ? AppointmentStatus.CONFIRMED
-            : existing.status,
-      },
-      include: {
-        customer: {
-          select: { id: true, userId: true, firstName: true, lastName: true, phone: true, email: true },
+    // Whether the DATE or START TIME actually moved — the customer is only told when
+    // their slot really changes, so a no-op save never notifies and one PATCH yields
+    // exactly one notification (Scenario 5).
+    const dateChanged =
+      parsedDate !== undefined &&
+      parsedDate.getTime() !== existing.appointmentDate.getTime();
+    const startChanged =
+      startTime !== undefined && nextStart !== existing.startTime;
+    const timeChanged = dateChanged || startChanged;
+
+    // Update and notify inside ONE transaction, reusing the existing Notification
+    // service — the customer's "rescheduled" alert commits atomically with the new
+    // time (both, or neither).
+    const appointment = await prisma.$transaction(async (tx) => {
+      const updated = await tx.appointment.update({
+        where: { id },
+        data: {
+          appointmentDate: parsedDate,
+          startTime: nextStart,
+          endTime: nextEnd,
+          status:
+            existing.status === AppointmentStatus.PENDING
+              ? AppointmentStatus.CONFIRMED
+              : existing.status,
         },
-        branch: { select: { id: true, name: true } },
-      },
-    });
-
-    // Non-blocking reschedule notifications to customer.
-    const customerName = `${appointment.customer?.firstName ?? ""} ${appointment.customer?.lastName ?? ""}`.trim();
-    const formattedDate = new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(appointment.appointmentDate);
-
-    if (appointment.customer?.email) {
-      const { subject, html, text } = appointmentRescheduleEmail({
-        name: customerName,
-        appointmentNo: appointment.appointmentNo,
-        date: formattedDate,
-        time: appointment.startTime,
-        branch: appointment.branch?.name ?? "",
+        include: {
+          customer: {
+            select: { id: true, userId: true, firstName: true, lastName: true, phone: true },
+          },
+          branch: { select: { id: true, name: true } },
+        },
       });
-      sendMail({ to: appointment.customer.email, subject, html, text });
-    }
 
-    if (appointment.customer?.userId) {
-      notify(appointment.customer.userId, {
-        type: "INFO",
-        title: "Appointment Rescheduled",
-        message: `Your appointment #${appointment.appointmentNo} has been moved to ${formattedDate} at ${appointment.startTime}`,
-        href: `/customer/bookings/${appointment.id}`,
-        refType: "APPOINTMENT",
-        refId: appointment.id,
-      }).catch(() => {});
-    }
+      if (timeChanged && updated.customer?.userId) {
+        await notifyCustomerAppointmentRescheduled(tx, {
+          id: updated.id,
+          appointmentNo: updated.appointmentNo,
+          appointmentDate: updated.appointmentDate,
+          startTime: updated.startTime,
+          customerUserId: updated.customer.userId,
+        });
+      }
 
-    // Invalidate cached appointment pages so all roles see the updated schedule.
-    revalidatePath("/customer/bookings", "layout");
-    revalidatePath("/branch-admin/appointments", "layout");
-    revalidatePath(`/customer/bookings/${id}`);
+      return updated;
+    });
 
     return ok(appointment, "Appointment updated successfully");
   } catch (error) {
