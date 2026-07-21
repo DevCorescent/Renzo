@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 import { CancelBookingButton } from "@/components/appointments/cancel-booking-button";
+import { ConfirmAppointmentButton } from "@/components/appointments/confirm-appointment-button";
 import { EditAppointmentButton } from "@/components/appointments/edit-appointment-button";
 
 // OWNER: Hemant | MODULE: Branch Admin Appointments
@@ -113,6 +114,7 @@ export default async function BranchAdminAppointmentsPage({
                   </TD>
                   <TD className="text-right">
                     <span className="inline-flex flex-wrap items-start justify-end gap-1.5">
+                      <ConfirmAppointmentButton appointmentId={a.id} status={a.status} />
                       <EditAppointmentButton
                         appointmentId={a.id}
                         status={a.status}
