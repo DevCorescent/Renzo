@@ -29,7 +29,7 @@ export function ImageUpload({ value, onChange, label = "Image", className }: Pro
       fd.append("file", file);
       const res = await fetch(API.upload, { method: "POST", body: fd });
       const json = await res.json();
-      if (!res.ok || !json?.data?.url) throw new Error(json?.error ?? "Upload failed");
+      if (!res.ok || !json?.data?.url) throw new Error(json?.message ?? json?.error ?? "Upload failed");
       onChange(json.data.url);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");

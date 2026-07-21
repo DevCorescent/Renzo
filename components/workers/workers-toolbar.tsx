@@ -1,6 +1,6 @@
 "use client";
 
-// Search + filter bar.
+// Filter bar for the workers list.
 //
 // STATE LIVES IN THE URL. A filtered view is then shareable, bookmarkable,
 // survives a refresh, and the back button works — none of which a client cache
@@ -8,17 +8,13 @@
 // fetched once, on the server, with no client-side waterfall.
 //
 // EVERY CONTROL HERE MAPS 1:1 TO A QUERY PARAM GET /api/v1/admin/workers ACTUALLY
-// READS. The route supports search, isActive, isPublic, gender, departmentId,
-// designationId, sortBy and sortOrder — and nothing else. Filters for service,
-// experience, attendance, availability or live status are absent because the
-// route cannot answer them, and a control that silently does nothing is a bug.
+// READS. The route supports isActive, isPublic, gender, departmentId,
+// designationId, sortBy and sortOrder — and nothing else.
 
 import * as React from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Search, X, RotateCw } from "lucide-react";
+import { RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const SEARCH_DEBOUNCE_MS = 300;
 
 /** Only the four keys the route whitelists. Anything else is rejected there anyway. */
 const FILTER_KEYS = ["isActive", "gender", "designationId", "departmentId"] as const;
@@ -47,39 +43,18 @@ export function WorkersToolbar({
   const searchParams = useSearchParams();
 
   const [isPending, startTransition] = React.useTransition();
-  const [term, setTerm] = React.useState(searchParams.get("search") ?? "");
 
   const commit = React.useCallback(
     (mutate: (params: URLSearchParams) => void) => {
       const params = new URLSearchParams(searchParams.toString());
       mutate(params);
-
-      // Any change to the result set invalidates the page number — staying on
-      // page 4 of a now-2-page result renders an empty table.
       params.delete("page");
-
       startTransition(() => {
         router.replace(`${pathname}?${params.toString()}`, { scroll: false });
       });
     },
     [router, pathname, searchParams]
   );
-
-  // Debounced: typing "Priya" fires one navigation, not five. The timer is cleared
-  // on every keystroke and on unmount, so no stale write can land after the user
-  // has moved on and no timer outlives the component.
-  React.useEffect(() => {
-    if (term === (searchParams.get("search") ?? "")) return;
-
-    const timer = setTimeout(() => {
-      commit((params) => {
-        if (term) params.set("search", term);
-        else params.delete("search");
-      });
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => clearTimeout(timer);
-  }, [term, searchParams, commit]);
 
   const setParam = (key: string, value: string) =>
     commit((params) => {
@@ -88,7 +63,7 @@ export function WorkersToolbar({
     });
 
   const activeFilters = FILTER_KEYS.filter((k) => searchParams.get(k)).length;
-  const hasAnything = activeFilters > 0 || Boolean(searchParams.get("search"));
+  const hasAnything = activeFilters > 0;
 
   return (
     <div
@@ -97,31 +72,6 @@ export function WorkersToolbar({
         isPending && "opacity-60"
       )}
     >
-      <div className="relative min-w-0 flex-1 sm:max-w-xs">
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400"
-        />
-        <input
-          type="search"
-          value={term}
-          onChange={(e) => setTerm(e.target.value)}
-          placeholder="Search name, code, phone, email…"
-          aria-label="Search workers"
-          className={cn(inputCls, "w-full pl-8 pr-8")}
-        />
-        {term && (
-          <button
-            type="button"
-            onClick={() => setTerm("")}
-            aria-label="Clear search"
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <X className="size-3.5" />
-          </button>
-        )}
-      </div>
-
       <select
         aria-label="Filter by status"
         value={searchParams.get("isActive") ?? ""}

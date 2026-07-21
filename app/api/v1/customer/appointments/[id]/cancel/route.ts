@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
 import { sendMail } from "@/lib/mailer";
 import { bookingCancellationEmail } from "@/lib/email-templates";
+import { notifyBranchAdmins } from "@/lib/notifications";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -145,6 +146,17 @@ export async function POST(
       });
       sendMail({ to: appointment.customer.email, subject, html, text });
     }
+
+    // Notify branch admins of the cancellation (non-blocking).
+    notifyBranchAdmins(cancelledAppointment.branch.id, {
+      type: "WARNING",
+      title: "Appointment Cancelled",
+      message: `${appointment.customer.firstName} ${appointment.customer.lastName ?? ""}`.trim() +
+        ` cancelled booking #${appointment.appointmentNo}`,
+      href: `/branch-admin/appointments`,
+      refType: "APPOINTMENT",
+      refId: appointment.id,
+    }).catch(() => {});
 
     return ok(cancelledAppointment, "Appointment cancelled successfully");
   } catch (error) {

@@ -15,7 +15,11 @@
       "Bash(grep \".woff$\")",
       "Bash(node -e \"const p = require\\('@react-pdf/renderer'\\); console.log\\(Object.keys\\(p\\)\\)\")",
       "Bash(python3 -c \"import json,sys; p=json.load\\(sys.stdin\\); print\\('version:', p.get\\('version'\\)\\)\")",
-      "Bash(dir \"d:\\\\corescent\\\\spa\\\\components\\\\shared\")"
+      "Bash(dir \"d:\\\\corescent\\\\spa\\\\components\\\\shared\")",
+      "Bash(Get-ChildItem -Path \"d:\\\\corescent\\\\spa\")",
+      "Bash(Head -20)",
+      "PowerShell(Head -20)",
+      "Bash(node -e \"const p=require\\('d:/corescent/spa/package.json'\\); const deps={...p.dependencies,...p.devDependencies}; const keys=Object.keys\\(deps\\).filter\\(k=>k.includes\\('aws'\\)||k.includes\\('s3'\\)||k.includes\\('r2'\\)||k.includes\\('minio'\\)||k.includes\\('multer'\\)\\); console.log\\(keys.length?keys:Object.keys\\(deps\\).slice\\(0,30\\)\\)\")"
     ]
   }
 }

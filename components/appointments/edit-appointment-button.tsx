@@ -16,6 +16,7 @@ const EDITABLE = new Set([
 ]);
 
 type SlotEntry = { time: string; status: "AVAILABLE" | "BOOKED" | "PAST" };
+type WorkerOption = { id: string; firstName: string; lastName: string; displayName: string | null };
 
 function toDateInput(value: string | Date): string {
   const d = typeof value === "string" ? new Date(value) : value;
@@ -49,10 +50,25 @@ export function EditAppointmentButton({
   const [open, setOpen] = React.useState(false);
   const [date, setDate] = React.useState(toDateInput(appointmentDate));
   const [time, setTime] = React.useState(startTime);
+  const [selectedWorkerId, setSelectedWorkerId] = React.useState<string>(workerId ?? "");
+  const [workers, setWorkers] = React.useState<WorkerOption[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [slotGrid, setSlotGrid] = React.useState<SlotEntry[] | null>(null);
   const [slotsLoading, setSlotsLoading] = React.useState(false);
+
+  // Fetch branch workers for reassignment (admin mode only).
+  React.useEffect(() => {
+    if (mode !== "admin" || !open || !branchId) return;
+    const q = new URLSearchParams({ branchId, limit: "100" });
+    fetch(`${API.admin.workers}?${q.toString()}`)
+      .then((r) => r.json())
+      .then((j) => {
+        const list: WorkerOption[] = j.data?.items ?? j.data ?? [];
+        setWorkers(list);
+      })
+      .catch(() => setWorkers([]));
+  }, [mode, open, branchId]);
 
   React.useEffect(() => {
     if (!canEdit || !open || !branchId || !serviceId || !date) {
@@ -107,13 +123,12 @@ export function EditAppointmentButton({
         mode === "worker"
           ? API.worker.appointment(appointmentId)
           : API.admin.appointment(appointmentId);
+      const body: Record<string, string | null> = { appointmentDate: date, startTime: time };
+      if (mode === "admin") body.workerId = selectedWorkerId || null;
       const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          appointmentDate: date,
-          startTime: time,
-        }),
+        body: JSON.stringify(body),
       });
       const j = await res.json().catch(() => null);
       if (!res.ok) {
@@ -134,6 +149,7 @@ export function EditAppointmentButton({
         onClick={() => {
           setDate(toDateInput(appointmentDate));
           setTime(startTime);
+          setSelectedWorkerId(workerId ?? "");
           setError(null);
           setBusy(false);
           setOpen(true);
@@ -200,6 +216,24 @@ export function EditAppointmentButton({
       ) : branchId && serviceId ? (
         <p className="text-[11px] text-gray-400">No open slots this day</p>
       ) : null}
+
+      {mode === "admin" && workers.length > 0 && (
+        <div>
+          <p className="mb-0.5 text-[10px] text-gray-400 dark:text-[var(--sa-muted)]">Assign worker</p>
+          <select
+            value={selectedWorkerId}
+            onChange={(e) => setSelectedWorkerId(e.target.value)}
+            className="w-full rounded border border-gray-200 px-1.5 py-0.5 text-xs text-gray-800 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
+          >
+            <option value="">— Unassigned —</option>
+            {workers.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.displayName ?? `${w.firstName} ${w.lastName}`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <p className="text-[10px] text-gray-400 dark:text-[var(--sa-muted)]">
         Current {toDateInput(appointmentDate)} · {startTime}–{endTime}

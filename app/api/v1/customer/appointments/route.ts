@@ -11,6 +11,7 @@ import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
 import { sendMail } from "@/lib/mailer";
 import { bookingConfirmationEmail } from "@/lib/email-templates";
+import { notifyBranchAdmins } from "@/lib/notifications";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -578,6 +579,17 @@ export async function POST(req: NextRequest) {
       });
       sendMail({ to: customer.email, subject, html, text });
     }
+
+    // Notify branch admins of the new booking (non-blocking).
+    notifyBranchAdmins(appointment.branch.id, {
+      type: "INFO",
+      title: "New Booking",
+      message: `${customer.firstName} ${customer.lastName ?? ""}`.trim() +
+        ` booked appointment #${appointment.appointmentNo}`,
+      href: `/branch-admin/appointments`,
+      refType: "APPOINTMENT",
+      refId: appointment.id,
+    }).catch(() => {});
 
     return created(appointment, "Appointment booked successfully");
   } catch (error) {

@@ -101,12 +101,12 @@ export default async function WorkerAttendancePage() {
                   <TD className="text-gray-500">{r.branch.name}</TD>
                   <TD className="font-mono text-xs text-gray-600">
                     {r.checkIn
-                      ? new Date(r.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                      ? new Date(r.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })
                       : "—"}
                   </TD>
                   <TD className="font-mono text-xs text-gray-600">
                     {r.checkOut
-                      ? new Date(r.checkOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                      ? new Date(r.checkOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })
                       : "—"}
                   </TD>
                   <TD className="text-gray-500">

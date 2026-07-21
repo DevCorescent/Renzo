@@ -6,6 +6,7 @@ import {
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
+import { notify } from "@/lib/notifications";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -122,6 +123,7 @@ export async function PATCH(
           customer: {
             select: {
               id: true,
+              userId: true,
               firstName: true,
               lastName: true,
               phone: true,
@@ -145,6 +147,28 @@ export async function PATCH(
           },
         },
       });
+
+    // Notify the customer whenever their appointment status changes (non-blocking).
+    if (appointment.customer?.userId) {
+      const statusLabel: Record<string, string> = {
+        CONFIRMED: "confirmed",
+        CHECKED_IN: "checked in",
+        STARTED: "started",
+        COMPLETED: "completed",
+        CANCELLED: "cancelled",
+        NO_SHOW: "marked as no-show",
+        RESCHEDULED: "rescheduled",
+      };
+      const label = statusLabel[status] ?? status.toLowerCase().replace(/_/g, " ");
+      notify(appointment.customer.userId, {
+        type: status === "CANCELLED" || status === "NO_SHOW" ? "WARNING" : "INFO",
+        title: "Appointment Update",
+        message: `Your appointment #${appointment.appointmentNo} has been ${label}`,
+        href: `/customer/bookings/${id}`,
+        refType: "APPOINTMENT",
+        refId: id,
+      }).catch(() => {});
+    }
 
     return ok(
       appointment,

@@ -72,33 +72,35 @@ export default async function CustomerMembershipPage() {
         <h2 className="mb-3 text-sm font-semibold text-stone-300">Available Plans</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {allPlans.map((plan) => (
-            <div key={plan.id} className="rounded-xl border border-white/8 bg-stone-900 p-4">
+            <div key={plan.id} className="flex flex-col rounded-xl border border-white/8 bg-stone-900 p-4">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="font-medium text-stone-100">{plan.name}</p>
                   <Badge tone={TIER_TONE[plan.tier] ?? "neutral"} className="mt-1">{plan.tier}</Badge>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-semibold text-gold">₹{Number(plan.price).toLocaleString("en-IN")}</p>
+                  <p className="text-lg font-semibold text-[#C8A96A]">₹{Number(plan.price).toLocaleString("en-IN")}</p>
                   <p className="text-xs text-stone-500">{plan.validityDays} days</p>
                 </div>
               </div>
-              {plan.discountPercent > 0 && (
-                <p className="mt-2 text-xs text-stone-400">{plan.discountPercent}% off on services</p>
-              )}
-              {plan.walletCredit > 0 && (
-                <p className="text-xs text-stone-400">₹{plan.walletCredit} wallet credit on purchase</p>
-              )}
-              {plan.benefits.length > 0 && (
-                <ul className="mt-3 space-y-1">
-                  {plan.benefits.map((b) => (
-                    <li key={b.id} className="text-xs text-stone-500">· {b.name}</li>
-                  ))}
-                </ul>
-              )}
+              <div className="flex-1">
+                {plan.discountPercent > 0 && (
+                  <p className="mt-2 text-xs text-stone-400">{plan.discountPercent}% off on services</p>
+                )}
+                {plan.walletCredit > 0 && (
+                  <p className="text-xs text-stone-400">₹{plan.walletCredit} wallet credit on purchase</p>
+                )}
+                {plan.benefits.length > 0 && (
+                  <ul className="mt-3 space-y-1">
+                    {plan.benefits.map((b) => (
+                      <li key={b.id} className="text-xs text-stone-500">· {b.name}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <button
                 type="button"
-                className="mt-4 w-full rounded-lg bg-gold py-2 text-sm font-semibold text-gold-foreground transition hover:bg-gold-soft"
+                className="mt-4 w-full rounded-lg bg-[#C8A96A] py-2 text-sm font-semibold text-stone-950 transition hover:bg-[#E8CC88]"
               >
                 Buy Now
               </button>

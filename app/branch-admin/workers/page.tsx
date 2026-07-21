@@ -36,7 +36,6 @@ function AddWorkerButton() {
 
 /** Whitelisted before they reach the API — junk params never leave the page. */
 const PASSTHROUGH = [
-  "search",
   "isActive",
   "isPublic",
   "gender",

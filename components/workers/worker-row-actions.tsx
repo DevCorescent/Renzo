@@ -115,7 +115,7 @@ export function WorkerRowActions({
         <div
           role="menu"
           aria-label={`Actions for ${workerName}`}
-          className="absolute right-0 top-8 z-20 min-w-44 overflow-hidden rounded border border-gray-200 bg-white py-1 shadow-lg"
+          className="absolute right-0 top-8 z-50 min-w-44 overflow-hidden rounded border border-gray-200 bg-white py-1 shadow-lg"
         >
           {links.map((item) => (
             <Link
@@ -132,7 +132,7 @@ export function WorkerRowActions({
           {canManage && (
             <>
               <div className="my-1 border-t border-gray-100" role="separator" />
-              <form action={statusAction}>
+              <form action={statusAction} className="m-0">
                 <input type="hidden" name="id" value={workerId} />
                 <StatusMenuItem isActive={isActive} />
               </form>
