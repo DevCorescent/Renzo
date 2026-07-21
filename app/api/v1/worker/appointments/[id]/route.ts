@@ -12,6 +12,7 @@ import { DATE_RE } from "@/lib/slots";
 import { sendMail } from "@/lib/mailer";
 import { appointmentRescheduleEmail } from "@/lib/email-templates";
 import { revalidatePath } from "next/cache";
+import { notify } from "@/lib/notifications";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -185,22 +186,36 @@ export async function PATCH(
       },
       include: {
         customer: {
-          select: { id: true, firstName: true, lastName: true, phone: true, email: true },
+          select: { id: true, userId: true, firstName: true, lastName: true, phone: true, email: true },
         },
         branch: { select: { id: true, name: true } },
       },
     });
 
-    // Non-blocking reschedule notification to customer.
+    // Non-blocking reschedule notifications to customer.
+    const customerName = `${appointment.customer?.firstName ?? ""} ${appointment.customer?.lastName ?? ""}`.trim();
+    const formattedDate = new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(appointment.appointmentDate);
+
     if (appointment.customer?.email) {
       const { subject, html, text } = appointmentRescheduleEmail({
-        name: `${appointment.customer.firstName} ${appointment.customer.lastName ?? ""}`.trim(),
+        name: customerName,
         appointmentNo: appointment.appointmentNo,
-        date: new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(appointment.appointmentDate),
+        date: formattedDate,
         time: appointment.startTime,
         branch: appointment.branch?.name ?? "",
       });
       sendMail({ to: appointment.customer.email, subject, html, text });
+    }
+
+    if (appointment.customer?.userId) {
+      notify(appointment.customer.userId, {
+        type: "INFO",
+        title: "Appointment Rescheduled",
+        message: `Your appointment #${appointment.appointmentNo} has been moved to ${formattedDate} at ${appointment.startTime}`,
+        href: `/customer/bookings/${appointment.id}`,
+        refType: "APPOINTMENT",
+        refId: appointment.id,
+      }).catch(() => {});
     }
 
     // Invalidate cached appointment pages so all roles see the updated schedule.

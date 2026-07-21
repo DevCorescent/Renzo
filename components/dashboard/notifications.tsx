@@ -1,12 +1,11 @@
 "use client";
 
-// Notifications bell + popover. Presentational: items are passed in (derived from
-// real data server-side) — clicking one just navigates. No mutation / API writes.
 import * as React from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { API } from "@/lib/endpoints";
 import { useDismiss } from "./use-dismiss";
 import type { StatusTone } from "./status-badge";
 
@@ -19,6 +18,14 @@ export type NotificationItem = {
   unread?: boolean;
 };
 
+const TYPE_TONE: Record<string, StatusTone> = {
+  INFO: "info",
+  SUCCESS: "success",
+  WARNING: "warning",
+  ERROR: "danger",
+  SYSTEM: "neutral",
+};
+
 const dotTone: Record<StatusTone, string> = {
   neutral: "bg-gray-400",
   success: "bg-emerald-500",
@@ -28,19 +35,74 @@ const dotTone: Record<StatusTone, string> = {
   accent: "bg-amber-500",
 };
 
-export function Notifications({ items }: { items: NotificationItem[] }) {
+/**
+ * Self-fetching notification bell. Polls every 60 s; marks all read when the
+ * panel is opened. Pass `dark` for the customer portal (dark background).
+ */
+export function Notifications({ dark = false }: { dark?: boolean }) {
   const [open, setOpen] = React.useState(false);
+  const [items, setItems] = React.useState<NotificationItem[]>([]);
   const ref = useDismiss<HTMLDivElement>(() => setOpen(false));
+
+  async function load() {
+    try {
+      const res = await fetch(`${API.notifications.list}?limit=20`);
+      if (!res.ok) return;
+      const json = await res.json();
+      const rows: Array<{
+        id: string;
+        title: string;
+        message: string;
+        type: string;
+        href?: string | null;
+        readAt: string | null;
+      }> = json.data?.items ?? json.data ?? [];
+      setItems(
+        rows.map((n) => ({
+          id: n.id,
+          title: n.title,
+          meta: n.message,
+          href: n.href ?? undefined,
+          tone: TYPE_TONE[n.type] ?? "neutral",
+          unread: !n.readAt,
+        }))
+      );
+    } catch {
+      // silently swallow — bell stays empty rather than crashing the shell
+    }
+  }
+
+  React.useEffect(() => {
+    load();
+    const id = setInterval(load, 60_000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleToggle() {
+    const opening = !open;
+    setOpen(opening);
+    if (opening) {
+      // Mark all as read when panel opens; optimistically clear dots.
+      fetch(API.notifications.readAll, { method: "POST" }).catch(() => {});
+      setItems((prev) => prev.map((n) => ({ ...n, unread: false })));
+    }
+  }
+
   const unread = items.filter((i) => i.unread).length;
+
+  const buttonCls = dark
+    ? "relative flex size-9 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-white/8 hover:text-stone-100"
+    : "relative flex size-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-(--sa-text-2) dark:hover:bg-(--sa-hover) dark:hover:text-(--sa-text)";
 
   return (
     <div className="relative" ref={ref}>
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleToggle}
         aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="relative flex size-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-(--sa-text-2) dark:hover:bg-(--sa-hover) dark:hover:text-(--sa-text)"
+        className={buttonCls}
       >
         <Bell className="size-4.5" />
         {unread > 0 && (

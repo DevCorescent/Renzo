@@ -306,7 +306,7 @@ export function AppShell({
           {/* Controls */}
           <div className="flex items-center gap-0.5">
             <ThemeToggle />
-            <Notifications items={[]} />
+            <Notifications />
           </div>
 
           {quickActions.length > 0 && (

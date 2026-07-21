@@ -35,11 +35,14 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-// "HH:mm" — validated elsewhere on write, trusted as well-formed here.
+// Builds a UTC Date from a @db.Date value (UTC midnight) and an IST HH:mm string.
+// Appointment times are always stored as IST (business hours), so we subtract the
+// IST offset (UTC+5:30 = 330 min) to get the correct UTC instant for comparison.
 function combinedDateTime(date: Date, time: string): Date {
   const [h, m] = time.split(":").map(Number);
   const combined = new Date(date);
-  combined.setHours(h, m, 0, 0);
+  combined.setUTCHours(h, m, 0, 0);
+  combined.setTime(combined.getTime() - 330 * 60 * 1000);
   return combined;
 }
 

@@ -2,17 +2,13 @@
 
 // Per-row actions menu.
 //
-// Hand-rolled: no dropdown primitive is installed and adding Radix for one menu is
-// not a trade worth making. Keyboard-operable (Escape closes and returns focus to
-// the trigger), closes on outside click, carries the ARIA a screen reader needs.
-//
-// WHAT IS DELIBERATELY ABSENT, AND WHY
-//   Attendance — /api/v1/admin has NO attendance endpoint, for any role.
-//   Leave      — /api/v1/admin has NO leave endpoint, and no approve/reject route.
-// A menu item that goes nowhere is worse than no menu item, so they are not
-// rendered. Adding them later is a one-line change once those routes exist.
+// Uses ReactDOM.createPortal to render the dropdown at document.body, avoiding
+// overflow:hidden / overflow-x:auto clipping from the Card and Table wrappers.
+// Position is computed from the trigger button's bounding rect and updated on
+// scroll/resize so the menu tracks the button even inside scrollable containers.
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
@@ -51,54 +47,110 @@ export function WorkerRowActions({
   canManage,
 }: {
   workerId: string;
-  /** Differs per role, so the caller supplies it. */
   basePath: string;
   workerName: string;
   isActive: boolean;
-  /** False for read-only roles — the API would reject the write anyway. */
   canManage: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
-  const rootRef = React.useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = React.useState<{ top: number; right: number } | null>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
 
   const [, statusAction] = useActionState(
     isActive ? deactivateWorkerAction : reactivateWorkerAction,
     IDLE_FORM_STATE
   );
 
+  function updatePos() {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+  }
+
+  React.useEffect(() => {
+    if (!open) { setMenuPos(null); return; }
+    updatePos();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   React.useEffect(() => {
     if (!open) return;
 
     const onPointerDown = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      if (
+        !triggerRef.current?.contains(e.target as Node) &&
+        !menuRef.current?.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       setOpen(false);
-      // Focus must return to the trigger or a keyboard user is stranded.
       triggerRef.current?.focus();
     };
 
+    // Reposition when any ancestor scrolls (capture phase catches nested
+    // overflow containers like the Table's overflow-x-auto wrapper).
+    const onScroll = () => updatePos();
+    const onResize = () => updatePos();
+
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    window.addEventListener("resize", onResize);
 
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", onScroll, { capture: true } as EventListenerOptions);
+      window.removeEventListener("resize", onResize);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Consolidated into ONE destination — the unified Worker Workspace, which holds
-  // Overview / Portfolio / Schedule / Attendance / Leaves / Services / Performance /
-  // Documents / Activity as tabs. The old per-page links (schedule, calendar, slots,
-  // availability, services, shifts) are retired from this menu; those routes still
-  // exist and are now reached from inside the workspace, not scattered here.
   const links = [{ label: "Open workspace", href: `${basePath}/${workerId}` }];
 
+  const menu =
+    open && menuPos
+      ? createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={`Actions for ${workerName}`}
+            style={{ position: "fixed", top: menuPos.top, right: menuPos.right, zIndex: 9999 }}
+            className="min-w-44 overflow-hidden rounded border border-gray-200 bg-white py-1 shadow-lg"
+          >
+            {links.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="block px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+              >
+                {item.label}
+              </Link>
+            ))}
+
+            {canManage && (
+              <>
+                <div className="my-1 border-t border-gray-100" role="separator" />
+                <form action={statusAction} className="m-0">
+                  <input type="hidden" name="id" value={workerId} />
+                  <StatusMenuItem isActive={isActive} />
+                </form>
+              </>
+            )}
+          </div>,
+          document.body
+        )
+      : null;
+
   return (
-    <div ref={rootRef} className="relative flex justify-end">
+    <div className="relative flex justify-end">
       <button
         ref={triggerRef}
         type="button"
@@ -111,35 +163,7 @@ export function WorkerRowActions({
         <MoreHorizontal className="size-4" aria-hidden="true" />
       </button>
 
-      {open && (
-        <div
-          role="menu"
-          aria-label={`Actions for ${workerName}`}
-          className="absolute right-0 top-8 z-50 min-w-44 overflow-hidden rounded border border-gray-200 bg-white py-1 shadow-lg"
-        >
-          {links.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="block px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
-            >
-              {item.label}
-            </Link>
-          ))}
-
-          {canManage && (
-            <>
-              <div className="my-1 border-t border-gray-100" role="separator" />
-              <form action={statusAction} className="m-0">
-                <input type="hidden" name="id" value={workerId} />
-                <StatusMenuItem isActive={isActive} />
-              </form>
-            </>
-          )}
-        </div>
-      )}
+      {menu}
     </div>
   );
 }

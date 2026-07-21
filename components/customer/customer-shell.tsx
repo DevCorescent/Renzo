@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
+import { Notifications } from "@/components/dashboard/notifications";
 
 const NAV = [
   { label: "Dashboard",   href: "/customer/dashboard",   icon: LayoutDashboard },
@@ -140,9 +141,12 @@ export function CustomerShell({
           </span>
           <span className="font-heading text-base font-bold text-white">Renzo</span>
         </Link>
-        <button type="button" onClick={() => setOpen(true)} aria-label="Open menu">
-          <Menu className="size-5 text-stone-400" />
-        </button>
+        <div className="flex items-center gap-1">
+          <Notifications dark />
+          <button type="button" onClick={() => setOpen(true)} aria-label="Open menu">
+            <Menu className="size-5 text-stone-400" />
+          </button>
+        </div>
       </div>
 
       {/* Mobile drawer */}
@@ -170,8 +174,9 @@ export function CustomerShell({
       {/* Main content */}
       <div className="flex min-w-0 flex-1 flex-col lg:pl-56">
         {/* Desktop top bar */}
-        <header className="sticky top-0 z-30 hidden h-14 items-center border-b border-white/8 bg-stone-950/90 px-6 backdrop-blur-sm lg:flex">
+        <header className="sticky top-0 z-30 hidden h-14 items-center justify-between border-b border-white/8 bg-stone-950/90 px-6 backdrop-blur-sm lg:flex">
           <span className="text-sm font-medium text-stone-400">Customer Portal</span>
+          <Notifications dark />
         </header>
         <main className="flex-1 p-6">{children}</main>
       </div>

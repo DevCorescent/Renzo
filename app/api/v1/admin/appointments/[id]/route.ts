@@ -12,6 +12,7 @@ import { DATE_RE } from "@/lib/slots";
 import { sendMail } from "@/lib/mailer";
 import { appointmentRescheduleEmail } from "@/lib/email-templates";
 import { revalidatePath } from "next/cache";
+import { notify } from "@/lib/notifications";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -385,6 +386,7 @@ export async function PATCH(
             customer: {
               select: {
                 id: true,
+                userId: true,
                 firstName: true,
                 lastName: true,
                 phone: true,
@@ -414,20 +416,38 @@ export async function PATCH(
           },
         });
 
-      // Non-blocking reschedule notification when date or time changed.
+      // Non-blocking reschedule notifications when date or time changed.
       const dateTimeChanged =
         appointmentDate !== undefined ||
         startTime !== undefined ||
         endTime !== undefined;
-      if (dateTimeChanged && appointment.customer?.email) {
-        const { subject, html, text } = appointmentRescheduleEmail({
-          name: `${appointment.customer.firstName} ${appointment.customer.lastName ?? ""}`.trim(),
-          appointmentNo: appointment.appointmentNo,
-          date: new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(appointment.appointmentDate),
-          time: appointment.startTime,
-          branch: appointment.branch?.name ?? "",
-        });
-        sendMail({ to: appointment.customer.email, subject, html, text });
+      if (dateTimeChanged) {
+        const customerName = `${appointment.customer?.firstName ?? ""} ${appointment.customer?.lastName ?? ""}`.trim();
+        const formattedDate = new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(appointment.appointmentDate);
+
+        // Email notification
+        if (appointment.customer?.email) {
+          const { subject, html, text } = appointmentRescheduleEmail({
+            name: customerName,
+            appointmentNo: appointment.appointmentNo,
+            date: formattedDate,
+            time: appointment.startTime,
+            branch: appointment.branch?.name ?? "",
+          });
+          sendMail({ to: appointment.customer.email, subject, html, text });
+        }
+
+        // In-app notification
+        if (appointment.customer?.userId) {
+          notify(appointment.customer.userId, {
+            type: "INFO",
+            title: "Appointment Rescheduled",
+            message: `Your appointment #${appointment.appointmentNo} has been moved to ${formattedDate} at ${appointment.startTime}`,
+            href: `/customer/bookings/${id}`,
+            refType: "APPOINTMENT",
+            refId: id,
+          }).catch(() => {});
+        }
       }
 
       // Invalidate cached pages so all roles see the updated schedule.

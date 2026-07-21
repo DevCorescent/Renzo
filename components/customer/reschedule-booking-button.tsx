@@ -93,6 +93,7 @@ export function CustomerRescheduleButton({
             onChange={(e) => { setNewDate(e.target.value); setError(null); }}
             disabled={busy}
             required
+            style={{ colorScheme: "dark" }}
             className="w-full rounded-lg border border-white/8 bg-stone-950 px-2 py-1.5 text-xs text-stone-200 focus:border-stone-400 focus:outline-none disabled:opacity-60"
           />
         </div>
@@ -104,6 +105,7 @@ export function CustomerRescheduleButton({
             onChange={(e) => { setNewTime(e.target.value); setError(null); }}
             disabled={busy}
             required
+            style={{ colorScheme: "dark" }}
             className="w-full rounded-lg border border-white/8 bg-stone-950 px-2 py-1.5 text-xs text-stone-200 focus:border-stone-400 focus:outline-none disabled:opacity-60"
           />
         </div>
