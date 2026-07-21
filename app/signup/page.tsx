@@ -45,7 +45,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-stone-950 px-4 py-12 text-stone-100">
+    <div className="auth-surface relative flex min-h-screen items-center justify-center overflow-hidden bg-stone-950 px-4 py-12 text-stone-100">
       {/* Glows */}
       <div aria-hidden className="pointer-events-none absolute -top-40 right-[-10%] size-[36rem] rounded-full bg-gold/10 blur-3xl" />
       <div aria-hidden className="pointer-events-none absolute bottom-[-20%] left-[-5%] size-[24rem] rounded-full bg-gold/5 blur-3xl" />

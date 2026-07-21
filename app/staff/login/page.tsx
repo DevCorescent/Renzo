@@ -52,7 +52,7 @@ export default function StaffLoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen overflow-hidden bg-stone-950 text-stone-100">
+    <div className="auth-surface relative flex min-h-screen overflow-hidden bg-stone-950 text-stone-100">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-40 right-[-10%] size-[36rem] rounded-full bg-white/5 blur-3xl"

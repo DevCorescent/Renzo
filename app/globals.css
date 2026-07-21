@@ -251,7 +251,20 @@
   --gold-soft: #dcdedd;
   --gold-foreground: #111315;
 
+  /* The global .dark block inverts --color-white to near-black for admin
+     theming. The public site uses literal white text on its own dark
+     backgrounds, so we reset it here — this cascades to all children. */
+  --color-white: #ffffff;
+  --color-black: #000000;
+
   color-scheme: dark;
+}
+
+/* Auth pages (/login, /staff/login) are standalone dark pages outside
+   .renzo-luxe. Same white/black reset so text-white stays visible. */
+.auth-surface {
+  --color-white: #ffffff;
+  --color-black: #000000;
 }
 
 /* ── Dashboard luxe tokens ────────────────────────────────────────────────────

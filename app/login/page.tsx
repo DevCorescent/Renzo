@@ -50,7 +50,7 @@ export default function CustomerLoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen overflow-hidden bg-stone-950 text-stone-100">
+    <div className="auth-surface relative flex min-h-screen overflow-hidden bg-stone-950 text-stone-100">
       {/* Ambient glows */}
       <div
         aria-hidden
