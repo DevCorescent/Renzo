@@ -11,6 +11,7 @@ import {
 import { DATE_RE } from "@/lib/slots";
 import { sendMail } from "@/lib/mailer";
 import { appointmentRescheduleEmail } from "@/lib/email-templates";
+import { revalidatePath } from "next/cache";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -428,6 +429,11 @@ export async function PATCH(
         });
         sendMail({ to: appointment.customer.email, subject, html, text });
       }
+
+      // Invalidate cached pages so all roles see the updated schedule.
+      revalidatePath("/customer/bookings", "layout");
+      revalidatePath("/branch-admin/appointments", "layout");
+      revalidatePath(`/customer/bookings/${id}`);
 
       return ok(
         appointment,

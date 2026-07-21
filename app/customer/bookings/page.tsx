@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import prisma from "@/lib/db";
 import { CalendarDays, BarChart3, Wallet, Crown, Sparkles, User, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
