@@ -232,6 +232,7 @@ export default async function BranchAdminDashboardPage() {
             greeting={greeting}
             dateLabel={dateLabel}
             notifications={notifications}
+            hideControls
           />
         </FadeIn>
 

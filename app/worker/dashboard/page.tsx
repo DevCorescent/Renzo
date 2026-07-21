@@ -235,6 +235,7 @@ export default async function WorkerDashboardPage() {
             greeting={greeting}
             dateLabel={worker?.designation?.name ? `${worker.designation.name} · ${dateLabel}` : dateLabel}
             notifications={notifications}
+            hideControls
           />
         </FadeIn>
 

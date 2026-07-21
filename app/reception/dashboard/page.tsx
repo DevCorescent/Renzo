@@ -229,6 +229,7 @@ export default async function ReceptionDashboardPage() {
             greeting={greeting}
             dateLabel={dateLabel}
             notifications={notifications}
+            hideControls
           />
         </FadeIn>
 

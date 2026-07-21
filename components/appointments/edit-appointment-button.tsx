@@ -138,7 +138,7 @@ export function EditAppointmentButton({
           setBusy(false);
           setOpen(true);
         }}
-        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
       >
         <CalendarClock className="size-3" aria-hidden="true" /> Edit
       </button>
@@ -146,26 +146,26 @@ export function EditAppointmentButton({
   }
 
   return (
-    <div className="inline-flex max-w-xs flex-col gap-2 rounded-lg border border-gray-200 bg-white p-2 text-left shadow-sm">
+    <div className="inline-flex max-w-xs flex-col gap-2 rounded-lg border border-gray-200 bg-white p-2 text-left shadow-sm dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
       <div className="flex flex-wrap items-center gap-1.5">
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="rounded border border-gray-200 px-1.5 py-0.5 text-xs text-gray-800"
+          className="rounded border border-gray-200 px-1.5 py-0.5 text-xs text-gray-800 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
         />
         {!slotGrid ? (
           <input
             type="time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
-            className="rounded border border-gray-200 px-1.5 py-0.5 text-xs text-gray-800"
+            className="rounded border border-gray-200 px-1.5 py-0.5 text-xs text-gray-800 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
           />
         ) : null}
       </div>
 
       {slotsLoading ? (
-        <p className="flex items-center gap-1 text-[11px] text-gray-400">
+        <p className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-[var(--sa-muted)]">
           <Loader2 className="size-3 animate-spin" /> Loading slots…
         </p>
       ) : slotGrid && slotGrid.length > 0 ? (
@@ -186,8 +186,8 @@ export function EditAppointmentButton({
                   blocked
                     ? "cursor-not-allowed bg-gray-100 text-gray-400 line-through"
                     : selected
-                      ? "bg-gray-900 text-white"
-                      : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                      ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                      : "bg-gray-50 text-gray-700 hover:bg-gray-100 dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
                 }`}
                 title={blocked ? "Booked" : s.time}
               >
@@ -201,7 +201,7 @@ export function EditAppointmentButton({
         <p className="text-[11px] text-gray-400">No open slots this day</p>
       ) : null}
 
-      <p className="text-[10px] text-gray-400">
+      <p className="text-[10px] text-gray-400 dark:text-[var(--sa-muted)]">
         Current {toDateInput(appointmentDate)} · {startTime}–{endTime}
       </p>
 
@@ -219,7 +219,7 @@ export function EditAppointmentButton({
           type="button"
           onClick={() => setOpen(false)}
           disabled={busy}
-          className="rounded-md border border-gray-200 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+          className="rounded-md border border-gray-200 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-60 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
         >
           Cancel
         </button>

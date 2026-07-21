@@ -8,7 +8,14 @@
       "PowerShell(cd d:\\\\corescent\\\\spa; $output = npx tsc --noEmit 2>&1; $output | Where-Object { $_ -match \"error TS\" -and $_ -notmatch \"validator.ts\" })",
       "Bash(git log *)",
       "Bash(git pull *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(cd /d)",
+      "Bash(dir \"d:\\\\corescent\\\\spa\")",
+      "Bash(grep \".woff$\")",
+      "Bash(node -e \"const p = require\\('@react-pdf/renderer'\\); console.log\\(Object.keys\\(p\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; p=json.load\\(sys.stdin\\); print\\('version:', p.get\\('version'\\)\\)\")",
+      "Bash(dir \"d:\\\\corescent\\\\spa\\\\components\\\\shared\")"
     ]
   }
 }

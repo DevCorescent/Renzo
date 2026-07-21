@@ -28,8 +28,8 @@ export function LeaveStatsCards({ stats }: { stats: LeaveStats }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map((c) => (
-        <div key={c.label} className="rounded border border-gray-200 bg-white p-4">
-          <p className="text-xs font-medium text-gray-500">{c.label}</p>
+        <div key={c.label} className="rounded border border-gray-200 bg-white p-4 dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
+          <p className="text-xs font-medium text-gray-500 dark:text-[var(--sa-muted)]">{c.label}</p>
           <p className={cn("mt-2 text-2xl font-semibold", c.tone)}>{c.value}</p>
         </div>
       ))}
@@ -44,17 +44,17 @@ export function LeaveStatusBadge({ status }: { status: LeaveStatus }) {
 /* ─── Empty & error states ─────────────────────────────────────────────────── */
 export function LeavesEmpty({ filtered }: { filtered: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded border border-dashed border-gray-200 bg-white px-6 py-16 text-center">
+    <div className="flex flex-col items-center justify-center rounded border border-dashed border-gray-200 bg-white px-6 py-16 text-center dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
       <span
         aria-hidden="true"
-        className="flex size-12 items-center justify-center rounded-full bg-gray-50 text-gray-400"
+        className="flex size-12 items-center justify-center rounded-full bg-gray-50 text-gray-400 dark:bg-[var(--sa-tile)] dark:text-[var(--sa-muted)]"
       >
         <CalendarOff className="size-6" />
       </span>
-      <h3 className="mt-4 text-sm font-semibold text-gray-900">
+      <h3 className="mt-4 text-sm font-semibold text-gray-900 dark:text-[var(--sa-text)]">
         {filtered ? "No leave requests match your filters" : "No leave requests yet"}
       </h3>
-      <p className="mt-1 max-w-sm text-xs text-gray-500">
+      <p className="mt-1 max-w-sm text-xs text-gray-500 dark:text-[var(--sa-muted)]">
         {filtered
           ? "Try a different search, status or date range."
           : "When your workers apply for leave, their requests will appear here for review."}

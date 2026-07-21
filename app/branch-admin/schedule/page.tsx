@@ -43,8 +43,8 @@ export default async function BranchAdminSchedulePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Schedule</h1>
-        <p className="mt-0.5 text-sm text-gray-500">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-[var(--sa-text)]">Schedule</h1>
+        <p className="mt-0.5 text-sm text-gray-500 dark:text-[var(--sa-muted)]">
           Week of {startOfWeek.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} –{" "}
           {endOfWeek.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
         </p>
@@ -65,22 +65,22 @@ export default async function BranchAdminSchedulePage() {
           </THead>
           <tbody>
             {workerShifts.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">No active shifts assigned.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400 dark:text-[var(--sa-muted)]">No active shifts assigned.</td></tr>
             ) : (
               workerShifts.map((ws) => (
                 <TR key={ws.id}>
-                  <TD className="font-medium text-gray-900">
+                  <TD className="font-medium text-gray-900 dark:text-[var(--sa-text)]">
                     {ws.worker.firstName} {ws.worker.lastName}
-                    <p className="text-[11px] text-gray-400">{ws.worker.employeeCode}</p>
+                    <p className="text-[11px] text-gray-400 dark:text-[var(--sa-muted)]">{ws.worker.employeeCode}</p>
                   </TD>
-                  <TD className="text-gray-700">{ws.shift.name}</TD>
-                  <TD className="font-mono text-xs text-gray-600">
+                  <TD className="text-gray-700 dark:text-[var(--sa-text-2)]">{ws.shift.name}</TD>
+                  <TD className="font-mono text-xs text-gray-600 dark:text-[var(--sa-text-2)]">
                     {ws.shift.startTime}–{ws.shift.endTime}
                   </TD>
-                  <TD className="text-gray-500">
+                  <TD className="text-gray-500 dark:text-[var(--sa-muted)]">
                     {ws.shift.workingDays.map((d) => DAYS[d]).join(", ")}
                   </TD>
-                  <TD className="font-mono text-xs text-gray-500">
+                  <TD className="font-mono text-xs text-gray-500 dark:text-[var(--sa-muted)]">
                     {new Date(ws.startDate).toLocaleDateString("en-IN")}
                   </TD>
                   <TD><Badge tone={ws.isActive ? "success" : "neutral"}>{ws.isActive ? "Active" : "Off"}</Badge></TD>
@@ -99,13 +99,13 @@ export default async function BranchAdminSchedulePage() {
             <tbody>
               {availability.map((a) => (
                 <TR key={a.id}>
-                  <TD className="font-medium text-gray-900">{a.worker.firstName} {a.worker.lastName}</TD>
-                  <TD className="font-mono text-xs text-gray-600">
+                  <TD className="font-medium text-gray-900 dark:text-[var(--sa-text)]">{a.worker.firstName} {a.worker.lastName}</TD>
+                  <TD className="font-mono text-xs text-gray-600 dark:text-[var(--sa-text-2)]">
                     {new Date(a.date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
                   </TD>
-                  <TD className="font-mono text-xs text-gray-600">{a.fromTime ?? "Full day"}</TD>
-                  <TD className="font-mono text-xs text-gray-600">{a.toTime ?? "—"}</TD>
-                  <TD className="text-gray-500 text-xs">{a.reason ?? "—"}</TD>
+                  <TD className="font-mono text-xs text-gray-600 dark:text-[var(--sa-text-2)]">{a.fromTime ?? "Full day"}</TD>
+                  <TD className="font-mono text-xs text-gray-600 dark:text-[var(--sa-text-2)]">{a.toTime ?? "—"}</TD>
+                  <TD className="text-gray-500 text-xs dark:text-[var(--sa-muted)]">{a.reason ?? "—"}</TD>
                 </TR>
               ))}
             </tbody>

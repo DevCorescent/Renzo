@@ -135,7 +135,7 @@ export default async function MarketingDashboardPage() {
       <DashThemeInit />
       <div className="mx-auto max-w-350 space-y-6">
         <FadeIn>
-          <DashboardHeader role="marketing" userName={userName} greeting={greeting} dateLabel={dateLabel} notifications={[]} />
+          <DashboardHeader role="marketing" userName={userName} greeting={greeting} dateLabel={dateLabel} notifications={[]} hideControls />
         </FadeIn>
 
         <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

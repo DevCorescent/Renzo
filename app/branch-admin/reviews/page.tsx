@@ -35,8 +35,8 @@ export default async function BranchAdminReviewsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Reviews</h1>
-          <p className="mt-0.5 text-sm text-gray-500">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-[var(--sa-text)]">Reviews</h1>
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-[var(--sa-muted)]">
             {reviews.length} total · {pending} pending · avg {avgRating} ★
           </p>
         </div>
@@ -59,19 +59,19 @@ export default async function BranchAdminReviewsPage() {
           </THead>
           <tbody>
             {reviews.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">No reviews yet.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400 dark:text-[var(--sa-muted)]">No reviews yet.</td></tr>
             ) : (
               reviews.map((r) => (
                 <TR key={r.id}>
-                  <TD className="font-medium text-gray-900">{r.customer.firstName} {r.customer.lastName}</TD>
-                  <TD className="text-gray-500">
+                  <TD className="font-medium text-gray-900 dark:text-[var(--sa-text)]">{r.customer.firstName} {r.customer.lastName}</TD>
+                  <TD className="text-gray-500 dark:text-[var(--sa-muted)]">
                     {r.worker ? `${r.worker.firstName} ${r.worker.lastName}` : "—"}
                   </TD>
-                  <TD className="text-gray-700 text-sm">
+                  <TD className="text-gray-700 text-sm dark:text-[var(--sa-text-2)]">
                     {"★".repeat(r.overallRating)}{"☆".repeat(5 - r.overallRating)}
                   </TD>
-                  <TD className="max-w-[200px] truncate text-xs text-gray-500">{r.comment ?? "—"}</TD>
-                  <TD className="font-mono text-xs text-gray-500">{new Date(r.createdAt).toLocaleDateString("en-IN")}</TD>
+                  <TD className="max-w-[200px] truncate text-xs text-gray-500 dark:text-[var(--sa-muted)]">{r.comment ?? "—"}</TD>
+                  <TD className="font-mono text-xs text-gray-500 dark:text-[var(--sa-muted)]">{new Date(r.createdAt).toLocaleDateString("en-IN")}</TD>
                   <TD><Badge tone={STATUS_TONE[r.status] ?? "neutral"}>{r.status}</Badge></TD>
                   <TD className="text-right">
                     <ReviewModerationButtons reviewId={r.id} status={r.status} />

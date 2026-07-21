@@ -93,9 +93,9 @@ export function LeavesView({
         <div
           role="status"
           aria-live="polite"
-          className="flex items-center justify-between gap-3 rounded border border-gray-200 bg-white px-3 py-2 shadow-sm"
+          className="flex items-center justify-between gap-3 rounded border border-gray-200 bg-white px-3 py-2 shadow-sm dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]"
         >
-          <p className="flex items-center gap-2 text-xs text-gray-700">
+          <p className="flex items-center gap-2 text-xs text-gray-700 dark:text-[var(--sa-text-2)]">
             <Check className="size-3.5 shrink-0 text-green-600" aria-hidden="true" />
             {toast}
           </p>
@@ -153,22 +153,22 @@ export function LeavesView({
                 className="cursor-pointer"
                 onClick={() => setSelected(l)}
               >
-                <TD className="font-medium text-gray-900">{workerName(l.worker)}</TD>
-                <TD className="font-mono text-xs text-gray-600">{l.worker.employeeCode}</TD>
-                <TD className="text-gray-700">
+                <TD className="font-medium text-gray-900 dark:text-[var(--sa-text)]">{workerName(l.worker)}</TD>
+                <TD className="font-mono text-xs text-gray-600 dark:text-[var(--sa-muted)]">{l.worker.employeeCode}</TD>
+                <TD className="text-gray-700 dark:text-[var(--sa-text-2)]">
                   {l.leaveType.name}
-                  <span className="ml-1 text-[11px] text-gray-400">({l.leaveType.code})</span>
+                  <span className="ml-1 text-[11px] text-gray-400 dark:text-[var(--sa-muted)]">({l.leaveType.code})</span>
                 </TD>
-                <TD className="whitespace-nowrap text-xs text-gray-600">{formatDate(l.startDate)}</TD>
-                <TD className="whitespace-nowrap text-xs text-gray-600">{formatDate(l.endDate)}</TD>
-                <TD className="text-gray-500">{l.days}</TD>
-                <TD className="max-w-45 truncate text-xs text-gray-500" title={l.reason}>
+                <TD className="whitespace-nowrap text-xs text-gray-600 dark:text-[var(--sa-text-2)]">{formatDate(l.startDate)}</TD>
+                <TD className="whitespace-nowrap text-xs text-gray-600 dark:text-[var(--sa-text-2)]">{formatDate(l.endDate)}</TD>
+                <TD className="text-gray-500 dark:text-[var(--sa-muted)]">{l.days}</TD>
+                <TD className="max-w-45 truncate text-xs text-gray-500 dark:text-[var(--sa-muted)]" title={l.reason}>
                   {l.reason}
                 </TD>
                 <TD>
                   <LeaveStatusBadge status={l.status} />
                 </TD>
-                <TD className="whitespace-nowrap text-xs text-gray-500">{formatDate(l.createdAt)}</TD>
+                <TD className="whitespace-nowrap text-xs text-gray-500 dark:text-[var(--sa-muted)]">{formatDate(l.createdAt)}</TD>
                 <TD className="text-right">
                   <button
                     type="button"
@@ -177,7 +177,7 @@ export function LeavesView({
                       e.stopPropagation();
                       setSelected(l);
                     }}
-                    className="text-xs font-medium text-gray-700 transition hover:text-gray-900 focus:outline-none focus:underline"
+                    className="text-xs font-medium text-gray-700 transition hover:text-gray-900 focus:outline-none focus:underline dark:text-[var(--sa-text-2)] dark:hover:text-[var(--sa-text)]"
                   >
                     {l.status === "PENDING" || l.status === "CANCELLED" ? "Review" : "View"}
                   </button>
@@ -188,7 +188,7 @@ export function LeavesView({
         </Table>
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
+          <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-[var(--sa-border)] dark:text-[var(--sa-muted)]">
             <span>
               {from}–{to} of {total}
             </span>
@@ -197,7 +197,7 @@ export function LeavesView({
                 type="button"
                 onClick={() => goToPage(page - 1)}
                 disabled={page <= 1}
-                className="rounded border border-gray-200 px-2.5 py-1 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-40"
+                className="rounded border border-gray-200 px-2.5 py-1 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-40 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
               >
                 Previous
               </button>
@@ -205,7 +205,7 @@ export function LeavesView({
                 type="button"
                 onClick={() => goToPage(page + 1)}
                 disabled={page >= totalPages}
-                className="rounded border border-gray-200 px-2.5 py-1 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-40"
+                className="rounded border border-gray-200 px-2.5 py-1 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-40 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
               >
                 Next
               </button>

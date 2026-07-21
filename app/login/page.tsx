@@ -88,10 +88,13 @@ export default function CustomerLoginPage() {
         </Link>
 
         <div className="space-y-6">
-          <p className="font-heading text-4xl font-semibold leading-tight tracking-tight xl:text-5xl">
+          <p className="font-heading text-4xl font-semibold tracking-tight xl:text-5xl">
             Where Beauty
             <br />
-            Meets <span className="text-gold">Confidence</span>
+            Meets{" "}
+            <span className="bg-gradient-to-r from-[#EAD7AA] via-[#C8A96A] to-[#F2E2BF] bg-clip-text text-transparent">
+              Confidence
+            </span>
           </p>
           <p className="max-w-xs text-sm leading-relaxed text-stone-400">
             Sign in to book appointments, manage visits, and track your rewards.

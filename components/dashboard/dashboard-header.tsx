@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, Home, ChevronRight, Store, UserPlus, CalendarPlus, Scissors,
+  Home, ChevronRight, Store, UserPlus, CalendarPlus, Scissors,
   CalendarDays, BarChart3, Users, Receipt, Wallet, Crown, Sparkles, Star,
   ChevronDown, User, Settings, LogOut,
 } from "lucide-react";
@@ -168,6 +168,7 @@ export function DashboardHeader({
   notifications,
   hideQuickActions,
   hideThemeToggle,
+  hideControls,
 }: {
   role: DashRole;
   userName: string;
@@ -176,6 +177,7 @@ export function DashboardHeader({
   notifications: NotificationItem[];
   hideQuickActions?: boolean;
   hideThemeToggle?: boolean;
+  hideControls?: boolean;
 }) {
   const cfg = ROLE_CONFIG[role];
   const firstName = userName.split(" ")[0] || userName;
@@ -202,41 +204,26 @@ export function DashboardHeader({
           <p className="mt-1 text-sm text-gray-500 dark:text-(--sa-text-2)">{dateLabel}</p>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-2">
-          <form
-            onSubmit={(e) => e.preventDefault()}
-            role="search"
-            className="relative hidden lg:block"
-          >
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400 dark:text-(--sa-muted)" />
-            <input
-              type="search"
-              placeholder="Search…"
-              aria-label="Search"
-              className="h-9 w-52 rounded-lg border border-gray-200 bg-white pl-9 pr-10 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:w-64 focus:border-amber-300 focus:ring-2 focus:ring-amber-100 dark:border-(--sa-border) dark:bg-(--sa-tile) dark:text-(--sa-text) dark:placeholder:text-(--sa-muted) dark:focus:border-amber-500/40 dark:focus:bg-(--sa-surface) dark:focus:ring-amber-500/20"
-            />
-            <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 dark:border-(--sa-border) dark:bg-white/5 dark:text-(--sa-muted)">
-              ⌘K
-            </kbd>
-          </form>
+        {/* Controls — hidden when AppShell already renders them in the topbar */}
+        {!hideControls && (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-0.5 rounded-lg">
+              {!hideThemeToggle && <ThemeToggle />}
+              <Notifications items={notifications} />
+            </div>
 
-          <div className="flex items-center gap-0.5 rounded-lg">
-            {!hideThemeToggle && <ThemeToggle />}
-            <Notifications items={notifications} />
+            {cfg.quickActions.length > 0 && !hideQuickActions && (
+              <>
+                <div className="mx-1 hidden h-6 w-px bg-gray-200 sm:block dark:bg-(--sa-border)" />
+                <QuickActions actions={cfg.quickActions} />
+              </>
+            )}
+
+            <div className="mx-1 hidden h-6 w-px bg-gray-200 sm:block dark:bg-(--sa-border)" />
+
+            <UserMenu userName={userName} roleLabel={cfg.label} settingsHref={cfg.settings} />
           </div>
-
-          {cfg.quickActions.length > 0 && !hideQuickActions && (
-            <>
-              <div className="mx-1 hidden h-6 w-px bg-gray-200 sm:block dark:bg-(--sa-border)" />
-              <QuickActions actions={cfg.quickActions} />
-            </>
-          )}
-
-          <div className="mx-1 hidden h-6 w-px bg-gray-200 sm:block dark:bg-(--sa-border)" />
-
-          <UserMenu userName={userName} roleLabel={cfg.label} settingsHref={cfg.settings} />
-        </div>
+        )}
       </div>
     </div>
   );

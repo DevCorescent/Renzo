@@ -117,16 +117,16 @@ export function GrantLeaveModal({
         onClick={(e) => {
           if (e.target === dialogRef.current && !submitting) setOpen(false);
         }}
-        className="fixed inset-0 m-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40"
+        className="fixed inset-0 m-auto w-full max-w-md rounded-lg border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40 dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]"
       >
         <form onSubmit={submit} className="flex flex-col">
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-            <h2 className="text-sm font-semibold text-gray-900">Grant leave</h2>
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-[var(--sa-border)]">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-[var(--sa-text)]">Grant leave</h2>
             <button
               type="button"
               onClick={() => setOpen(false)}
               disabled={submitting}
-              className="rounded p-1 text-gray-400 hover:bg-gray-100"
+              className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-[var(--sa-hover)]"
               aria-label="Close"
             >
               <X className="size-4" />
@@ -140,13 +140,13 @@ export function GrantLeaveModal({
               </p>
             )}
 
-            <label className="block text-xs font-medium text-gray-600">
+            <label className="block text-xs font-medium text-gray-600 dark:text-[var(--sa-text-2)]">
               Worker
               <select
                 required
                 value={workerId}
                 onChange={(e) => setWorkerId(e.target.value)}
-                className="mt-1 h-9 w-full rounded border border-gray-200 px-2 text-sm"
+                className="mt-1 h-9 w-full rounded border border-gray-200 px-2 text-sm dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
               >
                 <option value="">Select worker…</option>
                 {workers.map((w) => (
@@ -157,13 +157,13 @@ export function GrantLeaveModal({
               </select>
             </label>
 
-            <label className="block text-xs font-medium text-gray-600">
+            <label className="block text-xs font-medium text-gray-600 dark:text-[var(--sa-text-2)]">
               Leave type
               <select
                 required
                 value={leaveTypeId}
                 onChange={(e) => setLeaveTypeId(e.target.value)}
-                className="mt-1 h-9 w-full rounded border border-gray-200 px-2 text-sm"
+                className="mt-1 h-9 w-full rounded border border-gray-200 px-2 text-sm dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
               >
                 <option value="">Select type…</option>
                 {leaveTypes.map((t) => (
@@ -175,47 +175,47 @@ export function GrantLeaveModal({
             </label>
 
             <div className="grid grid-cols-2 gap-3">
-              <label className="block text-xs font-medium text-gray-600">
+              <label className="block text-xs font-medium text-gray-600 dark:text-[var(--sa-text-2)]">
                 From
                 <input
                   required
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="mt-1 h-9 w-full rounded border border-gray-200 px-2 text-sm"
+                  className="mt-1 h-9 w-full rounded border border-gray-200 px-2 text-sm dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
                 />
               </label>
-              <label className="block text-xs font-medium text-gray-600">
+              <label className="block text-xs font-medium text-gray-600 dark:text-[var(--sa-text-2)]">
                 To
                 <input
                   required
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="mt-1 h-9 w-full rounded border border-gray-200 px-2 text-sm"
+                  className="mt-1 h-9 w-full rounded border border-gray-200 px-2 text-sm dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
                 />
               </label>
             </div>
 
-            <label className="block text-xs font-medium text-gray-600">
+            <label className="block text-xs font-medium text-gray-600 dark:text-[var(--sa-text-2)]">
               Reason
               <textarea
                 required
                 rows={3}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="mt-1 w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+                className="mt-1 w-full rounded border border-gray-200 px-2 py-1.5 text-sm dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
                 placeholder="Why is this leave being granted?"
               />
             </label>
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4">
+          <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-[var(--sa-border)]">
             <button
               type="button"
               onClick={() => setOpen(false)}
               disabled={submitting}
-              className="h-9 rounded border border-gray-200 px-3 text-sm text-gray-600"
+              className="h-9 rounded border border-gray-200 px-3 text-sm text-gray-600 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)]"
             >
               Cancel
             </button>

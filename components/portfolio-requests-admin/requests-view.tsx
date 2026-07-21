@@ -79,9 +79,9 @@ export function RequestsView({
         <div
           role="status"
           aria-live="polite"
-          className="flex items-center justify-between gap-3 rounded border border-gray-200 bg-white px-3 py-2 shadow-sm"
+          className="flex items-center justify-between gap-3 rounded border border-gray-200 bg-white px-3 py-2 shadow-sm dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]"
         >
-          <p className="flex items-center gap-2 text-xs text-gray-700">
+          <p className="flex items-center gap-2 text-xs text-gray-700 dark:text-[var(--sa-text-2)]">
             <Check className="size-3.5 shrink-0 text-green-600" aria-hidden="true" />
             {toast}
           </p>
@@ -125,20 +125,20 @@ export function RequestsView({
                       size={30}
                     />
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-gray-900">{workerName(r.worker)}</p>
-                      <p className="truncate text-[11px] text-gray-400">{r.worker.designation?.name ?? "—"}</p>
+                      <p className="truncate font-medium text-gray-900 dark:text-[var(--sa-text)]">{workerName(r.worker)}</p>
+                      <p className="truncate text-[11px] text-gray-400 dark:text-[var(--sa-muted)]">{r.worker.designation?.name ?? "—"}</p>
                     </div>
                   </div>
                 </TD>
-                <TD className="font-mono text-xs text-gray-600">{r.worker.employeeCode}</TD>
-                <TD className="text-gray-700">
+                <TD className="font-mono text-xs text-gray-600 dark:text-[var(--sa-muted)]">{r.worker.employeeCode}</TD>
+                <TD className="text-gray-700 dark:text-[var(--sa-text-2)]">
                   {TYPE_LABELS[r.type]}
-                  <span className="block max-w-50 truncate text-[11px] text-gray-400">
+                  <span className="block max-w-50 truncate text-[11px] text-gray-400 dark:text-[var(--sa-muted)]">
                     {describeRequest(r.type, r.payload)}
                   </span>
                 </TD>
-                <TD className="text-xs text-gray-500">{workerBranchName(r.worker)}</TD>
-                <TD className="whitespace-nowrap text-xs text-gray-500">{formatDate(r.createdAt)}</TD>
+                <TD className="text-xs text-gray-500 dark:text-[var(--sa-muted)]">{workerBranchName(r.worker)}</TD>
+                <TD className="whitespace-nowrap text-xs text-gray-500 dark:text-[var(--sa-muted)]">{formatDate(r.createdAt)}</TD>
                 <TD>
                   <Badge tone={STATUS_CONFIG[r.status].tone}>{STATUS_CONFIG[r.status].label}</Badge>
                 </TD>
@@ -146,7 +146,7 @@ export function RequestsView({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); setSelected(r); }}
-                    className="text-xs font-medium text-gray-700 transition hover:text-gray-900 focus:outline-none focus:underline"
+                    className="text-xs font-medium text-gray-700 transition hover:text-gray-900 focus:outline-none focus:underline dark:text-[var(--sa-text-2)] dark:hover:text-[var(--sa-text)]"
                   >
                     {r.status === "PENDING" ? "Review" : "View"}
                   </button>
@@ -157,14 +157,14 @@ export function RequestsView({
         </Table>
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
+          <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-[var(--sa-border)] dark:text-[var(--sa-muted)]">
             <span>{from}–{to} of {total}</span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => goToPage(page - 1)}
                 disabled={page <= 1}
-                className="rounded border border-gray-200 px-2.5 py-1 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-40"
+                className="rounded border border-gray-200 px-2.5 py-1 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-40 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
               >
                 Previous
               </button>
@@ -172,7 +172,7 @@ export function RequestsView({
                 type="button"
                 onClick={() => goToPage(page + 1)}
                 disabled={page >= totalPages}
-                className="rounded border border-gray-200 px-2.5 py-1 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-40"
+                className="rounded border border-gray-200 px-2.5 py-1 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-40 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
               >
                 Next
               </button>

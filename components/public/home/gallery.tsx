@@ -37,7 +37,7 @@ export function Gallery() {
       </MotionReveal>
 
       <MotionReveal className="mx-auto mt-8 max-w-2xl px-4 text-center">
-        <h2 className="font-heading text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+        <h2 className="font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
           Our Work Speaks for Itself
         </h2>
         <p className="mt-4 leading-relaxed text-stone-400">

@@ -62,7 +62,7 @@ export function CancelBookingButton({
           type="button"
           onClick={() => setConfirming(false)}
           disabled={busy}
-          className="rounded-md border border-gray-200 px-2 py-0.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:opacity-60"
+          className="rounded-md border border-gray-200 px-2 py-0.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:opacity-60 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
         >
           Keep
         </button>

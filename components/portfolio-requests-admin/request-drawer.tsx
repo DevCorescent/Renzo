@@ -89,12 +89,12 @@ export function RequestDrawer({
         if (e.target === dialogRef.current && !submitting) onClose();
       }}
       aria-labelledby="pr-drawer-title"
-      className="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-dvh w-full max-w-md rounded-none border-l border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40"
+      className="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-dvh w-full max-w-md rounded-none border-l border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40 dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]"
     >
       {request && (
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+          <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4 dark:border-[var(--sa-border)]">
             <div className="flex min-w-0 items-center gap-3">
               <WorkerAvatar
                 firstName={request.worker.firstName}
@@ -104,10 +104,10 @@ export function RequestDrawer({
                 size={40}
               />
               <div className="min-w-0">
-                <h2 id="pr-drawer-title" className="truncate text-sm font-semibold text-gray-900">
+                <h2 id="pr-drawer-title" className="truncate text-sm font-semibold text-gray-900 dark:text-[var(--sa-text)]">
                   {workerName(request.worker)}
                 </h2>
-                <p className="truncate text-xs text-gray-500">
+                <p className="truncate text-xs text-gray-500 dark:text-[var(--sa-muted)]">
                   {request.worker.designation?.name ?? "—"} · {workerBranchName(request.worker)}
                 </p>
               </div>
@@ -117,7 +117,7 @@ export function RequestDrawer({
               onClick={onClose}
               disabled={submitting}
               aria-label="Close"
-              className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-50"
+              className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-50 dark:hover:bg-[var(--sa-hover)] dark:hover:text-[var(--sa-text)]"
             >
               <X className="size-4" />
             </button>
@@ -127,20 +127,20 @@ export function RequestDrawer({
           <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Request</p>
-                <p className="text-sm font-medium text-gray-900">{TYPE_LABELS[request.type]}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-[var(--sa-muted)]">Request</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-[var(--sa-text)]">{TYPE_LABELS[request.type]}</p>
               </div>
               <Badge tone={STATUS_CONFIG[request.status].tone}>{STATUS_CONFIG[request.status].label}</Badge>
             </div>
 
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-400 dark:text-[var(--sa-muted)]">
               Submitted {formatDate(request.createdAt)}
               {request.reviewedAt && ` · reviewed ${formatDate(request.reviewedAt)}`}
             </p>
 
             {/* The mandatory comparison */}
             <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-[var(--sa-muted)]">
                 Current vs requested
               </p>
               <RequestDiff type={request.type} previous={request.previousValue} payload={request.payload} />
@@ -148,14 +148,14 @@ export function RequestDrawer({
 
             {/* Prior decision note, if any */}
             {request.reviewNote && (
-              <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                <span className="font-medium text-gray-700">Comment:</span> {request.reviewNote}
+              <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)]">
+                <span className="font-medium text-gray-700 dark:text-[var(--sa-text)]">Comment:</span> {request.reviewNote}
               </p>
             )}
           </div>
 
           {/* Footer / actions */}
-          <div className="border-t border-gray-100 px-5 py-4">
+          <div className="border-t border-gray-100 px-5 py-4 dark:border-[var(--sa-border)]">
             {error && (
               <p role="alert" className="mb-3 rounded border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
                 {error}
@@ -167,7 +167,7 @@ export function RequestDrawer({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="inline-flex h-9 items-center rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                  className="inline-flex h-9 items-center rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
                 >
                   Close
                 </button>
@@ -201,7 +201,7 @@ export function RequestDrawer({
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-gray-600 dark:text-[var(--sa-text-2)]">
                   {mode === "APPROVE"
                     ? "Approving publishes this change to the live portfolio immediately."
                     : mode === "REJECT"
@@ -216,7 +216,7 @@ export function RequestDrawer({
                   rows={2}
                   aria-label="Comment"
                   placeholder={mode === "APPROVE" ? "Comment (optional)" : "Comment (required)"}
-                  className="w-full rounded border border-gray-200 bg-white px-2.5 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-gray-400 focus:ring-2 focus:ring-gray-900/5 disabled:bg-gray-50"
+                  className="w-full rounded border border-gray-200 bg-white px-2.5 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-gray-400 focus:ring-2 focus:ring-gray-900/5 disabled:bg-gray-50 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)] dark:placeholder:text-[var(--sa-muted)] dark:disabled:bg-[var(--sa-surface)]"
                 />
 
                 <div className="flex items-center justify-end gap-2">
@@ -224,7 +224,7 @@ export function RequestDrawer({
                     type="button"
                     onClick={() => { setMode(null); setError(null); }}
                     disabled={submitting}
-                    className="inline-flex h-9 items-center rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-50"
+                    className="inline-flex h-9 items-center rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-50 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
                   >
                     Back
                   </button>

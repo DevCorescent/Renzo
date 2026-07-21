@@ -109,9 +109,9 @@ export function InventoryTable({
   return (
     <>
       {toast && (
-        <div role="status" aria-live="polite" className="flex items-center justify-between gap-3 rounded border border-gray-200 bg-white px-3 py-2 shadow-sm">
-          <p className="flex items-center gap-2 text-xs text-gray-700"><Check className="size-3.5 shrink-0 text-green-600" aria-hidden="true" />{toast}</p>
-          <button type="button" onClick={() => setToast(null)} aria-label="Dismiss" className="rounded p-0.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"><X className="size-3.5" /></button>
+        <div role="status" aria-live="polite" className="flex items-center justify-between gap-3 rounded border border-gray-200 bg-white px-3 py-2 shadow-sm dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
+          <p className="flex items-center gap-2 text-xs text-gray-700 dark:text-[var(--sa-text-2)]"><Check className="size-3.5 shrink-0 text-green-600" aria-hidden="true" />{toast}</p>
+          <button type="button" onClick={() => setToast(null)} aria-label="Dismiss" className="rounded p-0.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-[var(--sa-hover)]"><X className="size-3.5" /></button>
         </div>
       )}
 
@@ -120,8 +120,8 @@ export function InventoryTable({
 
         {rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-            <span className="flex size-11 items-center justify-center rounded-full bg-gray-50 text-gray-300 ring-1 ring-gray-200"><Package className="size-5" /></span>
-            <p className="mt-3 text-sm font-medium text-gray-700">No inventory matches your filters</p>
+            <span className="flex size-11 items-center justify-center rounded-full bg-gray-50 text-gray-300 ring-1 ring-gray-200 dark:bg-[var(--sa-tile)] dark:ring-[var(--sa-border)] dark:text-[var(--sa-muted)]"><Package className="size-5" /></span>
+            <p className="mt-3 text-sm font-medium text-gray-700 dark:text-[var(--sa-text)]">No inventory matches your filters</p>
           </div>
         ) : (
           <Table>
@@ -142,36 +142,36 @@ export function InventoryTable({
                   <TR key={r.id}>
                     <TD>
                       <div className="flex items-center gap-2.5">
-                        <span className="relative size-9 shrink-0 overflow-hidden rounded bg-gray-100 ring-1 ring-gray-200">
+                        <span className="relative size-9 shrink-0 overflow-hidden rounded bg-gray-100 ring-1 ring-gray-200 dark:bg-[var(--sa-tile)] dark:ring-[var(--sa-border)]">
                           {r.product.image ? (
                             <Image src={r.product.image} alt="" fill sizes="36px" className="object-cover" />
                           ) : (
-                            <span className="flex size-full items-center justify-center text-gray-300"><Package className="size-4" /></span>
+                            <span className="flex size-full items-center justify-center text-gray-300 dark:text-[var(--sa-muted)]"><Package className="size-4" /></span>
                           )}
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-gray-900">{r.product.name}</p>
-                          {r.product.brand && <p className="truncate text-[11px] text-gray-400">{r.product.brand}</p>}
+                          <p className="truncate font-medium text-gray-900 dark:text-[var(--sa-text)]">{r.product.name}</p>
+                          {r.product.brand && <p className="truncate text-[11px] text-gray-400 dark:text-[var(--sa-muted)]">{r.product.brand}</p>}
                         </div>
                       </div>
                     </TD>
-                    <TD className="font-mono text-xs text-gray-600">{r.product.sku}</TD>
-                    <TD className="text-xs text-gray-500">{r.product.category?.name ?? "—"}</TD>
-                    <TD className="text-xs text-gray-500">{r.product.supplier?.name ?? "—"}</TD>
-                    {showBranch && <TD className="text-xs text-gray-500">{r.branch.name}</TD>}
-                    <TD className="text-right text-gray-800">{r.quantity} <span className="text-[11px] text-gray-400">{r.product.unit}</span></TD>
-                    <TD className="text-right text-gray-500">{r.reservedQty}</TD>
-                    <TD className="text-right font-medium text-gray-900">{r.availableQty}</TD>
-                    <TD className="text-right text-gray-500">{r.product.reorderLevel}</TD>
-                    <TD className="text-right text-xs text-gray-500">{money(r.product.purchasePrice)}</TD>
-                    <TD className="text-right text-xs text-gray-700">{money(r.product.sellingPrice)}</TD>
+                    <TD className="font-mono text-xs text-gray-600 dark:text-[var(--sa-text-2)]">{r.product.sku}</TD>
+                    <TD className="text-xs text-gray-500 dark:text-[var(--sa-muted)]">{r.product.category?.name ?? "—"}</TD>
+                    <TD className="text-xs text-gray-500 dark:text-[var(--sa-muted)]">{r.product.supplier?.name ?? "—"}</TD>
+                    {showBranch && <TD className="text-xs text-gray-500 dark:text-[var(--sa-muted)]">{r.branch.name}</TD>}
+                    <TD className="text-right text-gray-800 dark:text-[var(--sa-text-2)]">{r.quantity} <span className="text-[11px] text-gray-400 dark:text-[var(--sa-muted)]">{r.product.unit}</span></TD>
+                    <TD className="text-right text-gray-500 dark:text-[var(--sa-muted)]">{r.reservedQty}</TD>
+                    <TD className="text-right font-medium text-gray-900 dark:text-[var(--sa-text)]">{r.availableQty}</TD>
+                    <TD className="text-right text-gray-500 dark:text-[var(--sa-muted)]">{r.product.reorderLevel}</TD>
+                    <TD className="text-right text-xs text-gray-500 dark:text-[var(--sa-muted)]">{money(r.product.purchasePrice)}</TD>
+                    <TD className="text-right text-xs text-gray-700 dark:text-[var(--sa-text-2)]">{money(r.product.sellingPrice)}</TD>
                     <TD>
                       <div className="flex items-center gap-1.5">
                         <Badge tone={r.product.isActive ? st.tone : "neutral"}>{r.product.isActive ? st.label : "Inactive"}</Badge>
                         {recent && <Badge tone="info">Updated</Badge>}
                       </div>
                     </TD>
-                    <TD className="whitespace-nowrap text-xs text-gray-500">{fmtDate(r.updatedAt)}</TD>
+                    <TD className="whitespace-nowrap text-xs text-gray-500 dark:text-[var(--sa-muted)]">{fmtDate(r.updatedAt)}</TD>
                     <TD className="text-right">
                       <RowActions
                         row={r}
@@ -191,11 +191,11 @@ export function InventoryTable({
         )}
 
         {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
+          <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-[var(--sa-border)] dark:text-[var(--sa-muted)]">
             <span>{from}–{to} of {total}</span>
             <div className="flex items-center gap-1">
-              <button type="button" onClick={() => goToPage(page - 1)} disabled={page <= 1} className="rounded border border-gray-200 px-2.5 py-1 transition hover:bg-gray-50 disabled:opacity-40">Previous</button>
-              <button type="button" onClick={() => goToPage(page + 1)} disabled={page >= totalPages} className="rounded border border-gray-200 px-2.5 py-1 transition hover:bg-gray-50 disabled:opacity-40">Next</button>
+              <button type="button" onClick={() => goToPage(page - 1)} disabled={page <= 1} className="rounded border border-gray-200 px-2.5 py-1 transition hover:bg-gray-50 disabled:opacity-40 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]">Previous</button>
+              <button type="button" onClick={() => goToPage(page + 1)} disabled={page >= totalPages} className="rounded border border-gray-200 px-2.5 py-1 transition hover:bg-gray-50 disabled:opacity-40 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]">Next</button>
             </div>
           </div>
         )}
@@ -210,16 +210,16 @@ export function InventoryTable({
         ref={confirmRef}
         onCancel={(e) => { e.preventDefault(); if (!deleting) setPendingDelete(null); }}
         onClick={(e) => { if (e.target === confirmRef.current && !deleting) setPendingDelete(null); }}
-        className="w-[calc(100vw-2rem)] max-w-sm rounded-lg border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40"
+        className="w-[calc(100vw-2rem)] max-w-sm rounded-lg border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40 dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]"
       >
         {pendingDelete && (
           <div className="p-5">
-            <h2 className="text-sm font-semibold text-gray-900">Deactivate item</h2>
-            <p className="mt-1 text-xs text-gray-500">
-              Deactivate <span className="font-medium text-gray-700">{pendingDelete.product.name}</span>? It will be hidden from active inventory but its history is kept.
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-[var(--sa-text)]">Deactivate item</h2>
+            <p className="mt-1 text-xs text-gray-500 dark:text-[var(--sa-muted)]">
+              Deactivate <span className="font-medium text-gray-700 dark:text-[var(--sa-text-2)]">{pendingDelete.product.name}</span>? It will be hidden from active inventory but its history is kept.
             </p>
             <div className="mt-4 flex items-center justify-end gap-2">
-              <button type="button" onClick={() => setPendingDelete(null)} disabled={deleting} className="inline-flex h-9 items-center rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 transition hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+              <button type="button" onClick={() => setPendingDelete(null)} disabled={deleting} className="inline-flex h-9 items-center rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]">Cancel</button>
               <button type="button" onClick={confirmDelete} disabled={deleting} className="inline-flex h-9 items-center rounded bg-red-600 px-4 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-60">{deleting ? "Deactivating…" : "Deactivate"}</button>
             </div>
           </div>

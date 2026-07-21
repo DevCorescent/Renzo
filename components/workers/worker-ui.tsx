@@ -49,7 +49,7 @@ export function WorkerAvatar({
         alt=""
         width={size}
         height={size}
-        className="shrink-0 rounded-full object-cover ring-1 ring-gray-200"
+        className="shrink-0 rounded-full object-cover ring-1 ring-gray-200 dark:ring-[var(--sa-border)]"
       />
     );
   }
@@ -59,7 +59,7 @@ export function WorkerAvatar({
       aria-hidden="true"
       style={{ width: size, height: size }}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ring-1 ring-gray-200",
+        "inline-flex shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ring-1 ring-gray-200 dark:ring-[var(--sa-border)]",
         tint
       )}
     >
@@ -83,12 +83,12 @@ export function EmptyState({
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
       <div
         aria-hidden="true"
-        className="mb-3 flex size-10 items-center justify-center rounded-full bg-gray-50 ring-1 ring-gray-100"
+        className="mb-3 flex size-10 items-center justify-center rounded-full bg-gray-50 ring-1 ring-gray-100 dark:bg-[var(--sa-tile)] dark:ring-[var(--sa-border)]"
       >
-        <span className="text-gray-300">—</span>
+        <span className="text-gray-300 dark:text-[var(--sa-muted)]">—</span>
       </div>
-      <p className="text-sm font-medium text-gray-700">{title}</p>
-      {hint && <p className="mt-1 max-w-sm text-xs text-gray-400">{hint}</p>}
+      <p className="text-sm font-medium text-gray-700 dark:text-[var(--sa-text)]">{title}</p>
+      {hint && <p className="mt-1 max-w-sm text-xs text-gray-400 dark:text-[var(--sa-muted)]">{hint}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

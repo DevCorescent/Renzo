@@ -34,10 +34,10 @@ type SortKey = keyof typeof SORTABLE;
 
 function Tile({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
-    <div className="rounded border border-gray-200 bg-white p-3">
-      <p className="text-[11px] font-medium text-gray-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums text-gray-900">{value}</p>
-      {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
+    <div className="rounded border border-gray-200 bg-white p-3 dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
+      <p className="text-[11px] font-medium text-gray-500 dark:text-[var(--sa-muted)]">{label}</p>
+      <p className="mt-1 text-xl font-semibold tabular-nums text-gray-900 dark:text-[var(--sa-text)]">{value}</p>
+      {hint && <p className="mt-0.5 text-[11px] text-gray-400 dark:text-[var(--sa-muted)]">{hint}</p>}
     </div>
   );
 }
@@ -72,12 +72,12 @@ function SortHeader({
       <Link
         href={`?${next.toString()}`}
         scroll={false}
-        className="inline-flex items-center gap-1 rounded transition hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+        className="inline-flex items-center gap-1 rounded transition hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:hover:text-[var(--sa-text)]"
       >
         {SORTABLE[column]}
         <span
           aria-hidden="true"
-          className={cn("text-[9px]", isActive ? "text-gray-900" : "text-gray-300")}
+          className={cn("text-[9px]", isActive ? "text-gray-900 dark:text-[var(--sa-text)]" : "text-gray-300 dark:text-[var(--sa-muted)]")}
         >
           {isActive ? (order === "asc" ? "▲" : "▼") : "↕"}
         </span>
@@ -108,15 +108,15 @@ function Pagination({
   };
 
   const linkCls =
-    "inline-flex h-8 items-center rounded border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10";
+    "inline-flex h-8 items-center rounded border border-gray-200 bg-white px-3 text-xs font-medium text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]";
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
-      <p className="text-xs text-gray-500">
-        <span className="font-medium tabular-nums text-gray-700">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 dark:border-[var(--sa-border)]">
+      <p className="text-xs text-gray-500 dark:text-[var(--sa-muted)]">
+        <span className="font-medium tabular-nums text-gray-700 dark:text-[var(--sa-text-2)]">
           {(page - 1) * limit + 1}–{Math.min(page * limit, total)}
         </span>{" "}
-        of <span className="font-medium tabular-nums text-gray-700">{total}</span>
+        of <span className="font-medium tabular-nums text-gray-700 dark:text-[var(--sa-text-2)]">{total}</span>
       </p>
 
       <nav aria-label="Pagination" className="flex items-center gap-1.5">
@@ -130,7 +130,7 @@ function Pagination({
           </span>
         )}
 
-        <span className="px-2 text-xs tabular-nums text-gray-500">
+        <span className="px-2 text-xs tabular-nums text-gray-500 dark:text-[var(--sa-muted)]">
           {page} / {Math.max(totalPages, 1)}
         </span>
 
@@ -212,7 +212,7 @@ export function WorkersDirectory({
         ) : (
           <>
             <Table>
-              <THead className="sticky top-0 z-10 bg-white/95 backdrop-blur">
+              <THead className="sticky top-0 z-10 bg-white/95 backdrop-blur dark:bg-[var(--sa-surface)]">
                 <tr>
                   <SortHeader column="firstName" current={sortBy} order={sortOrder} params={params} />
                   <SortHeader
@@ -260,43 +260,43 @@ export function WorkersDirectory({
                           <div className="min-w-0">
                             <Link
                               href={`${basePath}/${w.id}`}
-                              className="block truncate font-medium text-gray-900 hover:underline focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                              className="block truncate font-medium text-gray-900 hover:underline focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:text-[var(--sa-text)]"
                             >
                               {w.displayName || `${w.firstName} ${w.lastName}`}
                             </Link>
-                            <p className="truncate text-[11px] text-gray-400">
+                            <p className="truncate text-[11px] text-gray-400 dark:text-[var(--sa-muted)]">
                               {w.phone ?? w.email ?? "—"}
                             </p>
                           </div>
                         </div>
                       </TD>
 
-                      <TD className="hidden font-mono text-xs text-gray-400 md:table-cell">
+                      <TD className="hidden font-mono text-xs text-gray-400 md:table-cell dark:text-[var(--sa-muted)]">
                         {w.employeeCode}
                       </TD>
 
-                      <TD className="hidden text-gray-600 lg:table-cell">
-                        {w.designation?.name ?? <span className="text-gray-300">—</span>}
+                      <TD className="hidden text-gray-600 lg:table-cell dark:text-[var(--sa-text-2)]">
+                        {w.designation?.name ?? <span className="text-gray-300 dark:text-[var(--sa-muted)]">—</span>}
                       </TD>
 
-                      <TD className="hidden text-gray-600 xl:table-cell">
-                        {w.department?.name ?? <span className="text-gray-300">—</span>}
+                      <TD className="hidden text-gray-600 xl:table-cell dark:text-[var(--sa-text-2)]">
+                        {w.department?.name ?? <span className="text-gray-300 dark:text-[var(--sa-muted)]">—</span>}
                       </TD>
 
-                      <TD className="hidden tabular-nums text-gray-600 lg:table-cell">
+                      <TD className="hidden tabular-nums text-gray-600 lg:table-cell dark:text-[var(--sa-text-2)]">
                         {w.experience}y
                       </TD>
 
                       <TD className="hidden md:table-cell">
                         {primary ? (
                           <div>
-                            <p className="text-xs text-gray-700">{primary.branch.name}</p>
-                            <p className="font-mono text-[11px] text-gray-400">
+                            <p className="text-xs text-gray-700 dark:text-[var(--sa-text-2)]">{primary.branch.name}</p>
+                            <p className="font-mono text-[11px] text-gray-400 dark:text-[var(--sa-muted)]">
                               {primary.branch.code}
                             </p>
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-300">Unassigned</span>
+                          <span className="text-xs text-gray-300 dark:text-[var(--sa-muted)]">Unassigned</span>
                         )}
                       </TD>
 
@@ -306,7 +306,7 @@ export function WorkersDirectory({
                         </Badge>
                       </TD>
 
-                      <TD className="hidden font-mono text-[11px] text-gray-400 xl:table-cell">
+                      <TD className="hidden font-mono text-[11px] text-gray-400 xl:table-cell dark:text-[var(--sa-muted)]">
                         {w.joinDate.slice(0, 10)}
                       </TD>
 

@@ -177,7 +177,7 @@ export function Hero() {
            {/* Headline with word-reveal */}
 <h1
   id="hero-heading"
-  className="mt-8 max-w-4xl font-heading text-6xl font-black leading-[0.94] tracking-[-0.05em] sm:text-7xl xl:text-[104px]"
+  className="mt-8 font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl"
 >
   <RevealWords words={["Where", "Beauty"]} className="block" />
 

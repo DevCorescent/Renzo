@@ -89,16 +89,16 @@ function ServiceCard({
   const genderLabel: Record<string, string> = { MALE: "Men", FEMALE: "Women", UNISEX: "Unisex" };
 
   return (
-    <div className={`flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all ${
-      isActive ? "border-emerald-200 shadow-emerald-50" : "border-gray-200 opacity-80"
+    <div className={`flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all dark:bg-[var(--sa-surface)] ${
+      isActive ? "border-emerald-200 shadow-emerald-50 dark:border-emerald-800" : "border-gray-200 opacity-80 dark:border-[var(--sa-border)]"
     }`}>
       {/* Image */}
-      <div className="relative h-40 w-full bg-gray-100">
+      <div className="relative h-40 w-full bg-gray-100 dark:bg-[var(--sa-tile)]">
         {svc.image ? (
           <Image src={svc.image} alt={svc.name} fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <span className="text-4xl font-bold text-gray-200">{svc.name[0]}</span>
+            <span className="text-4xl font-bold text-gray-200 dark:text-[var(--sa-muted)]">{svc.name[0]}</span>
           </div>
         )}
         {/* Active badge */}
@@ -119,30 +119,30 @@ function ServiceCard({
       {/* Body */}
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div>
-          <span className="mb-1 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+          <span className="mb-1 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-[var(--sa-tile)] dark:text-[var(--sa-muted)]">
             {svc.category.name}
           </span>
-          <h3 className="font-semibold text-gray-900 leading-tight">{svc.name}</h3>
+          <h3 className="font-semibold text-gray-900 leading-tight dark:text-[var(--sa-text)]">{svc.name}</h3>
           {svc.description && (
-            <p className="mt-0.5 line-clamp-2 text-xs text-gray-400">{svc.description}</p>
+            <p className="mt-0.5 line-clamp-2 text-xs text-gray-400 dark:text-[var(--sa-muted)]">{svc.description}</p>
           )}
-          <div className="mt-1.5 flex items-center gap-3 text-xs text-gray-400">
+          <div className="mt-1.5 flex items-center gap-3 text-xs text-gray-400 dark:text-[var(--sa-muted)]">
             <span className="flex items-center gap-1"><Clock className="size-3" />{svc.duration} min</span>
             <span className="flex items-center gap-1"><Users className="size-3" />{genderLabel[svc.gender] ?? svc.gender}</span>
           </div>
         </div>
 
         {/* Enable toggle + price */}
-        <div className="border-t border-gray-100 pt-3">
+        <div className="border-t border-gray-100 pt-3 dark:border-[var(--sa-border)]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Toggle on={isActive} onChange={setIsActive} />
-              <span className="text-xs font-medium text-gray-600">
+              <span className="text-xs font-medium text-gray-600 dark:text-[var(--sa-text-2)]">
                 {isActive ? "Offered here" : "Not offered"}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-400">₹</span>
+              <span className="text-xs text-gray-400 dark:text-[var(--sa-muted)]">₹</span>
               <input
                 type="number"
                 min={0}
@@ -150,7 +150,7 @@ function ServiceCard({
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 disabled={!isActive}
-                className="w-20 rounded border border-gray-200 px-2 py-1 text-right text-sm font-medium focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300"
+                className="w-20 rounded border border-gray-200 px-2 py-1 text-right text-sm font-medium focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-300 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)] dark:disabled:bg-[var(--sa-surface)] dark:disabled:text-[var(--sa-muted)]"
               />
             </div>
           </div>
@@ -234,16 +234,16 @@ function CreateModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h2 className="font-semibold text-gray-900">Add New Service</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="size-5" /></button>
+      <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:border dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-[var(--sa-border)]">
+          <h2 className="font-semibold text-gray-900 dark:text-[var(--sa-text)]">Add New Service</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-[var(--sa-text)]"><X className="size-5" /></button>
         </div>
 
         <form onSubmit={submit} className="space-y-4 overflow-y-auto p-5" style={{ maxHeight: "70vh" }}>
           {/* Image upload */}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">Service Image</label>
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-[var(--sa-muted)]">Service Image</label>
             <ImageUpload
               value={form.image}
               onChange={(url) => set("image", url ?? "")}
@@ -253,25 +253,25 @@ function CreateModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-[var(--sa-muted)]">
                 Service Name <span className="text-red-500">*</span>
               </label>
               <input
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
                 placeholder="e.g. Deep Hair Spa"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
               />
             </div>
 
             <div className="col-span-2">
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-[var(--sa-muted)]">
                 Category <span className="text-red-500">*</span>
               </label>
               <select
                 value={form.categoryId}
                 onChange={(e) => set("categoryId", e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
               >
                 <option value="">— Select category —</option>
                 {categories.map((c) => (
@@ -281,7 +281,7 @@ function CreateModal({
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-[var(--sa-muted)]">
                 Base Price (₹) <span className="text-red-500">*</span>
               </label>
               <input
@@ -289,12 +289,12 @@ function CreateModal({
                 value={form.basePrice}
                 onChange={(e) => set("basePrice", e.target.value)}
                 placeholder="999"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-[var(--sa-muted)]">
                 Duration (min) <span className="text-red-500">*</span>
               </label>
               <input
@@ -302,19 +302,19 @@ function CreateModal({
                 value={form.duration}
                 onChange={(e) => set("duration", e.target.value)}
                 placeholder="60"
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
               />
             </div>
 
             <div className="col-span-2">
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">For</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-[var(--sa-muted)]">For</label>
               <div className="flex gap-2">
                 {[["UNISEX","All"], ["MALE","Men"], ["FEMALE","Women"]].map(([v, l]) => (
                   <button
                     key={v} type="button"
                     onClick={() => set("gender", v)}
                     className={`flex-1 rounded-lg border py-2 text-xs font-medium transition ${
-                      form.gender === v ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                      form.gender === v ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" : "border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-[var(--sa-border)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
                     }`}
                   >
                     {l}
@@ -324,13 +324,13 @@ function CreateModal({
             </div>
 
             <div className="col-span-2">
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Description</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-[var(--sa-muted)]">Description</label>
               <textarea
                 rows={3}
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
                 placeholder="What does this service include?"
-                className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+                className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
               />
             </div>
           </div>
@@ -339,7 +339,7 @@ function CreateModal({
 
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+              className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]">
               Cancel
             </button>
             <button type="submit" disabled={saving}
@@ -385,18 +385,18 @@ function EditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:border dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-[var(--sa-border)]">
           <div>
-            <h2 className="font-semibold text-gray-900">Edit Service</h2>
-            <p className="text-xs text-gray-400">{svc.name}</p>
+            <h2 className="font-semibold text-gray-900 dark:text-[var(--sa-text)]">Edit Service</h2>
+            <p className="text-xs text-gray-400 dark:text-[var(--sa-muted)]">{svc.name}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="size-5" /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-[var(--sa-text)]"><X className="size-5" /></button>
         </div>
 
         <form onSubmit={submit} className="space-y-4 p-5">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-[var(--sa-muted)]">
               <Camera className="inline size-3 mr-1" />Service Image
             </label>
             <ImageUpload
@@ -413,7 +413,7 @@ function EditModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe what this service includes…"
-              className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none"
+              className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-indigo-400 focus:outline-none dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
             />
           </div>
 
@@ -421,7 +421,7 @@ function EditModal({
 
           <div className="flex gap-2">
             <button type="button" onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
+              className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]">
               Cancel
             </button>
             <button type="submit" disabled={saving}
@@ -513,7 +513,7 @@ export function BranchPricingPanel() {
       {/* Header — the page/tab already names this section, so only the enabled-count
           summary and the (preserved) branch Add Service action remain here. */}
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-500 dark:text-[var(--sa-muted)]">
           {activeCount} of {services.length} services enabled at this branch
         </p>
         <button
@@ -542,7 +542,7 @@ export function BranchPricingPanel() {
           placeholder="Search services…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none sm:max-w-xs"
+          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none sm:max-w-xs dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
         />
         <div className="flex gap-1">
           {(["all", "active", "inactive"] as const).map((f) => (
@@ -551,8 +551,8 @@ export function BranchPricingPanel() {
               onClick={() => setFilterActive(f)}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium capitalize transition ${
                 filterActive === f
-                  ? "bg-gray-900 text-white"
-                  : "border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                  : "border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-[var(--sa-border)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
               }`}
             >
               {f}
@@ -563,7 +563,7 @@ export function BranchPricingPanel() {
 
       {loading && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="size-7 animate-spin text-gray-300" />
+          <Loader2 className="size-7 animate-spin text-gray-300 dark:text-[var(--sa-muted)]" />
         </div>
       )}
 
@@ -573,7 +573,7 @@ export function BranchPricingPanel() {
 
       {!loading && !error && filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <p className="text-sm text-gray-400">No services found.</p>
+          <p className="text-sm text-gray-400 dark:text-[var(--sa-muted)]">No services found.</p>
           {services.length === 0 && (
             <button onClick={() => setShowCreate(true)} className="mt-3 text-sm font-medium text-indigo-600 hover:underline">
               + Add your first service

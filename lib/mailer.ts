@@ -11,11 +11,18 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+export type MailAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+};
+
 export type MailPayload = {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  attachments?: MailAttachment[];
 };
 
 export async function sendMail(payload: MailPayload): Promise<void> {

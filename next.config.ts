@@ -11,6 +11,7 @@ const r2Host = (() => {
 })();
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["@react-pdf/renderer"],
   images: {
     remotePatterns: [
       {

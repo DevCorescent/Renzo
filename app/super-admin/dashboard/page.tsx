@@ -222,6 +222,7 @@ export default async function SuperAdminDashboardPage() {
             greeting={greeting}
             dateLabel={dateLabel}
             notifications={notifications}
+            hideControls
           />
         </FadeIn>
 

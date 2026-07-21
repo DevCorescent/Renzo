@@ -48,7 +48,7 @@ export function ReviewModerationButtons({ reviewId, status }: { reviewId: string
           type="button"
           disabled={busy !== null}
           onClick={() => act("approve")}
-          className="text-xs font-medium text-gray-900 hover:underline disabled:opacity-50"
+          className="text-xs font-medium text-gray-900 hover:underline disabled:opacity-50 dark:text-[var(--sa-text)]"
         >
           {busy === "approve" ? "…" : "Approve"}
         </button>

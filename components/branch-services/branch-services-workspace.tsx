@@ -25,8 +25,8 @@ export function BranchServicesWorkspace({ capabilities }: { capabilities: Servic
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Services</h1>
-        <p className="mt-0.5 text-sm text-gray-500">Manage branch pricing, add services and browse categories.</p>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-[var(--sa-text)]">Services</h1>
+        <p className="mt-0.5 text-sm text-gray-500 dark:text-[var(--sa-muted)]">Manage branch pricing, add services and browse categories.</p>
       </div>
 
       <Tabs

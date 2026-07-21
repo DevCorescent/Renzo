@@ -165,7 +165,7 @@ const DATE_COUNT = 14;
 
 function BookingBar({
   branch,
-  service,
+  services,
   worker,
   workerChosen,
   date,
@@ -176,7 +176,7 @@ function BookingBar({
   onChangeSlot,
 }: {
   branch: PreloadedBranch | null;
-  service: PreloadedService | null;
+  services: PreloadedService[];
   worker: ApiWorker | null;
   workerChosen: boolean;
   date: string;
@@ -186,7 +186,8 @@ function BookingBar({
   onChangeWorker: () => void;
   onChangeSlot: () => void;
 }) {
-  if (!branch && !service) return null;
+  const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
+  if (!branch && services.length === 0) return null;
   return (
     <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-white/8 bg-stone-900/80 p-3">
       {branch && (
@@ -201,17 +202,17 @@ function BookingBar({
           <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
         </button>
       )}
-      {service && (
+      {services.length > 0 && (
         <button
           onClick={onChangeService}
           className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
         >
           <Scissors className="size-3.5 shrink-0 text-stone-400" />
           <span className="text-xs font-medium text-stone-200">
-            {service.name}
+            {services.length === 1 ? services[0].name : `${services.length} services`}
           </span>
           <span className="text-xs font-semibold text-stone-100">
-            ₹{service.price.toLocaleString("en-IN")}
+            ₹{totalPrice.toLocaleString("en-IN")}
           </span>
           <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
         </button>
@@ -416,11 +417,16 @@ function BranchStep({ onSelect }: { onSelect: (b: ApiBranch) => void }) {
 
 function ServiceStep({
   branchId,
-  onSelect,
+  selected,
+  onToggle,
+  onContinue,
 }: {
   branchId: string;
-  onSelect: (s: PreloadedService) => void;
+  selected: PreloadedService[];
+  onToggle: (s: PreloadedService) => void;
+  onContinue: () => void;
 }) {
+  const selectedIds = new Set(selected.map((s) => s.id));
   // Result is tagged with the request it answers, so "loading" is derived from
   // (result is stale) rather than set from inside the effect body.
   const [result, setResult] = React.useState<{
@@ -458,8 +464,8 @@ function ServiceStep({
 
   return (
     <div>
-      <h2 className="mb-1 text-lg font-semibold">Select a service</h2>
-      <p className="mb-5 text-sm text-stone-400">What would you like today?</p>
+      <h2 className="mb-1 text-lg font-semibold">Select services</h2>
+      <p className="mb-5 text-sm text-stone-400">Pick one or more services for your visit</p>
       {loading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="size-6 animate-spin text-stone-600" />
@@ -478,12 +484,22 @@ function ServiceStep({
               <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
                 {items.map((s) => {
                   const price = s.branchPricings?.[0]?.price ?? s.basePrice;
+                  const isSelected = selectedIds.has(s.id);
                   return (
                     <button
                       key={s.id}
-                      onClick={() => onSelect({ ...s, price })}
-                      className="group overflow-hidden rounded-3xl border border-white/10 bg-stone-900 shadow-sm transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_60px_-36px_rgba(255,255,255,0.2)] hover:border-stone-300/50"
+                      onClick={() => onToggle({ ...s, price })}
+                      className={`group relative overflow-hidden rounded-3xl border shadow-sm transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_60px_-36px_rgba(255,255,255,0.2)] ${
+                        isSelected
+                          ? "border-stone-200/60 bg-stone-800 ring-1 ring-stone-300/30"
+                          : "border-white/10 bg-stone-900 hover:border-stone-300/50"
+                      }`}
                     >
+                      {isSelected && (
+                        <span className="absolute right-3 top-3 z-10 inline-flex size-6 items-center justify-center rounded-full bg-white text-stone-950 shadow">
+                          <Check className="size-3.5" />
+                        </span>
+                      )}
                       <div className="relative aspect-4/3 overflow-hidden bg-stone-800">
                         <div
                           className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-105"
@@ -522,6 +538,29 @@ function ServiceStep({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {selected.length > 0 && (
+        <div className="sticky bottom-0 mt-6 rounded-2xl border border-white/10 bg-stone-950/95 p-4 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-stone-100">
+                {selected.length} service{selected.length !== 1 ? "s" : ""} selected
+              </p>
+              <p className="text-xs text-stone-400">
+                ₹{selected.reduce((sum, s) => sum + s.price, 0).toLocaleString("en-IN")} ·{" "}
+                {selected.reduce((sum, s) => sum + s.duration, 0)} min total
+              </p>
+            </div>
+            <button
+              onClick={onContinue}
+              className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-stone-950 transition hover:bg-stone-200 active:scale-[0.98]"
+            >
+              Continue
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -934,15 +973,18 @@ function WorkerStep({
 
 function SlotStep({
   branch,
-  service,
+  services,
   worker,
   onSelect,
 }: {
   branch: PreloadedBranch;
-  service: PreloadedService;
+  services: PreloadedService[];
   worker: ApiWorker | null;
   onSelect: (date: string, slot: string) => void;
 }) {
+  const primaryService = services[0];
+  const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
+  const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
   const dates = React.useMemo(
     () => Array.from({ length: DATE_COUNT }, (_, i) => addDays(today(), i)),
     [],
@@ -955,7 +997,7 @@ function SlotStep({
     msg: string | null;
   } | null>(null);
 
-  const key = `${branch.id}|${service.id}|${worker?.id ?? ""}|${selectedDate}`;
+  const key = `${branch.id}|${primaryService.id}|${worker?.id ?? ""}|${selectedDate}`;
 
   React.useEffect(() => {
     let cancelled = false;
@@ -964,11 +1006,11 @@ function SlotStep({
     // stylist's bookings never remove slots from another's schedule.
     const q = new URLSearchParams({
       branchId: branch.id,
-      serviceId: service.id,
+      serviceId: primaryService.id,
       date: selectedDate,
     });
     if (worker) q.set("workerId", worker.id);
-    const reqKey = `${branch.id}|${service.id}|${worker?.id ?? ""}|${selectedDate}`;
+    const reqKey = `${branch.id}|${primaryService.id}|${worker?.id ?? ""}|${selectedDate}`;
 
     fetch(`${API.public.slots}?${q.toString()}`)
       .then((r) => r.json())
@@ -992,7 +1034,7 @@ function SlotStep({
     return () => {
       cancelled = true;
     };
-  }, [branch, service, worker, selectedDate]);
+  }, [branch, primaryService, worker, selectedDate]);
 
   const fresh = result?.key === key ? result : null;
   const loading = fresh === null;
@@ -1141,10 +1183,12 @@ function SlotStep({
           </div>
           <div>
             <p className="text-[11px] uppercase tracking-widest text-stone-500">
-              Service
+              {services.length === 1 ? "Service" : "Services"}
             </p>
-            <p className="mt-2 font-semibold text-stone-100">{service.name}</p>
-            <p className="text-xs text-stone-500">{service.duration} min</p>
+            {services.map((s) => (
+              <p key={s.id} className="mt-1 font-semibold text-stone-100">{s.name}</p>
+            ))}
+            <p className="text-xs text-stone-500">{totalDuration} min total</p>
           </div>
           <div>
             <p className="text-[11px] uppercase tracking-widest text-stone-500">
@@ -1159,7 +1203,7 @@ function SlotStep({
               Running total
             </p>
             <p className="mt-2 text-2xl font-bold text-stone-100">
-              ₹{service.price.toLocaleString("en-IN")}
+              ₹{totalPrice.toLocaleString("en-IN")}
             </p>
           </div>
         </div>
@@ -1172,7 +1216,7 @@ function SlotStep({
 
 function ConfirmStep({
   branch,
-  service,
+  services,
   worker,
   date,
   slot,
@@ -1183,7 +1227,7 @@ function ConfirmStep({
   error,
 }: {
   branch: PreloadedBranch;
-  service: PreloadedService;
+  services: PreloadedService[];
   worker: ApiWorker | null;
   date: string;
   slot: string;
@@ -1193,8 +1237,10 @@ function ConfirmStep({
   loading: boolean;
   error: string | null;
 }) {
-  const end = endTime(slot, service.duration);
-  const priceStr = `₹${service.price.toLocaleString("en-IN")}`;
+  const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
+  const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
+  const end = endTime(slot, totalDuration);
+  const priceStr = `₹${totalPrice.toLocaleString("en-IN")}`;
   const initials = worker
     ? workerName(worker)
         .split(" ")
@@ -1248,7 +1294,20 @@ function ConfirmStep({
 
         {/* Detail grid with icons */}
         <div className="grid grid-cols-1 gap-px bg-white/5 sm:grid-cols-2">
-          <DetailCell icon={Scissors} label="Service" value={service.name} />
+          <DetailCell icon={Scissors} label={services.length === 1 ? "Service" : "Services"}>
+            {services.length === 1 ? (
+              <span>{services[0].name}</span>
+            ) : (
+              <ul className="space-y-1">
+                {services.map((s) => (
+                  <li key={s.id} className="flex items-center justify-between gap-3">
+                    <span>{s.name}</span>
+                    <span className="text-xs font-normal text-stone-400">₹{s.price.toLocaleString("en-IN")}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </DetailCell>
           <DetailCell icon={User} label="Stylist">
             {worker ? (
               <span className="inline-flex items-center gap-2">
@@ -1272,7 +1331,7 @@ function ConfirmStep({
             icon={Clock}
             label="Time"
             value={`${slot} – ${end}`}
-            sub={`${service.duration} min`}
+            sub={`${totalDuration} min`}
           />
         </div>
 
@@ -1550,8 +1609,8 @@ export function BookWizard({
   const [branch, setBranch] = React.useState<PreloadedBranch | null>(
     initialBranch,
   );
-  const [service, setService] = React.useState<PreloadedService | null>(
-    initialService,
+  const [services, setServices] = React.useState<PreloadedService[]>(
+    initialService ? [initialService] : [],
   );
   // `worker === null` is a valid choice ("any stylist"), so a separate flag
   // tracks whether the customer has actually made the choice yet.
@@ -1581,7 +1640,8 @@ export function BookWizard({
   }
 
   async function handleConfirm() {
-    if (!branch || !service || !date || !slot) return;
+    if (!branch || services.length === 0 || !date || !slot) return;
+    const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
     setConfirmLoading(true);
     setConfirmError(null);
     try {
@@ -1593,10 +1653,10 @@ export function BookWizard({
           branchId: branch.id,
           // Omitted entirely when the customer picked "any stylist".
           ...(worker ? { workerId: worker.id } : {}),
-          services: [{ serviceId: service.id }],
+          services: services.map((s) => ({ serviceId: s.id })),
           appointmentDate: date,
           startTime: slot,
-          endTime: endTime(slot, service.duration),
+          endTime: endTime(slot, totalDuration),
           notes: notes.trim() || undefined,
         }),
       });
@@ -1715,21 +1775,21 @@ export function BookWizard({
 
         <BookingBar
           branch={branch}
-          service={service}
+          services={services}
           worker={worker}
           workerChosen={workerChosen}
           date={date}
           slot={slot}
           onChangeBranch={() => {
             setBranch(null);
-            setService(null);
+            setServices([]);
             resetWorker();
             setDate("");
             setSlot("");
             setStep("branch");
           }}
           onChangeService={() => {
-            setService(null);
+            setServices([]);
             resetWorker();
             setDate("");
             setSlot("");
@@ -1752,7 +1812,7 @@ export function BookWizard({
           <BranchStep
             onSelect={(b) => {
               setBranch(b);
-              setService(null);
+              setServices([]);
               resetWorker();
               setDate("");
               setSlot("");
@@ -1774,8 +1834,16 @@ export function BookWizard({
             </button>
             <ServiceStep
               branchId={branch.id}
-              onSelect={(s) => {
-                setService(s);
+              selected={services}
+              onToggle={(s) => {
+                setServices((prev) =>
+                  prev.some((p) => p.id === s.id)
+                    ? prev.filter((p) => p.id !== s.id)
+                    : [...prev, s],
+                );
+              }}
+              onContinue={() => {
+                if (services.length === 0) return;
                 resetWorker();
                 setDate("");
                 setSlot("");
@@ -1785,22 +1853,22 @@ export function BookWizard({
           </>
         )}
 
-        {step === "worker" && branch && service && (
+        {step === "worker" && branch && services.length > 0 && (
           <>
             <button
               onClick={() => {
-                setService(null);
+                setServices([]);
                 resetWorker();
                 setStep("service");
               }}
               className="mb-4 flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-300 transition"
             >
-              <ChevronLeft className="size-4" /> Change service
+              <ChevronLeft className="size-4" /> Change services
             </button>
             <WorkerStep
               branchId={branch.id}
-              serviceId={service.id}
-              serviceName={service.name}
+              serviceId={services[0].id}
+              serviceName={services.length === 1 ? services[0].name : services.map((s) => s.name).join(" + ")}
               onSelect={(w) => {
                 setWorker(w);
                 setWorkerChosen(true);
@@ -1812,7 +1880,7 @@ export function BookWizard({
           </>
         )}
 
-        {step === "slot" && branch && service && (
+        {step === "slot" && branch && services.length > 0 && (
           <>
             <button
               onClick={() => {
@@ -1827,7 +1895,7 @@ export function BookWizard({
             </button>
             <SlotStep
               branch={branch}
-              service={service}
+              services={services}
               worker={worker}
               onSelect={(d, s) => {
                 setDate(d);
@@ -1838,7 +1906,7 @@ export function BookWizard({
           </>
         )}
 
-        {step === "confirm" && branch && service && date && slot && (
+        {step === "confirm" && branch && services.length > 0 && date && slot && (
           <>
             <button
               onClick={() => {
@@ -1853,7 +1921,7 @@ export function BookWizard({
             <div className="grid gap-6 lg:grid-cols-[1.3fr_420px]">
               <ConfirmStep
                 branch={branch}
-                service={service}
+                services={services}
                 worker={worker}
                 date={date}
                 slot={slot}

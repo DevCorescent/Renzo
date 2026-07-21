@@ -87,7 +87,7 @@ export function Blog() {
                 Journal
               </span>
             </div>
-            <h2 className="group max-w-xl font-heading text-4xl font-semibold leading-[1.1] tracking-[-0.02em] text-white sm:text-5xl xl:text-6xl">
+            <h2 className="group font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
               Our Latest{" "}
               <motion.span
                 className="inline-block bg-[length:200%_100%] bg-gradient-to-r from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text text-transparent transition-transform duration-500 group-hover:translate-x-1.5"

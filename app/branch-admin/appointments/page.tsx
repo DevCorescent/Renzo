@@ -56,8 +56,8 @@ export default async function BranchAdminAppointmentsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Appointments</h1>
-        <p className="mt-0.5 text-sm text-gray-500">{appointments.length} records</p>
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-[var(--sa-text)]">Appointments</h1>
+        <p className="mt-0.5 text-sm text-gray-500 dark:text-[var(--sa-muted)]">{appointments.length} records</p>
       </div>
 
       <Card>
@@ -80,30 +80,30 @@ export default async function BranchAdminAppointmentsPage({
           <tbody>
             {appointments.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400 dark:text-[var(--sa-muted)]">
                   No appointments found.
                 </td>
               </tr>
             ) : (
               appointments.map((a) => (
                 <TR key={a.id}>
-                  <TD className="font-mono text-xs text-gray-500">
+                  <TD className="font-mono text-xs text-gray-500 dark:text-[var(--sa-muted)]">
                     {new Date(a.appointmentDate).toLocaleDateString("en-IN")}
                   </TD>
-                  <TD className="font-mono text-xs text-gray-600">
+                  <TD className="font-mono text-xs text-gray-600 dark:text-[var(--sa-text-2)]">
                     {a.startTime}–{a.endTime}
                   </TD>
-                  <TD className="font-medium text-gray-900">
+                  <TD className="font-medium text-gray-900 dark:text-[var(--sa-text)]">
                     {a.customer.firstName} {a.customer.lastName}
-                    <p className="text-[11px] font-normal text-gray-400">{a.customer.phone}</p>
+                    <p className="text-[11px] font-normal text-gray-400 dark:text-[var(--sa-muted)]">{a.customer.phone}</p>
                   </TD>
-                  <TD className="text-gray-600">
+                  <TD className="text-gray-600 dark:text-[var(--sa-text-2)]">
                     {a.services.map((s) => s.service.name).join(", ") || "—"}
                   </TD>
-                  <TD className="text-gray-500">
+                  <TD className="text-gray-500 dark:text-[var(--sa-muted)]">
                     {a.worker ? `${a.worker.firstName} ${a.worker.lastName}` : "—"}
                   </TD>
-                  <TD className="text-gray-700">
+                  <TD className="text-gray-700 dark:text-[var(--sa-text-2)]">
                     ₹{Number(a.totalAmount).toLocaleString("en-IN")}
                   </TD>
                   <TD>

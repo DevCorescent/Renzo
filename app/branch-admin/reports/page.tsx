@@ -70,8 +70,8 @@ export default async function BranchAdminReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Reports</h1>
-        <p className="mt-0.5 text-sm text-gray-500">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-[var(--sa-text)]">Reports</h1>
+        <p className="mt-0.5 text-sm text-gray-500 dark:text-[var(--sa-muted)]">
           {now.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
         </p>
       </div>
@@ -101,50 +101,50 @@ export default async function BranchAdminReportsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded border border-gray-200 bg-white p-4">
-          <h3 className="text-sm font-semibold text-gray-700">This Month</h3>
+        <div className="rounded border border-gray-200 bg-white p-4 dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-[var(--sa-text-2)]">This Month</h3>
           <div className="mt-3 space-y-2 text-sm">
-            <div className="flex justify-between text-gray-600">
+            <div className="flex justify-between text-gray-600 dark:text-[var(--sa-text-2)]">
               <span>Total Appointments</span>
               <span className="font-medium">{monthAppointments}</span>
             </div>
-            <div className="flex justify-between text-gray-600">
+            <div className="flex justify-between text-gray-600 dark:text-[var(--sa-text-2)]">
               <span>Completed</span>
               <span className="font-medium text-green-700">{completedThisMonth}</span>
             </div>
-            <div className="flex justify-between text-gray-600">
+            <div className="flex justify-between text-gray-600 dark:text-[var(--sa-text-2)]">
               <span>Cancelled</span>
               <span className="font-medium text-red-600">{cancelledThisMonth}</span>
             </div>
-            <div className="flex justify-between text-gray-600 border-t border-gray-100 pt-2">
+            <div className="flex justify-between text-gray-600 border-t border-gray-100 pt-2 dark:border-[var(--sa-border)] dark:text-[var(--sa-text-2)]">
               <span>Revenue</span>
-              <span className="font-semibold text-gray-900">₹{thisRev.toLocaleString("en-IN")}</span>
+              <span className="font-semibold text-gray-900 dark:text-[var(--sa-text)]">₹{thisRev.toLocaleString("en-IN")}</span>
             </div>
           </div>
         </div>
 
-        <div className="rounded border border-gray-200 bg-white p-4">
-          <h3 className="text-sm font-semibold text-gray-700">Last Month</h3>
+        <div className="rounded border border-gray-200 bg-white p-4 dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-[var(--sa-text-2)]">Last Month</h3>
           <div className="mt-3 space-y-2 text-sm">
-            <div className="flex justify-between text-gray-600">
+            <div className="flex justify-between text-gray-600 dark:text-[var(--sa-text-2)]">
               <span>Total Appointments</span>
               <span className="font-medium">{lastMonthAppointments}</span>
             </div>
-            <div className="flex justify-between text-gray-600 border-t border-gray-100 pt-2">
+            <div className="flex justify-between text-gray-600 border-t border-gray-100 pt-2 dark:border-[var(--sa-border)] dark:text-[var(--sa-text-2)]">
               <span>Revenue</span>
-              <span className="font-semibold text-gray-900">₹{lastRev.toLocaleString("en-IN")}</span>
+              <span className="font-semibold text-gray-900 dark:text-[var(--sa-text)]">₹{lastRev.toLocaleString("en-IN")}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded border border-gray-200 bg-white">
-        <div className="border-b border-gray-100 px-4 py-3">
-          <h3 className="text-sm font-semibold text-gray-700">Recent Invoices</h3>
+      <div className="rounded border border-gray-200 bg-white dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
+        <div className="border-b border-gray-100 px-4 py-3 dark:border-[var(--sa-border)]">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-[var(--sa-text-2)]">Recent Invoices</h3>
         </div>
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-left text-xs font-medium text-gray-400">
+            <tr className="border-b border-gray-100 text-left text-xs font-medium text-gray-400 dark:border-[var(--sa-border)] dark:text-[var(--sa-muted)]">
               <th className="px-4 py-2.5">Invoice #</th>
               <th className="px-4 py-2.5">Customer</th>
               <th className="px-4 py-2.5">Date</th>
@@ -153,22 +153,22 @@ export default async function BranchAdminReportsPage() {
           </thead>
           <tbody>
             {recentInvoices.map((inv) => (
-              <tr key={inv.id} className="border-b border-gray-50 last:border-0">
-                <td className="px-4 py-3 font-mono text-xs text-gray-400">{inv.invoiceNo}</td>
-                <td className="px-4 py-3 text-gray-700">
+              <tr key={inv.id} className="border-b border-gray-50 last:border-0 dark:border-[var(--sa-border)]">
+                <td className="px-4 py-3 font-mono text-xs text-gray-400 dark:text-[var(--sa-muted)]">{inv.invoiceNo}</td>
+                <td className="px-4 py-3 text-gray-700 dark:text-[var(--sa-text-2)]">
                   {inv.appointment?.customer.firstName} {inv.appointment?.customer.lastName}
                 </td>
-                <td className="px-4 py-3 font-mono text-xs text-gray-500">
+                <td className="px-4 py-3 font-mono text-xs text-gray-500 dark:text-[var(--sa-muted)]">
                   {new Date(inv.createdAt).toLocaleDateString("en-IN")}
                 </td>
-                <td className="px-4 py-3 text-right font-medium text-gray-900">
+                <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-[var(--sa-text)]">
                   ₹{Number(inv.paidAmount).toLocaleString("en-IN")}
                 </td>
               </tr>
             ))}
             {recentInvoices.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400 dark:text-[var(--sa-muted)]">
                   No invoices yet.
                 </td>
               </tr>

@@ -149,7 +149,7 @@ export default async function InventoryDashboardPage() {
       <DashThemeInit />
       <div className="mx-auto max-w-350 space-y-6">
         <FadeIn>
-          <DashboardHeader role="inventory" userName={userName} greeting={greeting} dateLabel={dateLabel} notifications={[]} />
+          <DashboardHeader role="inventory" userName={userName} greeting={greeting} dateLabel={dateLabel} notifications={[]} hideControls />
         </FadeIn>
 
         <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

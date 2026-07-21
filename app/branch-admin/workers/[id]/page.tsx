@@ -28,7 +28,7 @@ export default async function BranchAdminWorkerWorkspacePage({ params }: { param
     <div className="space-y-5">
       <Link
         href="/branch-admin/workers"
-        className="inline-flex items-center gap-1 text-xs text-gray-500 transition hover:text-gray-900"
+        className="inline-flex items-center gap-1 text-xs text-gray-500 transition hover:text-gray-900 dark:text-[var(--sa-text-2)] dark:hover:text-[var(--sa-text)]"
       >
         <ChevronLeft className="size-3.5" aria-hidden="true" />
         Back to workers
@@ -36,12 +36,12 @@ export default async function BranchAdminWorkerWorkspacePage({ params }: { param
 
       <WorkerProfileView data={data} />
 
-      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
         <div className="mb-1">
-          <h2 className="text-base font-semibold text-gray-900">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-[var(--sa-text)]">
             Worker details
           </h2>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-gray-500 dark:text-[var(--sa-text-2)]">
             Portfolio, schedule, attendance, leave, services, performance and records.
           </p>
         </div>

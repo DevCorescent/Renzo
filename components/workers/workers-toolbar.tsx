@@ -27,7 +27,8 @@ type Option = { value: string; label: string };
 
 const inputCls =
   "h-9 rounded border border-gray-200 bg-white px-2.5 text-sm text-gray-700 " +
-  "outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-900/5";
+  "outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-900/5 " +
+  "dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)] dark:focus:ring-white/10";
 
 export function WorkersToolbar({
   designations = [],
@@ -181,7 +182,7 @@ export function WorkersToolbar({
         <button
           type="button"
           onClick={() => startTransition(() => router.replace(pathname, { scroll: false }))}
-          className="inline-flex h-9 items-center gap-1.5 rounded border border-gray-200 bg-white px-2.5 text-sm text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+          className="inline-flex h-9 items-center gap-1.5 rounded border border-gray-200 bg-white px-2.5 text-sm text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
         >
           <RotateCw className="size-3.5" aria-hidden="true" />
           Reset

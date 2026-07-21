@@ -92,17 +92,17 @@ export function LeaveDrawer({
         if (e.target === dialogRef.current && !submitting) onClose();
       }}
       aria-labelledby="leave-drawer-title"
-      className="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-dvh w-full max-w-md rounded-none border-l border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40"
+      className="fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-dvh w-full max-w-md rounded-none border-l border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40 dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]"
     >
       {leave && (
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+          <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4 dark:border-[var(--sa-border)]">
             <div className="min-w-0">
-              <h2 id="leave-drawer-title" className="truncate text-sm font-semibold text-gray-900">
+              <h2 id="leave-drawer-title" className="truncate text-sm font-semibold text-gray-900 dark:text-[var(--sa-text)]">
                 {workerName(leave.worker)}
               </h2>
-              <p className="mt-0.5 font-mono text-xs text-gray-500">{leave.worker.employeeCode}</p>
+              <p className="mt-0.5 font-mono text-xs text-gray-500 dark:text-[var(--sa-muted)]">{leave.worker.employeeCode}</p>
             </div>
             <div className="flex items-center gap-2">
               <LeaveStatusBadge status={leave.status} />
@@ -111,7 +111,7 @@ export function LeaveDrawer({
                 onClick={onClose}
                 disabled={submitting}
                 aria-label="Close"
-                className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-50"
+                className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-50 dark:hover:bg-[var(--sa-hover)] dark:hover:text-[var(--sa-text)]"
               >
                 <X className="size-4" />
               </button>
@@ -130,18 +130,18 @@ export function LeaveDrawer({
                 size={40}
               />
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-gray-900">{workerName(leave.worker)}</p>
-                <p className="truncate text-xs text-gray-500">
+                <p className="truncate text-sm font-medium text-gray-900 dark:text-[var(--sa-text)]">{workerName(leave.worker)}</p>
+                <p className="truncate text-xs text-gray-500 dark:text-[var(--sa-muted)]">
                   {leave.worker.designation?.name ?? "No designation"}
                 </p>
               </div>
             </div>
 
             {/* Leave details */}
-            <dl className="space-y-3 rounded border border-gray-100 bg-gray-50/60 px-4 py-3">
+            <dl className="space-y-3 rounded border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)]">
               <Row label="Leave type">
-                <span className="font-medium text-gray-900">{leave.leaveType.name}</span>
-                <span className="ml-1 text-xs text-gray-400">({leave.leaveType.code})</span>
+                <span className="font-medium text-gray-900 dark:text-[var(--sa-text)]">{leave.leaveType.name}</span>
+                <span className="ml-1 text-xs text-gray-400 dark:text-[var(--sa-muted)]">({leave.leaveType.code})</span>
                 <Badge tone={leave.leaveType.isPaid ? "info" : "warning"} className="ml-2">
                   {leave.leaveType.isPaid ? "Paid" : "Unpaid"}
                 </Badge>
@@ -157,16 +157,16 @@ export function LeaveDrawer({
 
             {/* Reason */}
             <div>
-              <p className="text-xs font-medium text-gray-500">Reason</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700">{leave.reason}</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-[var(--sa-muted)]">Reason</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-gray-700 dark:text-[var(--sa-text-2)]">{leave.reason}</p>
             </div>
 
             {/* Status. The transition writes only the status column, so there is
                 no actioned-by / actioned-on to show — the badge and this line are
                 the whole story, honestly. */}
             <div>
-              <p className="text-xs font-medium text-gray-500">Status</p>
-              <p className="mt-1 text-sm text-gray-700">
+              <p className="text-xs font-medium text-gray-500 dark:text-[var(--sa-muted)]">Status</p>
+              <p className="mt-1 text-sm text-gray-700 dark:text-[var(--sa-text-2)]">
                 {leave.status === "PENDING" && "Awaiting your review."}
                 {leave.status === "APPROVED" && "This leave has been approved."}
                 {leave.status === "REJECTED" && "This leave has been rejected."}
@@ -176,7 +176,7 @@ export function LeaveDrawer({
           </div>
 
           {/* Footer / actions */}
-          <div className="border-t border-gray-100 px-5 py-4">
+          <div className="border-t border-gray-100 px-5 py-4 dark:border-[var(--sa-border)]">
             {error && (
               <p role="alert" className="mb-3 rounded border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
                 {error}
@@ -188,7 +188,7 @@ export function LeaveDrawer({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="inline-flex h-9 items-center rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                  className="inline-flex h-9 items-center rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
                 >
                   Close
                 </button>
@@ -199,7 +199,7 @@ export function LeaveDrawer({
                   <button
                     type="button"
                     onClick={() => setMode("reopen")}
-                    className="inline-flex h-9 items-center gap-1.5 rounded border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                    className="inline-flex h-9 items-center gap-1.5 rounded border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
                   >
                     Reopen
                   </button>
@@ -223,10 +223,10 @@ export function LeaveDrawer({
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-gray-600 dark:text-[var(--sa-text-2)]">
                   {mode === "approve" ? "Approve" : mode === "reject" ? "Reject" : "Reopen"}{" "}
-                  <span className="font-medium text-gray-900">{workerName(leave.worker)}</span>&rsquo;s{" "}
-                  <span className="font-medium text-gray-900">{leave.leaveType.name}</span> leave from{" "}
+                  <span className="font-medium text-gray-900 dark:text-[var(--sa-text)]">{workerName(leave.worker)}</span>&rsquo;s{" "}
+                  <span className="font-medium text-gray-900 dark:text-[var(--sa-text)]">{leave.leaveType.name}</span> leave from{" "}
                   {formatDate(leave.startDate)} to {formatDate(leave.endDate)}?
                 </p>
 
@@ -238,7 +238,7 @@ export function LeaveDrawer({
                       setError(null);
                     }}
                     disabled={submitting}
-                    className="inline-flex h-9 items-center rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-50"
+                    className="inline-flex h-9 items-center rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-50 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text-2)] dark:hover:bg-[var(--sa-hover)]"
                   >
                     Cancel
                   </button>
@@ -274,8 +274,8 @@ export function LeaveDrawer({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4 text-sm">
-      <dt className="shrink-0 text-xs font-medium text-gray-500">{label}</dt>
-      <dd className="text-right text-gray-700">{children}</dd>
+      <dt className="shrink-0 text-xs font-medium text-gray-500 dark:text-[var(--sa-muted)]">{label}</dt>
+      <dd className="text-right text-gray-700 dark:text-[var(--sa-text-2)]">{children}</dd>
     </div>
   );
 }

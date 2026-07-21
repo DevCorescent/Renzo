@@ -17,7 +17,7 @@ export function Tabs({ tabs }: { tabs: TabDef[] }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-1 border-b border-gray-200">
+      <div className="flex items-center gap-1 border-b border-gray-200 dark:border-[var(--sa-border)]">
         {tabs.map((t) => {
           const isActive = t.id === current?.id;
           return (
@@ -28,7 +28,7 @@ export function Tabs({ tabs }: { tabs: TabDef[] }) {
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition",
-                isActive ? "border-gray-900 text-gray-900" : "border-transparent text-gray-500 hover:text-gray-800"
+                isActive ? "border-gray-900 text-gray-900 dark:border-white dark:text-[var(--sa-text)]" : "border-transparent text-gray-500 hover:text-gray-800 dark:text-[var(--sa-muted)] dark:hover:text-[var(--sa-text-2)]"
               )}
             >
               {t.label}

@@ -1,4 +1,4 @@
-// Shared presentational primitives — plain white theme, no dark mode.
+// Shared presentational primitives — light theme with sa-dash dark mode support.
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -11,9 +11,9 @@ export function PageHeader({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        {eyebrow && <p className="mb-1 text-xs font-medium uppercase tracking-widest text-gray-400">{eyebrow}</p>}
-        <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
+        {eyebrow && <p className="mb-1 text-xs font-medium uppercase tracking-widest text-gray-400 dark:text-[var(--sa-muted)]">{eyebrow}</p>}
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-[var(--sa-text)]">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-gray-500 dark:text-[var(--sa-text-2)]">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
@@ -23,18 +23,18 @@ export function PageHeader({
 /* ─── Card ─────────────────────────────────────────────────────────────────── */
 export function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div className={cn("rounded border border-gray-200 bg-white", className)} {...props} />
+    <div className={cn("rounded border border-gray-200 bg-white dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]", className)} {...props} />
   );
 }
 
 export function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
-    <div className={cn("flex items-center justify-between border-b border-gray-100 px-4 py-3", className)} {...props} />
+    <div className={cn("flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-[var(--sa-border)]", className)} {...props} />
   );
 }
 
 export function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
-  return <h3 className={cn("text-sm font-semibold text-gray-700", className)} {...props} />;
+  return <h3 className={cn("text-sm font-semibold text-gray-700 dark:text-[var(--sa-text)]", className)} {...props} />;
 }
 
 export function CardBody({ className, ...props }: React.ComponentProps<"div">) {
@@ -49,13 +49,13 @@ export function StatCard({
   hint?: string; icon?: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="rounded border border-gray-200 bg-white p-4">
+    <div className="rounded border border-gray-200 bg-white p-4 dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
       <div className="flex items-start justify-between">
-        <p className="text-xs font-medium text-gray-500">{label}</p>
-        {Icon && <Icon className="size-4 text-gray-400" />}
+        <p className="text-xs font-medium text-gray-500 dark:text-[var(--sa-text-2)]">{label}</p>
+        {Icon && <Icon className="size-4 text-gray-400 dark:text-[var(--sa-muted)]" />}
       </div>
-      <p className="mt-2 text-2xl font-semibold text-gray-900">{value}</p>
-      <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
+      <p className="mt-2 text-2xl font-semibold text-gray-900 dark:text-[var(--sa-text)]">{value}</p>
+      <div className="mt-1 flex items-center gap-2 text-xs text-gray-400 dark:text-[var(--sa-muted)]">
         {delta && (
           <span className={cn("font-medium", delta.positive ? "text-green-600" : "text-red-500")}>
             {delta.positive ? "▲" : "▼"} {delta.value}
@@ -71,12 +71,12 @@ export function StatCard({
 type Tone = "neutral" | "success" | "warning" | "danger" | "info" | "primary";
 
 const toneCls: Record<Tone, string> = {
-  neutral: "bg-gray-100 text-gray-600",
-  success: "bg-green-50 text-green-700",
-  warning: "bg-yellow-50 text-yellow-700",
-  danger:  "bg-red-50 text-red-600",
-  info:    "bg-blue-50 text-blue-600",
-  primary: "bg-gray-900 text-white",
+  neutral: "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-[var(--sa-text-2)]",
+  success: "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  warning: "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+  danger:  "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+  info:    "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300",
+  primary: "bg-gray-900 text-white dark:bg-white dark:text-gray-900",
 };
 
 export function Badge({
@@ -100,7 +100,7 @@ export function Table({ className, ...props }: React.ComponentProps<"table">) {
 
 export function THead({ className, ...props }: React.ComponentProps<"thead">) {
   return (
-    <thead className={cn("border-b border-gray-100 text-left text-xs font-medium text-gray-500", className)} {...props} />
+    <thead className={cn("border-b border-gray-100 text-left text-xs font-medium text-gray-500 dark:border-[var(--sa-border)] dark:text-[var(--sa-text-2)]", className)} {...props} />
   );
 }
 
@@ -110,7 +110,7 @@ export function TH({ className, ...props }: React.ComponentProps<"th">) {
 
 export function TR({ className, ...props }: React.ComponentProps<"tr">) {
   return (
-    <tr className={cn("border-b border-gray-50 last:border-0 hover:bg-gray-50", className)} {...props} />
+    <tr className={cn("border-b border-gray-50 last:border-0 hover:bg-gray-50 dark:border-[var(--sa-border)] dark:hover:bg-[var(--sa-hover)]", className)} {...props} />
   );
 }
 
@@ -126,10 +126,10 @@ export function HeroBanner({
   actions?: React.ReactNode; stats?: { label: string; value: string }[];
 }) {
   return (
-    <div className="rounded border border-gray-200 bg-gray-50 p-6">
-      {eyebrow && <p className="mb-2 text-xs font-medium uppercase tracking-widest text-gray-400">{eyebrow}</p>}
-      <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
-      {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
+    <div className="rounded border border-gray-200 bg-gray-50 p-6 dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface)]">
+      {eyebrow && <p className="mb-2 text-xs font-medium uppercase tracking-widest text-gray-400 dark:text-[var(--sa-muted)]">{eyebrow}</p>}
+      <h1 className="text-2xl font-semibold text-gray-900 dark:text-[var(--sa-text)]">{title}</h1>
+      {subtitle && <p className="mt-1 text-sm text-gray-500 dark:text-[var(--sa-text-2)]">{subtitle}</p>}
       {actions && <div className="mt-3 flex flex-wrap gap-2">{actions}</div>}
       {stats && stats.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-6">
