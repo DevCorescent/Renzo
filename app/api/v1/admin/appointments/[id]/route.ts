@@ -9,6 +9,7 @@ import {
   findAppointmentConflict,
 } from "@/lib/appointment-conflict";
 import { DATE_RE } from "@/lib/slots";
+import { notifyCustomerAppointmentRescheduled } from "@/lib/notifications";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -325,13 +326,28 @@ export async function PATCH(
       if (conflict) return err(conflict, 409);
     }
 
+    // Whether the DATE or START TIME actually moved — the customer is only told when
+    // their slot really changes, so re-saving an unchanged time never notifies and a
+    // single PATCH yields exactly one notification (Scenario 5).
+    const dateChanged =
+      parsedAppointmentDate !== undefined &&
+      parsedAppointmentDate.getTime() !==
+        existingAppointment.appointmentDate.getTime();
+    const startChanged =
+      startTime !== undefined &&
+      nextStart !== existingAppointment.startTime;
+    const timeChanged = dateChanged || startChanged;
+
     // ------------------------------------------------------------------------
     // Update Appointment
     // ------------------------------------------------------------------------
 
     try {
-      const appointment =
-        await prisma.appointment.update({
+      // Update and notify inside ONE transaction, reusing the existing Notification
+      // service — the customer's "rescheduled" alert commits atomically with the new
+      // time (both, or neither), matching how the rest of the app writes notifications.
+      const appointment = await prisma.$transaction(async (tx) => {
+        const updated = await tx.appointment.update({
           where: {
             id,
           },
@@ -382,6 +398,7 @@ export async function PATCH(
             customer: {
               select: {
                 id: true,
+                userId: true,
                 firstName: true,
                 lastName: true,
                 phone: true,
@@ -409,6 +426,19 @@ export async function PATCH(
             addOns: true,
           },
         });
+
+        if (timeChanged && updated.customer?.userId) {
+          await notifyCustomerAppointmentRescheduled(tx, {
+            id: updated.id,
+            appointmentNo: updated.appointmentNo,
+            appointmentDate: updated.appointmentDate,
+            startTime: updated.startTime,
+            customerUserId: updated.customer.userId,
+          });
+        }
+
+        return updated;
+      });
 
       return ok(
         appointment,

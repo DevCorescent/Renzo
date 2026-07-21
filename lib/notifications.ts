@@ -85,3 +85,51 @@ export async function notifyBranchAdmins(branchId: string, input: NotifyInput, t
   });
   await notifyMany(admins.map((a) => a.id), input, tx);
 }
+
+/** "21 Jul 2026, 3:30 PM" — UTC-pinned date (matching how times are stored) + 12h clock. */
+function formatAppointmentWhen(date: Date, time: string): string {
+  const day = date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const [h, m] = time.split(":").map(Number);
+  const meridiem = h < 12 ? "AM" : "PM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${day}, ${hour12}:${String(m).padStart(2, "0")} ${meridiem}`;
+}
+
+/**
+ * Tell a customer their appointment was moved to a new date/time. Reuses the same
+ * in-app Notification every other alert flows through, so it lands in the customer's
+ * Notification Center with one consistent wording — callers pass the transaction
+ * client so the alert commits ATOMICALLY with the appointment update (both, or
+ * neither). One call per successful update keeps it exactly-once, no duplicates.
+ */
+export async function notifyCustomerAppointmentRescheduled(
+  tx: Tx,
+  appointment: {
+    id: string;
+    appointmentNo: string;
+    appointmentDate: Date;
+    startTime: string;
+    customerUserId: string;
+  }
+): Promise<void> {
+  await notify(
+    appointment.customerUserId,
+    {
+      type: "INFO",
+      title: "Appointment rescheduled",
+      message: `Your appointment ${appointment.appointmentNo} has been rescheduled to ${formatAppointmentWhen(
+        appointment.appointmentDate,
+        appointment.startTime
+      )}.`,
+      href: `/customer/bookings/${appointment.id}`,
+      refType: "Appointment",
+      refId: appointment.id,
+    },
+    tx
+  );
+}

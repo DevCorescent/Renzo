@@ -14,10 +14,10 @@ import { cn } from "@/lib/utils";
 // are the primary path, not the fallback.
 
 const AVATAR_TINTS = [
-  "bg-slate-100 text-slate-600",
-  "bg-stone-100 text-stone-600",
-  "bg-zinc-100 text-zinc-600",
-  "bg-neutral-100 text-neutral-600",
+  "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-(--sa-text-2)",
+  "bg-stone-100 text-stone-600 dark:bg-white/10 dark:text-(--sa-text-2)",
+  "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-(--sa-text-2)",
+  "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-(--sa-text-2)",
 ] as const;
 
 export function WorkerAvatar({
@@ -49,7 +49,7 @@ export function WorkerAvatar({
         alt=""
         width={size}
         height={size}
-        className="shrink-0 rounded-full object-cover ring-1 ring-gray-200"
+        className="shrink-0 rounded-full object-cover ring-1 ring-gray-200 dark:ring-(--sa-border)"
       />
     );
   }
@@ -59,7 +59,7 @@ export function WorkerAvatar({
       aria-hidden="true"
       style={{ width: size, height: size }}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ring-1 ring-gray-200",
+        "inline-flex shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ring-1 ring-gray-200 dark:ring-(--sa-border)",
         tint
       )}
     >

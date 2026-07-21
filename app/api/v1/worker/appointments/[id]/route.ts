@@ -9,6 +9,7 @@ import {
   findAppointmentConflict,
 } from "@/lib/appointment-conflict";
 import { DATE_RE } from "@/lib/slots";
+import { notifyCustomerAppointmentRescheduled } from "@/lib/notifications";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -169,23 +170,50 @@ export async function PATCH(
     });
     if (conflict) return err(conflict, 409);
 
-    const appointment = await prisma.appointment.update({
-      where: { id },
-      data: {
-        appointmentDate: parsedDate,
-        startTime: nextStart,
-        endTime: nextEnd,
-        status:
-          existing.status === AppointmentStatus.PENDING
-            ? AppointmentStatus.CONFIRMED
-            : existing.status,
-      },
-      include: {
-        customer: {
-          select: { id: true, firstName: true, lastName: true, phone: true },
+    // Whether the DATE or START TIME actually moved — the customer is only told when
+    // their slot really changes, so a no-op save never notifies and one PATCH yields
+    // exactly one notification (Scenario 5).
+    const dateChanged =
+      parsedDate !== undefined &&
+      parsedDate.getTime() !== existing.appointmentDate.getTime();
+    const startChanged =
+      startTime !== undefined && nextStart !== existing.startTime;
+    const timeChanged = dateChanged || startChanged;
+
+    // Update and notify inside ONE transaction, reusing the existing Notification
+    // service — the customer's "rescheduled" alert commits atomically with the new
+    // time (both, or neither).
+    const appointment = await prisma.$transaction(async (tx) => {
+      const updated = await tx.appointment.update({
+        where: { id },
+        data: {
+          appointmentDate: parsedDate,
+          startTime: nextStart,
+          endTime: nextEnd,
+          status:
+            existing.status === AppointmentStatus.PENDING
+              ? AppointmentStatus.CONFIRMED
+              : existing.status,
         },
-        branch: { select: { id: true, name: true } },
-      },
+        include: {
+          customer: {
+            select: { id: true, userId: true, firstName: true, lastName: true, phone: true },
+          },
+          branch: { select: { id: true, name: true } },
+        },
+      });
+
+      if (timeChanged && updated.customer?.userId) {
+        await notifyCustomerAppointmentRescheduled(tx, {
+          id: updated.id,
+          appointmentNo: updated.appointmentNo,
+          appointmentDate: updated.appointmentDate,
+          startTime: updated.startTime,
+          customerUserId: updated.customer.userId,
+        });
+      }
+
+      return updated;
     });
 
     return ok(appointment, "Appointment updated successfully");

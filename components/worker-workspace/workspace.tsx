@@ -59,7 +59,7 @@ export function Workspace({
 
   return (
     <div>
-      <div role="tablist" aria-label="Worker workspace" className="flex gap-1 overflow-x-auto border-b border-gray-200">
+      <div role="tablist" aria-label="Worker workspace" className="flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-(--sa-border)">
         {tabs.map((tab, i) => {
           const selected = active === tab;
           return (
@@ -74,8 +74,8 @@ export function Workspace({
               onClick={() => setActive(tab)}
               onKeyDown={(e) => onKeyDown(e, i)}
               className={cn(
-                "-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition focus:outline-none focus-visible:bg-gray-50",
-                selected ? "border-gray-900 text-gray-900" : "border-transparent text-gray-500 hover:text-gray-800"
+                "-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition focus:outline-none focus-visible:bg-gray-50 dark:focus-visible:bg-(--sa-hover)",
+                selected ? "border-gray-900 text-gray-900 dark:border-(--sa-text) dark:text-(--sa-text)" : "border-transparent text-gray-500 hover:text-gray-800 dark:text-(--sa-text-2) dark:hover:text-(--sa-text)"
               )}
             >
               {tab}

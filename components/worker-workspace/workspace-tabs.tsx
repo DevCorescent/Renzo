@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Badge, StatCard, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 import { ProfileSection, Field, FieldGrid, formatDate } from "@/components/worker-profile/profile-ui";
+import { AssignServicesButton } from "@/components/worker-workspace/assign-services-dialog";
 import type { WorkerWorkspaceData } from "@/lib/worker-workspace";
 
 const LEVELS = ["New", "Skilled", "Proficient", "Advanced", "Expert", "Master"];
@@ -42,9 +43,9 @@ export function OverviewTab({ data }: { data: WorkerWorkspaceData }) {
           <Field label="Languages" value={worker.languages.length ? worker.languages.join(", ") : null} />
         </FieldGrid>
         {worker.bio?.trim() && (
-          <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50/40 p-3">
-            <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Bio</dt>
-            <dd className="mt-1 text-sm leading-relaxed text-gray-700">{worker.bio}</dd>
+          <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50/40 p-3 dark:border-(--sa-border) dark:bg-white/5">
+            <dt className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-(--sa-muted)">Bio</dt>
+            <dd className="mt-1 text-sm leading-relaxed text-gray-700 dark:text-(--sa-text-2)">{worker.bio}</dd>
           </div>
         )}
       </ProfileSection>
@@ -88,14 +89,14 @@ export function PortfolioTab({ data }: { data: WorkerWorkspaceData }) {
         <ProfileSection title="Skills">
           <div className="grid gap-3 sm:grid-cols-2">
             {worker.skills.map((s) => (
-              <div key={s.skill.name} className="rounded-lg border border-gray-100 p-3">
+              <div key={s.skill.name} className="rounded-lg border border-gray-100 p-3 dark:border-(--sa-border)">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-800">{s.skill.name}</p>
+                  <p className="text-sm font-medium text-gray-800 dark:text-(--sa-text)">{s.skill.name}</p>
                   <Badge tone="neutral">{LEVELS[Math.max(0, Math.min(5, s.proficiency))]}</Badge>
                 </div>
                 <div className="mt-2 flex items-center gap-1" aria-label={`Proficiency ${s.proficiency} of 5`}>
                   {[1, 2, 3, 4, 5].map((i) => (
-                    <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= s.proficiency ? "bg-gray-800" : "bg-gray-100"}`} />
+                    <span key={i} className={`h-1.5 flex-1 rounded-full ${i <= s.proficiency ? "bg-gray-800 dark:bg-white/80" : "bg-gray-100 dark:bg-white/10"}`} />
                   ))}
                 </div>
               </div>
@@ -110,7 +111,7 @@ export function PortfolioTab({ data }: { data: WorkerWorkspaceData }) {
         ) : (
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {portfolio.items.map((it) => (
-              <div key={it.id} className="relative aspect-square overflow-hidden rounded-lg bg-gray-100">
+              <div key={it.id} className="relative aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-white/10">
                 <Image src={it.afterImage} alt={it.title ?? it.category} fill sizes="120px" className="object-cover" />
                 {!it.isApproved && (
                   <span className="absolute right-1 top-1 rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[9px] font-medium text-white">Pending</span>
@@ -147,10 +148,10 @@ export function AttendanceTab({ data }: { data: WorkerWorkspaceData }) {
           <tbody>
             {a.rows.map((r) => (
               <TR key={r.date.toISOString()}>
-                <TD className="whitespace-nowrap text-xs text-gray-600">{formatDate(r.date)}</TD>
+                <TD className="whitespace-nowrap text-xs text-gray-600 dark:text-(--sa-text-2)">{formatDate(r.date)}</TD>
                 <TD><Badge tone={ATT_TONE[r.status] ?? "neutral"}>{r.status.replace(/_/g, " ")}</Badge></TD>
-                <TD className="text-xs text-gray-500">{Math.round((r.workingMinutes / 60) * 10) / 10} h</TD>
-                <TD className="text-xs text-gray-500">{r.lateMinutes > 0 ? `${r.lateMinutes} min` : "—"}</TD>
+                <TD className="text-xs text-gray-500 dark:text-(--sa-text-2)">{Math.round((r.workingMinutes / 60) * 10) / 10} h</TD>
+                <TD className="text-xs text-gray-500 dark:text-(--sa-text-2)">{r.lateMinutes > 0 ? `${r.lateMinutes} min` : "—"}</TD>
               </TR>
             ))}
           </tbody>
@@ -176,10 +177,10 @@ export function LeavesTab({ data }: { data: WorkerWorkspaceData }) {
         <ProfileSection title="Leave balance">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {balances.map((b) => (
-              <div key={b.leaveType.code} className="rounded-lg border border-gray-100 p-3">
-                <p className="text-xs font-medium text-gray-500">{b.leaveType.name} ({b.leaveType.code})</p>
-                <p className="mt-1 text-lg font-semibold text-gray-900">{b.remaining}</p>
-                <p className="text-[11px] text-gray-400">of {b.allocated} · {b.used} used</p>
+              <div key={b.leaveType.code} className="rounded-lg border border-gray-100 p-3 dark:border-(--sa-border)">
+                <p className="text-xs font-medium text-gray-500 dark:text-(--sa-text-2)">{b.leaveType.name} ({b.leaveType.code})</p>
+                <p className="mt-1 text-lg font-semibold text-gray-900 dark:text-(--sa-text)">{b.remaining}</p>
+                <p className="text-[11px] text-gray-400 dark:text-(--sa-muted)">of {b.allocated} · {b.used} used</p>
               </div>
             ))}
           </div>
@@ -196,10 +197,10 @@ export function LeavesTab({ data }: { data: WorkerWorkspaceData }) {
             <tbody>
               {rows.map((l) => (
                 <TR key={l.id}>
-                  <TD className="text-gray-700">{l.leaveType.name}</TD>
-                  <TD className="whitespace-nowrap text-xs text-gray-600">{formatDate(l.startDate)}</TD>
-                  <TD className="whitespace-nowrap text-xs text-gray-600">{formatDate(l.endDate)}</TD>
-                  <TD className="text-gray-500">{l.days}</TD>
+                  <TD className="text-gray-700 dark:text-(--sa-text-2)">{l.leaveType.name}</TD>
+                  <TD className="whitespace-nowrap text-xs text-gray-600 dark:text-(--sa-text-2)">{formatDate(l.startDate)}</TD>
+                  <TD className="whitespace-nowrap text-xs text-gray-600 dark:text-(--sa-text-2)">{formatDate(l.endDate)}</TD>
+                  <TD className="text-gray-500 dark:text-(--sa-text-2)">{l.days}</TD>
                   <TD>
                     <Badge tone={l.status === "APPROVED" ? "success" : l.status === "REJECTED" ? "danger" : l.status === "PENDING" ? "warning" : "neutral"}>
                       {l.status}
@@ -218,21 +219,37 @@ export function LeavesTab({ data }: { data: WorkerWorkspaceData }) {
 /* ─── Services ─────────────────────────────────────────────────────────────── */
 export function ServicesTab({ data }: { data: WorkerWorkspaceData }) {
   const services = data.worker.services;
-  if (services.length === 0) return <EmptyState icon={Scissors} title="No services assigned" />;
+  // Current assignments seed the picker, so re-opening reflects the persisted set
+  // without a second read. The reusable Worker-Service relation is the source here.
+  const assignedServiceIds = services.map((ws) => ws.service.id);
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {services.map((ws) => (
-        <div key={ws.service.id} className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-gray-50 text-gray-400"><Scissors className="size-4" aria-hidden="true" /></span>
-            <div>
-              <p className="text-sm font-medium text-gray-900">{ws.service.name}</p>
-              <p className="text-xs text-gray-400">{ws.service.duration} min</p>
+    <div className="space-y-4">
+      {/* Header row: title + the assign action (the missing write half of the flow). */}
+      <div className="flex items-center gap-2">
+        <Scissors className="size-4 text-gray-400 dark:text-(--sa-muted)" aria-hidden="true" />
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-(--sa-text)">Services</h3>
+        <span className="text-xs text-gray-400 dark:text-(--sa-muted)">{services.length}</span>
+        <AssignServicesButton workerId={data.worker.id} assignedServiceIds={assignedServiceIds} />
+      </div>
+
+      {services.length === 0 ? (
+        <EmptyState icon={Scissors} title="No services assigned" hint="Use “Assign services” to add the services this worker can perform." />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {services.map((ws) => (
+            <div key={ws.service.id} className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-(--sa-border) dark:bg-(--sa-surface) dark:shadow-none">
+              <div className="flex items-center gap-2.5">
+                <span className="flex size-8 items-center justify-center rounded-lg bg-gray-50 text-gray-400 dark:bg-white/5 dark:text-(--sa-muted)"><Scissors className="size-4" aria-hidden="true" /></span>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-(--sa-text)">{ws.service.name}</p>
+                  <p className="text-xs text-gray-400 dark:text-(--sa-muted)">{ws.service.duration} min</p>
+                </div>
+              </div>
+              <span className="text-sm font-semibold text-gray-700 dark:text-(--sa-text-2)">{money(ws.service.basePrice)}</span>
             </div>
-          </div>
-          <span className="text-sm font-semibold text-gray-700">{money(ws.service.basePrice)}</span>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
@@ -264,9 +281,9 @@ export function DocumentsTab({ data }: { data: WorkerWorkspaceData }) {
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {certs.map((c, i) => (
-            <div key={`${c}-${i}`} className="flex items-center gap-2.5 rounded-lg border border-gray-100 bg-gray-50/40 px-3 py-2.5">
-              <GraduationCap className="size-4 shrink-0 text-gray-400" aria-hidden="true" />
-              <p className="min-w-0 truncate text-sm text-gray-700">{c}</p>
+            <div key={`${c}-${i}`} className="flex items-center gap-2.5 rounded-lg border border-gray-100 bg-gray-50/40 px-3 py-2.5 dark:border-(--sa-border) dark:bg-white/5">
+              <GraduationCap className="size-4 shrink-0 text-gray-400 dark:text-(--sa-muted)" aria-hidden="true" />
+              <p className="min-w-0 truncate text-sm text-gray-700 dark:text-(--sa-text-2)">{c}</p>
             </div>
           ))}
         </div>
@@ -283,16 +300,16 @@ export function ActivityTab({ data }: { data: WorkerWorkspaceData }) {
   return (
     <ol className="space-y-2">
       {data.activity.map((e) => (
-        <li key={e.id} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white p-3">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gray-50 text-gray-400 ring-1 ring-gray-100">
+        <li key={e.id} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white p-3 dark:border-(--sa-border) dark:bg-(--sa-surface)">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-gray-50 text-gray-400 ring-1 ring-gray-100 dark:bg-white/5 dark:text-(--sa-muted) dark:ring-(--sa-border)">
             <History className="size-3.5" aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm text-gray-800">
+            <p className="text-sm text-gray-800 dark:text-(--sa-text)">
               <span className="font-medium">{e.action.replace(/_/g, " ")}</span>
-              <span className="text-gray-400"> · {e.module}</span>
+              <span className="text-gray-400 dark:text-(--sa-muted)"> · {e.module}</span>
             </p>
-            <p className="text-[11px] text-gray-400">{formatDate(e.createdAt)} · by {e.userType.replace(/_/g, " ").toLowerCase()}</p>
+            <p className="text-[11px] text-gray-400 dark:text-(--sa-muted)">{formatDate(e.createdAt)} · by {e.userType.replace(/_/g, " ").toLowerCase()}</p>
           </div>
         </li>
       ))}
@@ -303,10 +320,10 @@ export function ActivityTab({ data }: { data: WorkerWorkspaceData }) {
 /* ─── Shared empties ───────────────────────────────────────────────────────── */
 function EmptyState({ icon: Icon, title, hint }: { icon: React.ComponentType<{ className?: string }>; title: string; hint?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-14 text-center">
-      <span className="flex size-11 items-center justify-center rounded-full bg-gray-50 text-gray-300 ring-1 ring-gray-200"><Icon className="size-5" /></span>
-      <p className="mt-3 text-sm font-medium text-gray-700">{title}</p>
-      {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-14 text-center dark:border-(--sa-border) dark:bg-(--sa-surface)">
+      <span className="flex size-11 items-center justify-center rounded-full bg-gray-50 text-gray-300 ring-1 ring-gray-200 dark:bg-white/5 dark:text-(--sa-muted) dark:ring-(--sa-border)"><Icon className="size-5" /></span>
+      <p className="mt-3 text-sm font-medium text-gray-700 dark:text-(--sa-text-2)">{title}</p>
+      {hint && <p className="mt-1 text-xs text-gray-400 dark:text-(--sa-muted)">{hint}</p>}
     </div>
   );
 }
@@ -314,9 +331,9 @@ function EmptyState({ icon: Icon, title, hint }: { icon: React.ComponentType<{ c
 function EmptyInline({ icon: Icon, label, hint }: { icon: React.ComponentType<{ className?: string }>; label: string; hint?: string }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
-      <Icon className="size-5 text-gray-300" aria-hidden="true" />
-      <p className="mt-2 text-sm text-gray-500">{label}</p>
-      {hint && <p className="text-xs text-gray-400">{hint}</p>}
+      <Icon className="size-5 text-gray-300 dark:text-(--sa-muted)" aria-hidden="true" />
+      <p className="mt-2 text-sm text-gray-500 dark:text-(--sa-text-2)">{label}</p>
+      {hint && <p className="text-xs text-gray-400 dark:text-(--sa-muted)">{hint}</p>}
     </div>
   );
 }

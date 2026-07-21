@@ -46,7 +46,7 @@ export function ImageUpload({ value, onChange, label = "Image", className }: Pro
 
   return (
     <div className={className}>
-      <p className="mb-1.5 text-xs font-medium text-gray-600">{label}</p>
+      <p className="mb-1.5 text-xs font-medium text-gray-600 dark:text-(--sa-text-2)">{label}</p>
       {value ? (
         <div className="relative inline-block">
           <Image
@@ -54,7 +54,7 @@ export function ImageUpload({ value, onChange, label = "Image", className }: Pro
             alt={label}
             width={160}
             height={120}
-            className="rounded-lg border border-gray-200 object-cover"
+            className="rounded-lg border border-gray-200 object-cover dark:border-(--sa-border)"
             style={{ width: 160, height: 120 }}
           />
           <button
@@ -70,7 +70,7 @@ export function ImageUpload({ value, onChange, label = "Image", className }: Pro
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
           onClick={() => inputRef.current?.click()}
-          className="flex h-28 w-40 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 text-gray-400 transition hover:border-gray-300 hover:bg-gray-100"
+          className="flex h-28 w-40 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 text-gray-400 transition hover:border-gray-300 hover:bg-gray-100 dark:border-(--sa-border) dark:bg-white/5 dark:text-(--sa-muted) dark:hover:border-white/20 dark:hover:bg-white/10"
         >
           {loading ? (
             <Loader2 className="size-5 animate-spin" />

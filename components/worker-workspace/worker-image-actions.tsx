@@ -85,7 +85,7 @@ export function WorkerPhotoButton({
         disabled={busy}
         aria-label="Upload worker profile photo"
         title={error ?? "Upload profile photo"}
-        className="flex size-9 items-center justify-center rounded-full border-2 border-white bg-indigo-600 text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-70"
+        className="flex size-9 items-center justify-center rounded-full border-2 border-white bg-indigo-600 text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-wait disabled:opacity-70 dark:border-(--sa-surface)"
       >
         {busy ? (
           <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -188,7 +188,7 @@ export function AddPortfolioWorkButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100"
+        className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-300 dark:hover:bg-indigo-500/25"
       >
         <ImagePlus className="size-3.5" aria-hidden="true" />
         Upload work
@@ -203,15 +203,15 @@ export function AddPortfolioWorkButton({
         onClick={(event) => {
           if (event.target === dialogRef.current && !busy) resetAndClose();
         }}
-        className="w-[calc(100vw-2rem)] max-w-xl rounded-xl border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40"
+        className="w-[calc(100vw-2rem)] max-w-xl rounded-xl border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text)"
       >
         <form onSubmit={submit}>
-          <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+          <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4 dark:border-(--sa-border)">
             <div>
-              <h2 className="text-sm font-semibold text-gray-900">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-(--sa-text)">
                 Upload portfolio work
               </h2>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-(--sa-text-2)">
                 Images upload to R2 and remain pending until approved.
               </p>
             </div>
@@ -220,7 +220,7 @@ export function AddPortfolioWorkButton({
               onClick={resetAndClose}
               disabled={busy}
               aria-label="Close"
-              className="rounded p-1 text-gray-400 transition hover:bg-gray-100"
+              className="rounded p-1 text-gray-400 transition hover:bg-gray-100 dark:text-(--sa-muted) dark:hover:bg-(--sa-hover)"
             >
               <X className="size-4" />
             </button>
@@ -230,7 +230,7 @@ export function AddPortfolioWorkButton({
             {error && (
               <p
                 role="alert"
-                className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700"
+                className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
               >
                 {error}
               </p>
@@ -250,12 +250,12 @@ export function AddPortfolioWorkButton({
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-xs font-medium text-gray-700">
+              <label className="text-xs font-medium text-gray-700 dark:text-(--sa-text-2)">
                 Category
                 <select
                   value={category}
                   onChange={(event) => setCategory(event.target.value)}
-                  className="mt-1 h-9 w-full rounded-lg border border-gray-200 bg-white px-2.5 text-sm text-gray-900 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                  className="mt-1 h-9 w-full rounded-lg border border-gray-200 bg-white px-2.5 text-sm text-gray-900 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 dark:border-(--sa-border) dark:bg-(--sa-surface-2) dark:text-(--sa-text)"
                 >
                   {CATEGORIES.map(([value, label]) => (
                     <option key={value} value={value}>
@@ -265,19 +265,19 @@ export function AddPortfolioWorkButton({
                 </select>
               </label>
 
-              <label className="text-xs font-medium text-gray-700">
+              <label className="text-xs font-medium text-gray-700 dark:text-(--sa-text-2)">
                 Title
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   maxLength={120}
                   placeholder="e.g. Bridal hairstyle"
-                  className="mt-1 h-9 w-full rounded-lg border border-gray-200 px-2.5 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                  className="mt-1 h-9 w-full rounded-lg border border-gray-200 px-2.5 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 dark:border-(--sa-border) dark:bg-(--sa-surface-2) dark:text-(--sa-text) dark:placeholder:text-(--sa-muted)"
                 />
               </label>
             </div>
 
-            <label className="block text-xs font-medium text-gray-700">
+            <label className="block text-xs font-medium text-gray-700 dark:text-(--sa-text-2)">
               Description
               <textarea
                 value={description}
@@ -285,17 +285,17 @@ export function AddPortfolioWorkButton({
                 maxLength={1000}
                 rows={3}
                 placeholder="Describe the work"
-                className="mt-1 w-full rounded-lg border border-gray-200 px-2.5 py-2 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                className="mt-1 w-full rounded-lg border border-gray-200 px-2.5 py-2 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 dark:border-(--sa-border) dark:bg-(--sa-surface-2) dark:text-(--sa-text) dark:placeholder:text-(--sa-muted)"
               />
             </label>
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4">
+          <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-(--sa-border)">
             <button
               type="button"
               onClick={resetAndClose}
               disabled={busy}
-              className="h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-600"
+              className="h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 dark:border-(--sa-border) dark:text-(--sa-text-2) dark:hover:bg-(--sa-hover)"
             >
               Cancel
             </button>
