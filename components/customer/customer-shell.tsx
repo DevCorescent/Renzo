@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
 import { Notifications } from "@/components/dashboard/notifications";
+import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 
 const NAV = [
   { label: "Dashboard",   href: "/customer/dashboard",   icon: LayoutDashboard },
@@ -127,7 +128,7 @@ export function CustomerShell({
   }
 
   return (
-    <div className="flex min-h-screen bg-stone-950 text-stone-100">
+    <div className="portal-dark flex min-h-screen bg-stone-950 text-stone-100">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 border-r border-white/8 bg-stone-900/80 backdrop-blur-sm lg:block">
         <SidebarContent userName={userName} onLogout={handleLogout} loggingOut={loggingOut} />
@@ -142,6 +143,7 @@ export function CustomerShell({
           <span className="font-heading text-base font-bold text-white">Renzo</span>
         </Link>
         <div className="flex items-center gap-1">
+          <ThemeToggle dark />
           <Notifications dark />
           <button type="button" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="size-5 text-stone-400" />
@@ -176,7 +178,10 @@ export function CustomerShell({
         {/* Desktop top bar */}
         <header className="sticky top-0 z-30 hidden h-14 items-center justify-between border-b border-white/8 bg-stone-950/90 px-6 backdrop-blur-sm lg:flex">
           <span className="text-sm font-medium text-stone-400">Customer Portal</span>
-          <Notifications dark />
+          <div className="flex items-center gap-1">
+            <ThemeToggle dark />
+            <Notifications dark />
+          </div>
         </header>
         <main className="flex-1 p-6">{children}</main>
       </div>

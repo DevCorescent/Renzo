@@ -260,9 +260,11 @@
   color-scheme: dark;
 }
 
-/* Auth pages (/login, /staff/login) are standalone dark pages outside
-   .renzo-luxe. Same white/black reset so text-white stays visible. */
-.auth-surface {
+/* Auth pages (/login, /staff/login) and always-dark portals (customer
+   dashboard) are outside .renzo-luxe. Same white/black reset so utilities
+   like bg-white, text-white stay literal and visible on dark surfaces. */
+.auth-surface,
+.portal-dark {
   --color-white: #ffffff;
   --color-black: #000000;
 }

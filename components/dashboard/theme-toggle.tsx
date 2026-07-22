@@ -21,19 +21,21 @@ const CYCLE: Record<
   system: { label: "System", next: "light", Icon: Monitor },
 };
 
-export function ThemeToggle() {
+export function ThemeToggle({ dark = false }: { dark?: boolean }) {
   const choice = useThemeChoice();
   const { label, next, Icon } = CYCLE[choice];
+
+  const cls = dark
+    ? "flex size-9 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-white/8 hover:text-stone-100 focus-visible:outline-none"
+    : "flex size-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/15 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text-2) dark:hover:bg-(--sa-hover) dark:hover:text-(--sa-text)";
 
   return (
     <button
       type="button"
       onClick={() => setTheme(next)}
-      // Announce the current mode and the next one, so keyboard/screen-reader users
-      // know both where they are and what a click will do.
       aria-label={`Theme: ${label}. Switch to ${CYCLE[next].label}`}
       title={`Theme: ${label} — click for ${CYCLE[next].label}`}
-      className="flex size-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/15"
+      className={cls}
     >
       <Icon className="size-4.5" />
     </button>

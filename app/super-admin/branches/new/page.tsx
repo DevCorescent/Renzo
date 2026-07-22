@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import { API } from "@/lib/endpoints";
 import { ImageUpload } from "@/components/shared/image-upload";
 import {
@@ -39,6 +40,14 @@ export default function NewBranchPage() {
   const [pincode, setPincode] = useState("");
   const [coverImage, setCoverImage] = useState<string | null>(null);
 
+  // Optional branch admin account
+  const [addAdmin, setAddAdmin] = useState(false);
+  const [adminFirstName, setAdminFirstName] = useState("");
+  const [adminLastName, setAdminLastName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [showAdminPwd, setShowAdminPwd] = useState(false);
+
   const cities = useMemo(() => citiesForState(state), [state]);
 
   function onNameChange(v: string) {
@@ -73,6 +82,13 @@ export default function NewBranchPage() {
       city,
       pincode,
       coverImage: coverImage ?? undefined,
+      // Optional branch admin — only included when the section is open.
+      ...(addAdmin ? {
+        adminFirstName,
+        adminLastName,
+        adminEmail,
+        adminPassword,
+      } : {}),
     };
 
     try {
@@ -229,6 +245,81 @@ export default function NewBranchPage() {
             </div>
           </section>
         </div>
+
+        {/* ── Branch Admin (optional) ─────────────────────────────────── */}
+        <section className="rounded-lg border border-gray-200 bg-white p-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-800">Branch Admin</h2>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Optionally create a login account for the branch manager — credentials will be emailed on save.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAddAdmin((v) => !v)}
+              className={`ml-4 shrink-0 rounded px-3 py-1.5 text-xs font-medium transition ${
+                addAdmin
+                  ? "border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
+                  : "border border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {addAdmin ? "Remove" : "+ Add Admin"}
+            </button>
+          </div>
+
+          {addAdmin && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Field label="First Name" required>
+                <input
+                  value={adminFirstName}
+                  onChange={(e) => setAdminFirstName(e.target.value)}
+                  required={addAdmin}
+                  placeholder="Priya"
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Last Name" required>
+                <input
+                  value={adminLastName}
+                  onChange={(e) => setAdminLastName(e.target.value)}
+                  required={addAdmin}
+                  placeholder="Sharma"
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Email" required hint="Login credentials will be sent here">
+                <input
+                  type="email"
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  required={addAdmin}
+                  placeholder="priya@renzo.com"
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Password" required hint="Min. 6 characters">
+                <div className="relative">
+                  <input
+                    type={showAdminPwd ? "text" : "password"}
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    required={addAdmin}
+                    placeholder="••••••••"
+                    className={`${inputCls} pr-9`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPwd((v) => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showAdminPwd ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                  </button>
+                </div>
+              </Field>
+            </div>
+          )}
+        </section>
 
         <div className="flex gap-3">
           <button

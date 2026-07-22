@@ -20,7 +20,8 @@
       "Bash(Head -20)",
       "PowerShell(Head -20)",
       "Bash(node -e \"const p=require\\('d:/corescent/spa/package.json'\\); const deps={...p.dependencies,...p.devDependencies}; const keys=Object.keys\\(deps\\).filter\\(k=>k.includes\\('aws'\\)||k.includes\\('s3'\\)||k.includes\\('r2'\\)||k.includes\\('minio'\\)||k.includes\\('multer'\\)\\); console.log\\(keys.length?keys:Object.keys\\(deps\\).slice\\(0,30\\)\\)\")",
-      "Bash(git show *)"
+      "Bash(git show *)",
+      "Bash(grep -E \"\\\\.\\(prisma|ts\\)$\")"
     ],
     "additionalDirectories": [
       "\\tmp"

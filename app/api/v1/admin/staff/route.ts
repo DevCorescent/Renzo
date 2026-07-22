@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { created, err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import { hashPassword } from "@/lib/password";
+import { sendMail } from "@/lib/mailer";
+import { workerWelcomeEmail } from "@/lib/email-templates";
 import prisma from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 
@@ -188,6 +190,18 @@ export async function POST(req: NextRequest) {
         },
       });
     });
+
+    // Send welcome email if an email address was provided — non-blocking.
+    const recipientEmail = body.email?.trim().toLowerCase();
+    if (recipientEmail) {
+      const { subject, html, text } = workerWelcomeEmail({
+        name: `${body.firstName.trim()} ${body.lastName.trim()}`,
+        email: recipientEmail,
+        password: body.password as string,
+        branchName: staff.branch?.name ?? "Renzo",
+      });
+      void sendMail({ to: recipientEmail, subject, html, text });
+    }
 
     return created(staff, `${role.replace(/_/g, " ")} created successfully`);
   } catch (e: unknown) {
