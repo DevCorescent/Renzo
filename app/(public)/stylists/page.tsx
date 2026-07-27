@@ -27,7 +27,7 @@ export default async function StylistsPage() {
       designation: { select: { name: true } },
       ratingSummary: { select: { averageRating: true, totalReviews: true } },
     },
-  });
+  }).catch(() => []);
 
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100">

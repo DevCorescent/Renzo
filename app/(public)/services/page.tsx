@@ -20,7 +20,7 @@ export default async function ServicesPage({
       where: { isActive: true },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       select: { id: true, name: true },
-    }),
+    }).catch(() => []),
     prisma.service.findMany({
       where: {
         isActive: true,
@@ -49,7 +49,7 @@ export default async function ServicesPage({
         isPopular: true,
         category: { select: { id: true, name: true } },
       },
-    }),
+    }).catch(() => []),
   ]);
 
   // Group services by category

@@ -21,7 +21,7 @@ export default async function BookPage({
     const raw = await prisma.branch.findFirst({
       where: { id: branchId, isActive: true, isPublic: true },
       select: { id: true, name: true, slug: true, city: true, address: true, coverImage: true },
-    });
+    }).catch(() => null);
     if (raw) branch = raw;
   }
 
@@ -36,7 +36,7 @@ export default async function BookPage({
           select: { price: true },
         },
       },
-    });
+    }).catch(() => null);
     if (raw) {
       service = {
         id: raw.id, name: raw.name, image: raw.image,

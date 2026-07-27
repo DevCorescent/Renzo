@@ -6,7 +6,7 @@ import { MapPin, Phone, Clock, ChevronRight } from "lucide-react";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const branch = await prisma.branch.findFirst({ where: { slug, isActive: true, isPublic: true }, select: { name: true, description: true } });
+  const branch = await prisma.branch.findFirst({ where: { slug, isActive: true, isPublic: true }, select: { name: true, description: true } }).catch(() => null);
   if (!branch) return {};
   return { title: `${branch.name} — Renzo`, description: branch.description ?? undefined };
 }
@@ -29,7 +29,7 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
         },
       },
     },
-  });
+  }).catch(() => null);
 
   if (!branch) return notFound();
 

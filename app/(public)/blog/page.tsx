@@ -32,7 +32,7 @@ export default async function BlogPage() {
       author: true,
       publishedAt: true,
     },
-  });
+  }).catch(() => []);
 
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100">

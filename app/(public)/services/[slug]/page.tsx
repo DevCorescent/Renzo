@@ -9,7 +9,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const service = await prisma.service.findFirst({
     where: { slug, isActive: true, category: { isActive: true } },
     select: { name: true, description: true },
-  });
+  }).catch(() => null);
   if (!service) return {};
   return {
     title: `${service.name} — Renzo`,
@@ -68,7 +68,7 @@ export default async function ServiceDetailPage({
         },
       },
     },
-  });
+  }).catch(() => null);
 
   if (!service) notFound();
 

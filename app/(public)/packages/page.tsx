@@ -45,7 +45,7 @@ export default async function PackagesPage({
         },
       },
     },
-  });
+  }).catch(() => []);
 
   const GENDERS = [
     { value: "", label: "All" },

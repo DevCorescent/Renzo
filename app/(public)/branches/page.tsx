@@ -41,14 +41,14 @@ export default async function BranchesPage({
       coverImage: true,
       description: true,
     },
-  });
+  }).catch(() => []);
 
   const cities = await prisma.branch.findMany({
     where: { isActive: true, isPublic: true },
     select: { city: true },
     distinct: ["city"],
     orderBy: { city: "asc" },
-  });
+  }).catch(() => []);
 
   type CityRow = (typeof cities)[number];
 

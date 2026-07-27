@@ -69,12 +69,12 @@ export default async function OffersPage({
         branchId: true,
         branch: { select: { id: true, name: true, slug: true } },
       },
-    }),
+    }).catch(() => []),
     prisma.branch.findMany({
       where: { isActive: true, isPublic: true },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       select: { id: true, name: true },
-    }),
+    }).catch(() => []),
   ]);
 
   return (

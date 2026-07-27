@@ -34,14 +34,14 @@ export default async function GalleryPage({
       image: true,
       category: true,
     },
-  });
+  }).catch(() => []);
 
   const categories = await prisma.gallery.findMany({
     where: { isActive: true },
     select: { category: true },
     distinct: ["category"],
     orderBy: { category: "asc" },
-  });
+  }).catch(() => []);
 
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100">

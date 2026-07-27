@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       metaTitle: true,
       metaDescription: true,
     },
-  });
+  }).catch(() => null);
   if (!post) return {};
   return {
     title: post.metaTitle || `${post.title} — Renzo`,
@@ -50,7 +50,7 @@ export default async function BlogPostPage({
       author: true,
       publishedAt: true,
     },
-  });
+  }).catch(() => null);
 
   if (!post) notFound();
 
