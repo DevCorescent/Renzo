@@ -51,7 +51,7 @@ export function Blog({ data }: { data: BlogData }) {
   const posts = data.posts.filter((post) => !post.hidden);
 
   return (
-    <section className="relative overflow-hidden bg-[#0A0B0D] py-24 sm:py-32">
+   <section className="relative overflow-hidden bg-[#0A0B0D] py-8 sm:py-12 lg:py-14">
       <div
         aria-hidden
         className="pointer-events-none absolute right-[-10%] top-0 size-[32rem] rounded-full bg-[#C4C9D1]/[0.06] blur-3xl"
@@ -59,7 +59,8 @@ export function Blog({ data }: { data: BlogData }) {
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Category ticker — ties section to Hero's marquee language */}
-        <div className="mb-10 overflow-hidden border-y border-white/10 py-3">
+       <div className="mb-6 sm:mb-8 overflow-hidden border-y border-white/10 py-2.5">
+        
           <motion.div
             animate={reduce ? undefined : { x: ["0%", "-50%"] }}
             transition={reduce ? undefined : { duration: 22, repeat: Infinity, ease: "linear" }}
@@ -79,33 +80,35 @@ export function Blog({ data }: { data: BlogData }) {
           </motion.div>
         </div>
 
-        <MotionReveal className="grid gap-8 lg:grid-cols-2 lg:items-end">
-          <div className="min-w-0">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-4 py-1.5 backdrop-blur-xl">
-              <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#C4C9D1]">
-                {data.eyebrow}
-              </span>
-            </div>
-            <h2 className="group font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              {data.titleLead}{" "}
-              <motion.span
-                className="inline-block bg-[length:200%_100%] bg-gradient-to-r from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text text-transparent transition-transform duration-500 group-hover:translate-x-1.5"
-                animate={
-                  reduce
-                    ? undefined
-                    : { backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }
-                }
-                transition={
-                  reduce
-                    ? undefined
-                    : { duration: 4, repeat: Infinity, ease: "linear" }
-                }
-              >
-                {data.titleAccent}
-              </motion.span>
-            </h2>
-          </div>
-          <div className="space-y-5 lg:pb-2">
+       <MotionReveal className="grid gap-6 lg:grid-cols-2 lg:items-end">
+  <div className="min-w-0">
+    <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-4 py-1.5 backdrop-blur-xl">
+      <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#C4C9D1]">
+        {data.eyebrow}
+      </span>
+    </div>
+
+    <h2 className="group font-heading text-[clamp(1.9rem,6vw,3rem)] font-semibold leading-none tracking-tight text-white whitespace-nowrap">
+      {data.titleLead}{" "}
+      <motion.span
+        className="inline-block bg-[length:200%_100%] bg-gradient-to-r from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text text-transparent transition-transform duration-500 group-hover:translate-x-1.5"
+        animate={
+          reduce
+            ? undefined
+            : { backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }
+        }
+        transition={
+          reduce
+            ? undefined
+            : { duration: 4, repeat: Infinity, ease: "linear" }
+        }
+      >
+        {data.titleAccent}
+      </motion.span>
+    </h2>
+  </div>
+
+  <div className="space-y-4 lg:pb-1">
             <p className="max-w-md leading-relaxed text-[#B7BEC8]">
               {data.paragraph}
             </p>
@@ -124,7 +127,7 @@ export function Blog({ data }: { data: BlogData }) {
         </MotionReveal>
 
         {/* Bento grid — first post featured, rest fill remaining cells */}
-        <MotionStagger className="mt-14 grid auto-rows-[1fr] gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:grid-rows-2">
+       <MotionStagger className="mt-8 sm:mt-10 lg:mt-12 grid auto-rows-[1fr] gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:grid-rows-2">
           {posts.map((post, i) => {
             const featured = i === 0;
             return (
@@ -173,7 +176,7 @@ export function Blog({ data }: { data: BlogData }) {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0A0B0D]/85 via-[#0A0B0D]/10 to-transparent" />
                   </div>
 
-                  <div className="relative z-20 flex flex-1 flex-col p-6 sm:p-7">
+                 <div className="relative z-20 flex flex-1 flex-col p-5 sm:p-6 lg:p-7">
                     <div className="flex items-center gap-3 text-xs">
                       <span className="font-semibold uppercase tracking-widest text-[#C4C9D1]">
                         {post.tag}
@@ -194,7 +197,7 @@ export function Blog({ data }: { data: BlogData }) {
                     <Link
                       href={post.href}
                       aria-label={`Read: ${post.title}`}
-                      className="mt-5 inline-flex items-center gap-2 self-start text-sm font-medium text-white transition-colors duration-300 hover:text-[#C4C9D1]"
+                     className="mt-4 inline-flex items-center gap-2 self-start text-sm font-medium text-white transition-colors duration-300 hover:text-[#C4C9D1]"
                     >
                       <span className="relative">
                         {data.readLabel}

@@ -100,7 +100,7 @@ export function ReviewDialog({
         )}
         <button
           onClick={() => setOpen(true)}
-          className="rounded-full bg-white px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-gray-100 active:scale-95"
+          className="rounded-full bg-white px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-white/90 active:scale-95"
         >
           {isEdit ? "Edit review" : "Rate stylist"}
         </button>
@@ -158,7 +158,7 @@ export function ReviewDialog({
         <button
           type="submit"
           disabled={loading}
-          className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-gray-100 disabled:opacity-60"
+          className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-white/90 disabled:opacity-60"
         >
           {loading && <Loader2 className="size-3.5 animate-spin" />}
           {loading ? "Submitting…" : isEdit ? "Save changes" : "Submit review"}

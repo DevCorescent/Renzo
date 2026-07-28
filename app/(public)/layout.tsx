@@ -41,12 +41,23 @@ export default async function PublicLayout({ children }: { children: React.React
   const dashboardHref = user ? (DASHBOARD_FOR[user.userType] ?? null) : null;
   const homepageContent = await getPublishedHomeContent();
 
-  return (
-    <div className="renzo-luxe flex min-h-screen flex-col bg-stone-950">
-      <SiteHeader dashboardHref={dashboardHref} branding={homepageContent.branding} />
-      <div className="flex-1">{children}</div>
-      <SiteFooter branding={homepageContent.branding} footer={homepageContent.footer} />
-      <PublicChatbot />
-    </div>
-  );
+ return (
+  <div className="renzo-luxe relative flex min-h-screen flex-col overflow-x-hidden bg-transparent">
+    <SiteHeader
+      dashboardHref={dashboardHref}
+      branding={homepageContent.branding}
+    />
+
+    <main className="flex-1">
+      {children}
+    </main>
+
+    <SiteFooter
+      branding={homepageContent.branding}
+      footer={homepageContent.footer}
+    />
+
+    <PublicChatbot />
+  </div>
+);
 }

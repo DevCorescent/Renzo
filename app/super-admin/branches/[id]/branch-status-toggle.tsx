@@ -132,7 +132,7 @@ function ToastShell({
   children: React.ReactNode;
 }) {
   const border =
-    tone === "success" ? "border-emerald-200" : tone === "error" ? "border-red-200" : "border-gray-200";
+    tone === "success" ? "border-emerald-200" : tone === "error" ? "border-red-200" : "border-gray-400";
   return (
     <div
       role="status"

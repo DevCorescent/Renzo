@@ -110,7 +110,7 @@ export function WorkerServicesManager({
 
   if (!branch) {
     return (
-      <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+      <p className="rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm text-gray-700">
         Assign this worker to a branch before choosing services.
       </p>
     );
@@ -177,7 +177,7 @@ export function WorkerServicesManager({
 
           {assignedOutside.length > 0 && (
             <div>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-amber-500">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-700">
                 Also assigned · not offered at this branch
               </p>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -189,11 +189,11 @@ export function WorkerServicesManager({
                       type="button"
                       onClick={() => toggle(s.id)}
                       className={`flex items-center justify-between rounded-xl border p-3 text-left transition ${
-                        on ? "border-amber-400 bg-amber-50 ring-1 ring-amber-400" : "border-gray-200 hover:border-gray-300"
+                        on ? "border-gray-400 bg-gray-100 ring-1 ring-gray-400" : "border-gray-200 hover:border-gray-300"
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <span className={`flex size-5 items-center justify-center rounded-md border ${on ? "border-amber-500 bg-amber-500 text-white" : "border-gray-300 text-transparent"}`}>
+                        <span className={`flex size-5 items-center justify-center rounded-md border ${on ? "border-gray-400 bg-gray-400 text-white" : "border-gray-300 text-transparent"}`}>
                           <Check className="size-3.5" />
                         </span>
                         <div>

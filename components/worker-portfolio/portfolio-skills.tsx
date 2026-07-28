@@ -16,8 +16,8 @@ import { Section, StarRating, proficiencyToLevel, ratingToLevel } from "./portfo
 import type { PortfolioSummary, SkillRating } from "./types";
 
 const LEVEL_TONE: Record<string, string> = {
-  Master: "bg-amber-50 text-amber-700 ring-amber-200",
-  Expert: "bg-amber-50 text-amber-700 ring-amber-200",
+  Master: "bg-gray-100 text-gray-700 ring-gray-200",
+  Expert: "bg-gray-100 text-gray-700 ring-gray-200",
   Advanced: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   Proficient: "bg-blue-50 text-blue-700 ring-blue-200",
   Skilled: "bg-gray-50 text-gray-600 ring-gray-200",
@@ -58,7 +58,7 @@ export function SkillMatrix({ summary }: { summary: PortfolioSummary }) {
                   <span
                     key={i}
                     className={`h-1.5 flex-1 rounded-full ${
-                      i <= s.proficiency ? "bg-amber-400" : "bg-gray-100"
+                      i <= s.proficiency ? "bg-gray-900" : "bg-gray-100"
                     }`}
                   />
                 ))}

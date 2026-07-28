@@ -52,7 +52,7 @@ export default async function CmsPreviewPage() {
         <span className="font-semibold uppercase tracking-widest">
           Draft preview — not published
         </span>
-        <span className="text-gray-300">
+        <span className="text-stone-400">
           Last edited {new Date(draft.updatedAt).toLocaleString("en-IN")}
           {draft.updatedBy ? ` by ${draft.updatedBy}` : ""}
         </span>

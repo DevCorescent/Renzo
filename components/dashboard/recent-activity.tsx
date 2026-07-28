@@ -17,7 +17,7 @@ export type ActivityItem = {
 const ring: Record<StatusTone, string> = {
   neutral: "bg-gray-100 text-gray-500 ring-gray-200 dark:bg-white/5 dark:text-(--sa-text-2) dark:ring-white/10",
   success: "bg-emerald-50 text-emerald-600 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20",
-  warning: "bg-gray-100 text-gray-700 ring-gray-200 dark:bg-white/10 dark:text-white dark:ring-white/20",
+  warning: "bg-gray-200 text-gray-900 ring-gray-300 dark:bg-white/10 dark:text-white dark:ring-white/20",
   danger: "bg-red-50 text-red-500 ring-red-100 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20",
   info: "bg-sky-50 text-sky-600 ring-sky-100 dark:bg-sky-500/10 dark:text-sky-400 dark:ring-sky-500/20",
   accent: "bg-gray-100 text-gray-700 ring-gray-200 dark:bg-white/10 dark:text-white dark:ring-white/20",

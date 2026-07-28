@@ -44,7 +44,7 @@ export function Services({ data }: { data: ServicesData }) {
           subtitle={data.subtitle}
         />
 
-        <div className="relative mt-8">
+        <div className="relative mt-6 sm:mt-8">
           <div ref={scroller} className="overflow-x-auto pb-4 pr-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <MotionStagger className="flex snap-x gap-5">
             {items.map((service) => (
@@ -68,7 +68,7 @@ export function Services({ data }: { data: ServicesData }) {
                   className="absolute inset-0 bg-linear-to-t from-stone-950 via-stone-950/30 to-transparent"
                 />
                 <div className="absolute inset-x-0 bottom-0 p-5">
-                  <h3 className="font-heading text-lg font-bold text-white">{service.name}</h3>
+                  <h3 className="font-heading text-lg font-semibold lg:font-bold text-white">{service.name}</h3>
                   <p
                     className={cn(
                       "text-xs leading-relaxed text-stone-300",

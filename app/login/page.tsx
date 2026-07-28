@@ -92,7 +92,7 @@ export default function CustomerLoginPage() {
             Where Beauty
             <br />
             Meets{" "}
-            <span className="bg-gradient-to-r from-white via-gray-200 to-white bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-white via-[#D1D5DB] to-white bg-clip-text text-transparent">
               Confidence
             </span>
           </p>

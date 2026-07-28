@@ -39,7 +39,7 @@ function SidebarContent({
     <div className="flex h-full flex-col">
       {/* Brand */}
       <div className="flex h-14 items-center gap-2.5 border-b border-white/8 px-5">
-        <span className="inline-flex size-7 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/20">
+        <span className="inline-flex size-7 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-white/30">
           <Scissors className="size-3.5" />
         </span>
         <span className="font-heading text-base font-bold tracking-tight text-white">Renzo</span>
@@ -137,7 +137,7 @@ export function CustomerShell({
       {/* Mobile top bar */}
       <div className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/8 bg-stone-950/90 px-4 backdrop-blur-sm lg:hidden">
         <Link href="/customer/dashboard" className="flex items-center gap-2">
-          <span className="inline-flex size-7 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/20">
+          <span className="inline-flex size-7 items-center justify-center rounded-full bg-white/15 text-white ring-1 ring-white/30">
             <Scissors className="size-3.5" />
           </span>
           <span className="font-heading text-base font-bold text-white">Renzo</span>

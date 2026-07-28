@@ -71,7 +71,7 @@ export default async function BranchesPage({
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 !city
                   ? "bg-white text-black"
-                  : "border border-white/20 text-white hover:bg-white/8"
+                  : "border border-white/20 text-gray-300 hover:border-white/40 hover:text-white"
               }`}
             >
               All cities
@@ -83,7 +83,7 @@ export default async function BranchesPage({
                 className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                   city === c.city
                     ? "bg-white text-black"
-                    : "border border-white/20 text-white hover:bg-white/8"
+                    : "border border-white/20 text-gray-300 hover:border-white/40 hover:text-white"
                 }`}
               >
                 {c.city}

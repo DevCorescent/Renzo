@@ -161,9 +161,9 @@ export function Hero({ data, branding }: { data: HeroData; branding: Branding })
         variants={container}
         initial={reduceMotion ? false : "hidden"}
         animate={reduceMotion ? undefined : "show"}
-        className="relative z-10 mx-auto flex w-full max-w-[1440px] flex-1 flex-col justify-center px-5 pt-28 sm:px-8 lg:px-10"
+       className="relative z-10 mx-auto flex w-full max-w-[1440px] flex-1 flex-col justify-center px-5 pt-24 pb-10 sm:px-8 sm:pt-28 lg:px-10 lg:pb-0"
       >
-        <div className="grid gap-14 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div className="grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end lg:gap-14">
           <div>
             {/* Eyebrow */}
             <motion.div variants={fadeUp}>
@@ -178,7 +178,7 @@ export function Hero({ data, branding }: { data: HeroData; branding: Branding })
            {/* Headline with word-reveal */}
 <h1
   id="hero-heading"
-  className="mt-8 font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl"
+  className="mt-6 font-heading text-[2.5rem] font-semibold leading-[1.05] tracking-tight text-white sm:mt-8 sm:text-5xl lg:text-6xl"
 >
   <RevealWords words={words(data.titleLead)} className="block" />
 
@@ -211,13 +211,13 @@ export function Hero({ data, branding }: { data: HeroData; branding: Branding })
             {/* Sub copy */}
             <motion.p
               variants={fadeUp}
-              className="mt-8 max-w-lg text-base leading-8 text-[#C3C8CE] sm:text-lg"
+              className="mt-6 max-w-lg text-[15px] leading-7 text-[#C3C8CE] sm:mt-8 sm:text-lg sm:leading-8"
             >
               {data.paragraph}
             </motion.p>
 
             {/* CTAs */}
-            <motion.div variants={fadeUp} className="mt-9 flex flex-wrap items-center gap-4">
+            <motion.div variants={fadeUp} className="mt-8 flex flex-col gap-4 sm:mt-9 sm:flex-row sm:flex-wrap sm:items-center">
               <Link
                 href={data.primaryCta.href}
                 className={cn(
@@ -247,7 +247,7 @@ export function Hero({ data, branding }: { data: HeroData; branding: Branding })
               </Link>
 
               {/* Compact trust line */}
-              <div className="ml-1 flex items-center gap-3">
+              <div className="mt-2 flex items-center gap-3 sm:ml-1 sm:mt-0">
                 <div className="flex -space-x-3">
                   {data.avatars.map((avatar) => (
                     <Image
@@ -256,7 +256,8 @@ export function Hero({ data, branding }: { data: HeroData; branding: Branding })
                       alt={avatar.alt}
                       width={36}
                       height={36}
-                      className="h-9 w-9 rounded-full border-2 border-[#0A0B0D] object-cover"
+                      className="h-8 w-8 rounded-full border-2 border-[#0A0B0D] object-cover sm:h-9 sm:w-9"
+                      
                     />
                   ))}
                 </div>
@@ -289,7 +290,7 @@ export function Hero({ data, branding }: { data: HeroData; branding: Branding })
       </motion.div>
 
       {/* Marquee strip */}
-      <div className="relative z-10 mt-16 border-t border-white/10 bg-white/[0.03] backdrop-blur-sm">
+      <div className="relative z-10 mt-10 sm:mt-16 border-t border-white/10 bg-white/[0.03] backdrop-blur-sm">
         <div className="flex overflow-hidden py-4">
           <motion.div
             animate={reduceMotion ? undefined : { x: ["0%", "-50%"] }}
@@ -320,7 +321,7 @@ export function Hero({ data, branding }: { data: HeroData; branding: Branding })
         initial={reduceMotion ? false : { opacity: 0 }}
         animate={reduceMotion ? undefined : { opacity: 1 }}
         transition={{ delay: 1 }}
-        className="relative z-10 flex items-center justify-center gap-2 py-4 text-[#8D96A0]"
+        className="relative z-10 flex items-center justify-center gap-2 py-3 text-[#8D96A0] sm:py-4"
       >
         <span className="text-[11px] uppercase tracking-[0.35em]">{data.scrollLabel}</span>
         <motion.span

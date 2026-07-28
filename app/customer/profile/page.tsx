@@ -103,9 +103,9 @@ export default async function CustomerProfilePage() {
               </div>
             )}
             {customer.beautyProfile.medicalNotes && (
-              <div className="mt-3 rounded-lg border border-white/20 bg-white/8 p-3">
+              <div className="mt-3 rounded-lg border border-white/40 bg-white/12 p-3">
                 <dt className="text-[11px] font-medium uppercase tracking-wide text-white">Medical Notes</dt>
-                <dd className="mt-1 text-sm text-gray-200">{customer.beautyProfile.medicalNotes}</dd>
+                <dd className="mt-1 text-sm text-white">{customer.beautyProfile.medicalNotes}</dd>
               </div>
             )}
           </div>

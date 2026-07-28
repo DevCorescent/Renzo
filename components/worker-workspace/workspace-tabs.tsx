@@ -114,7 +114,7 @@ export function PortfolioTab({ data }: { data: WorkerWorkspaceData }) {
               <div key={it.id} className="relative aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-white/10">
                 <Image src={it.afterImage} alt={it.title ?? it.category} fill sizes="120px" className="object-cover" />
                 {!it.isApproved && (
-                  <span className="absolute right-1 top-1 rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[9px] font-medium text-white">Pending</span>
+                  <span className="absolute right-1 top-1 rounded-full bg-white/90 px-1.5 py-0.5 text-[9px] font-medium text-black">Pending</span>
                 )}
               </div>
             ))}

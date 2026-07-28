@@ -38,10 +38,10 @@ const STAT_ICONS = {
 } as const;
 export type StatIcon = keyof typeof STAT_ICONS;
 
-type Accent = "amber" | "emerald" | "sky" | "violet" | "rose" | "slate";
+type Accent = "neutral" | "emerald" | "sky" | "violet" | "rose" | "slate";
 
 const ACCENTS: Record<Accent, { bar: string; iconWrap: string; icon: string; spark: string }> = {
-  amber: { bar: "from-gray-300 to-gray-400", iconWrap: "bg-gray-100 ring-gray-200 dark:bg-white/10 dark:ring-white/20", icon: "text-gray-700 dark:text-white", spark: "#9CA3AF" },
+  neutral: { bar: "from-gray-400 to-gray-500", iconWrap: "bg-gray-100 ring-gray-200 dark:bg-white/10 dark:ring-white/20", icon: "text-gray-700 dark:text-white", spark: "#9CA3AF" },
   emerald: { bar: "from-emerald-400 to-emerald-500", iconWrap: "bg-emerald-50 ring-emerald-100 dark:bg-emerald-500/10 dark:ring-emerald-500/20", icon: "text-emerald-600 dark:text-emerald-400", spark: "#10b981" },
   sky: { bar: "from-sky-400 to-sky-500", iconWrap: "bg-sky-50 ring-sky-100 dark:bg-sky-500/10 dark:ring-sky-500/20", icon: "text-sky-600 dark:text-sky-400", spark: "#0ea5e9" },
   violet: { bar: "from-violet-400 to-violet-500", iconWrap: "bg-violet-50 ring-violet-100 dark:bg-violet-500/10 dark:ring-violet-500/20", icon: "text-violet-600 dark:text-violet-400", spark: "#8b5cf6" },
@@ -84,7 +84,7 @@ export function StatCard({
   label,
   value,
   icon,
-  accent = "amber",
+  accent = "neutral",
   delta,
   hint,
   format = "int",

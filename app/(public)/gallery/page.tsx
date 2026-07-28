@@ -58,7 +58,7 @@ export default async function GalleryPage({
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 !category
                   ? "bg-white text-black"
-                  : "border border-white/20 text-white hover:bg-white/8"
+                  : "border border-white/10 text-stone-300 hover:border-white/20"
               }`}
             >
               All
@@ -70,7 +70,7 @@ export default async function GalleryPage({
                 className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                   category === c.category
                     ? "bg-white text-black"
-                    : "border border-white/20 text-white hover:bg-white/8"
+                    : "border border-white/10 text-stone-300 hover:border-white/20"
                 }`}
               >
                 {CATEGORY_LABELS[c.category] ?? c.category}
@@ -100,7 +100,7 @@ export default async function GalleryPage({
             {items.map((item) => (
               <figure
                 key={item.id}
-                className="mb-4 break-inside-avoid overflow-hidden rounded-2xl border border-white/10 bg-stone-900"
+                className="mb-4 break-inside-avoid overflow-hidden rounded-2xl border border-white/8 bg-stone-900"
               >
                 <div className="relative aspect-[4/5] w-full bg-stone-800">
                   <Image

@@ -66,7 +66,7 @@ export default async function WorkerAttendancePage() {
         </div>
         <div className="rounded border border-gray-200 bg-white p-4">
           <p className="text-xs font-medium text-gray-500">Half Day</p>
-          <p className="mt-2 text-2xl font-semibold text-yellow-700">{halfCount}</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-700">{halfCount}</p>
         </div>
       </div>
 

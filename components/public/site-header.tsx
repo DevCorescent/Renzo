@@ -42,14 +42,14 @@ export function SiteHeader({ dashboardHref, branding }: SiteHeaderProps) {
   const logoUrl = branding.logoImage.url.trim();
 
   return (
-    <header className="sticky top-0 z-50 w-full px-3 pt-3 sm:px-4 sm:pt-4">
+    <header className="fixed inset-x-0 top-0 z-50 w-full px-3 pt-6 sm:px-4">
       {/* Floating glass pill — no black fill, just blur + a hairline border */}
       <div
-        className={cn(
-          "mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between rounded-full border px-4 transition-all duration-500 sm:px-6",
+  className={cn(
+    "mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between rounded-full border px-4 transition-all duration-500 sm:px-6",
           scrolled || open
-            ? "border-white/15 bg-white/[0.06] shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/[0.05]"
-            : "border-white/10 bg-transparent backdrop-blur-xl"
+  ? "border-white/15 bg-black/30 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.35)]"
+  : "border-white/10 bg-white/5 backdrop-blur-3xl"
         )}
       >
         {/* Logo */}

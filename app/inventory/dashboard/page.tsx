@@ -35,7 +35,7 @@ const MOVE_META: Record<string, { label: string; color: string }> = {
   PURCHASE_IN: { label: "Purchase in", color: "#10b981" },
   TRANSFER_IN: { label: "Transfer in", color: "#0ea5e9" },
   TRANSFER_OUT: { label: "Transfer out", color: "#6366f1" },
-  SERVICE_USE: { label: "Service use", color: "#9CA3AF" },
+  SERVICE_USE: { label: "Service use", color: "#D1D5DB" },
   RETAIL_SALE: { label: "Retail sale", color: "#8b5cf6" },
   ADJUSTMENT: { label: "Adjustment", color: "#64748b" },
   DAMAGE: { label: "Damage", color: "#fb7185" },
@@ -136,13 +136,13 @@ export default async function InventoryDashboardPage() {
     { label: "Total products", value: productCount, icon: Package, tone: "text-sky-500" },
     { label: "Low on stock", value: lowStockCount, icon: TriangleAlert, tone: "text-rose-500" },
     { label: "Suppliers", value: supplierCount, icon: Truck, tone: "text-violet-500" },
-    { label: "Pending orders", value: pendingPO, icon: ShoppingCart, tone: "text-gray-400" },
+    { label: "Pending orders", value: pendingPO, icon: ShoppingCart, tone: "text-gray-500" },
   ];
 
   const ok = lowStockCount === 0;
   const banner = ok
     ? { text: "Stock levels healthy", wrap: "bg-emerald-50/60 ring-emerald-100 dark:bg-emerald-500/10 dark:ring-emerald-500/20", txt: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500", ping: "bg-emerald-400" }
-    : { text: `${lowStockCount} item${lowStockCount === 1 ? "" : "s"} low on stock`, wrap: "bg-gray-100/60 ring-gray-200 dark:bg-white/10 dark:ring-white/20", txt: "text-gray-700 dark:text-gray-300", dot: "bg-gray-400", ping: "bg-gray-300" };
+    : { text: `${lowStockCount} item${lowStockCount === 1 ? "" : "s"} low on stock`, wrap: "bg-gray-100/60 ring-gray-200 dark:bg-white/10 dark:ring-white/20", txt: "text-gray-700 dark:text-gray-300", dot: "bg-gray-600", ping: "bg-gray-500" };
 
   return (
     <div id={THEME_ROOT_ID} suppressHydrationWarning className="sa-dash -m-6 min-h-[calc(100vh-3.5rem)] bg-slate-50 p-4 transition-colors duration-300 sm:p-6">
@@ -156,7 +156,7 @@ export default async function InventoryDashboardPage() {
           <StaggerItem><StatCard label="Total Products" value={productCount} icon="inventory" accent="sky" hint="active catalogue" /></StaggerItem>
           <StaggerItem><StatCard label="Low Stock" value={lowStockCount} icon="alert" accent="rose" hint="at or below reorder" /></StaggerItem>
           <StaggerItem><StatCard label="Suppliers" value={supplierCount} icon="supplier" accent="violet" hint="active vendors" /></StaggerItem>
-          <StaggerItem><StatCard label="Pending Orders" value={pendingPO} icon="purchase" accent="amber" hint="awaiting delivery" /></StaggerItem>
+          <StaggerItem><StatCard label="Pending Orders" value={pendingPO} icon="purchase" accent="neutral" hint="awaiting delivery" /></StaggerItem>
         </Stagger>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">

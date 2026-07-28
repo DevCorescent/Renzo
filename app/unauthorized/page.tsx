@@ -10,7 +10,7 @@ export default function UnauthorizedPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-stone-950 px-4 text-stone-100">
       <div className="w-full max-w-md rounded-2xl border border-white/8 bg-stone-900 p-8 text-center">
-        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-white/10 text-white ring-1 ring-white/20">
+        <span className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-white/10 text-[#FFFFFF] ring-1 ring-white/20">
           <ShieldAlert className="size-7" />
         </span>
         <h1 className="mt-5 text-2xl font-bold tracking-tight">Access denied</h1>
@@ -21,7 +21,7 @@ export default function UnauthorizedPage() {
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
             href="/login"
-            className="rounded-full bg-white px-6 py-2.5 text-sm font-bold text-black transition hover:bg-gray-100"
+            className="rounded-full bg-[#FFFFFF] px-6 py-2.5 text-sm font-bold text-[#0A0A0A] transition hover:bg-[#F3F4F6]"
           >
             Sign in
           </Link>

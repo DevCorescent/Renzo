@@ -69,7 +69,7 @@ export default async function BlogPostPage({
         </Link>
 
         {post.category && (
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-white">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-300">
             {post.category}
           </p>
         )}

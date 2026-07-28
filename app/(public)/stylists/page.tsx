@@ -54,7 +54,7 @@ export default async function StylistsPage() {
                 <Link
                   key={w.id}
                   href={`/stylists/${w.id}`}
-                  className="group relative overflow-hidden rounded-2xl border border-white/10 bg-stone-900 transition hover:border-white/20"
+                  className="group relative overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-white/20"
                 >
                   <div className="relative h-56 w-full overflow-hidden bg-stone-800">
                     {w.profilePhoto ? (

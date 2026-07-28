@@ -49,7 +49,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
   CONFIRMED: { label: "Confirmed", color: "#10b981" },
   CHECKED_IN: { label: "Checked in", color: "#0ea5e9" },
   STARTED: { label: "In service", color: "#6366f1" },
-  PENDING: { label: "Pending", color: "#9CA3AF" },
+  PENDING: { label: "Pending", color: "#D1D5DB" },
   RESCHEDULED: { label: "Rescheduled", color: "#64748b" },
   NO_SHOW: { label: "No-show", color: "#fb7185" },
   CANCELLED: { label: "Cancelled", color: "#ef4444" },
@@ -201,7 +201,7 @@ export default async function ReceptionDashboardPage() {
   }));
 
   const glance = [
-    { label: "Bookings today", value: todayCount, icon: CalendarDays, tone: "text-gray-400" },
+    { label: "Bookings today", value: todayCount, icon: CalendarDays, tone: "text-gray-500" },
     { label: "In chair / checked in", value: checkedInCount, icon: UserCheck, tone: "text-sky-500" },
     { label: "Pending check-in", value: pendingCheckin, icon: Clock, tone: "text-violet-500" },
   ];
@@ -240,7 +240,7 @@ export default async function ReceptionDashboardPage() {
         {/* ── Statistics ─────────────────────────────────────────────────── */}
         <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StaggerItem>
-            <StatCard label="Today's Bookings" value={todayCount} icon="appointments" accent="amber"
+            <StatCard label="Today's Bookings" value={todayCount} icon="appointments" accent="neutral"
               delta={pct(apptToday, apptYesterday)} hint="vs. yesterday" spark={trendValues} />
           </StaggerItem>
           <StaggerItem>
@@ -358,7 +358,7 @@ export default async function ReceptionDashboardPage() {
                       href={q.href}
                       className="group flex flex-col gap-2 rounded-xl border border-gray-100 bg-gray-50/50 p-3 transition-all hover:border-gray-200 hover:bg-gray-100/50 dark:border-(--sa-border) dark:bg-white/3 dark:hover:border-white/20 dark:hover:bg-white/5"
                     >
-                      <span className="flex size-8 items-center justify-center rounded-lg bg-white text-gray-700 ring-1 ring-gray-200/70 transition-colors group-hover:ring-gray-200 dark:bg-white/5 dark:text-white dark:ring-(--sa-border) dark:group-hover:ring-white/20">
+                      <span className="flex size-8 items-center justify-center rounded-lg bg-white text-gray-700 ring-1 ring-gray-200/70 transition-colors group-hover:ring-gray-400 dark:bg-white/5 dark:text-white dark:ring-(--sa-border) dark:group-hover:ring-white/20">
                         <q.icon className="size-4" />
                       </span>
                       <span className="flex items-center justify-between text-sm font-medium text-gray-700 dark:text-(--sa-text-2)">

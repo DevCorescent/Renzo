@@ -142,7 +142,7 @@ export default async function CustomerBookingsPage() {
               hint="lifetime" />
           </StaggerItem>
           <StaggerItem>
-            <StatCard label="Total Spent" value={totalSpent} icon="revenue" accent="amber" format="inr"
+            <StatCard label="Total Spent" value={totalSpent} icon="revenue" accent="slate" format="inr"
               hint="across all visits" />
           </StaggerItem>
           <StaggerItem>
@@ -187,9 +187,9 @@ export default async function CustomerBookingsPage() {
                     <Link
                       key={q.href}
                       href={q.href}
-                      className="group flex flex-col gap-2 rounded-xl border border-gray-100 bg-gray-50/50 p-3 transition-all hover:border-gray-200 hover:bg-gray-100/50 dark:border-(--sa-border) dark:bg-white/3 dark:hover:border-white/20 dark:hover:bg-white/5"
+                      className="group flex flex-col gap-2 rounded-xl border border-gray-100 bg-gray-50/50 p-3 transition-all hover:border-gray-300 hover:bg-gray-200/50 dark:border-(--sa-border) dark:bg-white/3 dark:hover:border-white/20 dark:hover:bg-white/5"
                     >
-                      <span className="flex size-8 items-center justify-center rounded-lg bg-white text-gray-700 ring-1 ring-gray-200/70 transition-colors group-hover:ring-gray-200 dark:bg-white/5 dark:text-white dark:ring-(--sa-border) dark:group-hover:ring-white/20">
+                      <span className="flex size-8 items-center justify-center rounded-lg bg-white text-gray-900 ring-1 ring-gray-200/70 transition-colors group-hover:ring-gray-400 dark:bg-white/5 dark:text-white dark:ring-(--sa-border) dark:group-hover:ring-white/20">
                         <q.icon className="size-4" />
                       </span>
                       <span className="flex items-center justify-between text-sm font-medium text-gray-700 dark:text-(--sa-text-2)">
