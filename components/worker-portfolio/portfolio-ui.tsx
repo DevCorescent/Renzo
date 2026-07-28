@@ -30,7 +30,7 @@ export function Section({
   return (
     <section className={cn("scroll-mt-6", className)}>
       <div className="mb-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700/80">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-700/80">
           {eyebrow}
         </p>
         <h2 className="mt-1 text-lg font-semibold tracking-tight text-gray-900">{title}</h2>
@@ -73,9 +73,9 @@ function StarIcon({ state, size }: { state: "full" | "half" | "empty"; size: num
   if (state === "half") {
     return (
       <span className="relative inline-flex" style={{ width: size, height: size }} aria-hidden="true">
-        <Star size={size} className="absolute inset-0 text-amber-200" fill="currentColor" />
+        <Star size={size} className="absolute inset-0 text-gray-200" fill="currentColor" />
         <span className="absolute inset-0 overflow-hidden" style={{ width: size / 2 }}>
-          <Star size={size} className="text-amber-500" fill="currentColor" />
+          <Star size={size} className="text-gray-400" fill="currentColor" />
         </span>
       </span>
     );
@@ -84,7 +84,7 @@ function StarIcon({ state, size }: { state: "full" | "half" | "empty"; size: num
     <Star
       size={size}
       aria-hidden="true"
-      className={state === "full" ? "text-amber-500" : "text-amber-200"}
+      className={state === "full" ? "text-gray-400" : "text-gray-200"}
       fill="currentColor"
     />
   );

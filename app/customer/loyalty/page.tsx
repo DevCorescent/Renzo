@@ -34,7 +34,7 @@ export default async function CustomerLoyaltyPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-xl border border-white/8 bg-stone-900 p-4">
               <p className="text-xs font-medium text-stone-500">Available Points</p>
-              <p className="mt-2 text-2xl font-semibold text-gold">
+              <p className="mt-2 text-2xl font-semibold text-white">
                 {loyalty.availablePoints.toLocaleString()}
               </p>
               {config && (

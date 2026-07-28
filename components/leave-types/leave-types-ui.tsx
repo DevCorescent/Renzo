@@ -28,7 +28,7 @@ export function SummaryCards({ all }: { all: LeaveType[] }) {
     { label: "Active", value: active, tone: "text-green-700" },
     { label: "Inactive", value: total - active, tone: "text-gray-500" },
     { label: "Paid", value: paid, tone: "text-blue-700" },
-    { label: "Unpaid", value: total - paid, tone: "text-amber-700" },
+    { label: "Unpaid", value: total - paid, tone: "text-gray-700" },
   ];
 
   return (

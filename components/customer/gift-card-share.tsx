@@ -103,7 +103,7 @@ export function GiftCardShare({ code }: { code: string }) {
             <label className="block text-xs font-medium text-stone-300">Transfer to a registered customer</label>
             <div className="mt-1.5 flex gap-2">
               <input value={phone} onChange={(e) => { setPhone(e.target.value); setMsg(null); }} inputMode="tel" placeholder="Recipient phone number" className="h-9 w-full rounded-lg border border-white/10 bg-stone-800 px-2.5 text-sm text-stone-100 outline-none transition placeholder:text-stone-500 focus:border-white/25" />
-              <button type="button" onClick={transfer} disabled={sending || !phone.trim()} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-gold px-3 text-xs font-semibold text-stone-950 transition hover:opacity-90 disabled:opacity-50">
+              <button type="button" onClick={transfer} disabled={sending || !phone.trim()} className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 text-xs font-semibold text-stone-950 transition hover:opacity-90 disabled:opacity-50">
                 <Send className="size-3.5" aria-hidden="true" /> {sending ? "…" : "Transfer"}
               </button>
             </div>

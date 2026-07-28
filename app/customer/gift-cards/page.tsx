@@ -59,7 +59,7 @@ export default async function CustomerGiftCardsPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-stone-500">Remaining Balance</span>
-                    <span className={`font-semibold ${Number(gc.balance) > 0 ? "text-gold" : "text-stone-500"}`}>
+                    <span className={`font-semibold ${Number(gc.balance) > 0 ? "text-white" : "text-stone-500"}`}>
                       ₹{Number(gc.balance).toLocaleString("en-IN")}
                     </span>
                   </div>

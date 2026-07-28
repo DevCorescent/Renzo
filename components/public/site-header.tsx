@@ -3,11 +3,13 @@
 // OWNER: Gauransh | COMPONENT: Public site header (nav bar) — floating glassmorphism, 2026, silver accent
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Scissors, Menu, X, LayoutDashboard, LogIn, UserPlus } from "lucide-react";
 import { useScrolled } from "@/lib/hooks/use-scrolled";
 import { cn } from "@/lib/utils";
+import type { Branding } from "@/lib/cms/schema";
 
 export const PUBLIC_NAV_LINKS = [
   { label: "Home", href: "/" },
@@ -24,15 +26,20 @@ function isActiveLink(pathname: string, href: string): boolean {
 interface SiteHeaderProps {
   /** Passed from a Server Component — non-null means user is already logged in */
   dashboardHref?: string | null;
+  /** Resolved by the public layout; always present, defaults live in lib/cms. */
+  branding: Branding;
 }
 
 const FOCUS_RING =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent rounded-full";
 
-export function SiteHeader({ dashboardHref }: SiteHeaderProps = {}) {
+export function SiteHeader({ dashboardHref, branding }: SiteHeaderProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const scrolled = useScrolled(12);
+  const siteName = branding.siteName;
+  // Empty means "keep the built-in scissors mark" — an empty CMS never blanks it.
+  const logoUrl = branding.logoImage.url.trim();
 
   return (
     <header className="sticky top-0 z-50 w-full px-3 pt-3 sm:px-4 sm:pt-4">
@@ -51,11 +58,21 @@ export function SiteHeader({ dashboardHref }: SiteHeaderProps = {}) {
           className={cn("group flex items-center gap-2", FOCUS_RING)}
           onClick={() => setOpen(false)}
         >
-          <span className="inline-flex size-8 items-center justify-center rounded-full bg-[#C9CDD3]/15 text-[#C9CDD3] ring-1 ring-[#C9CDD3]/30 transition-all duration-300 group-hover:scale-105 group-hover:bg-[#C9CDD3]/25">
-            <Scissors className="size-4" />
-          </span>
+          {logoUrl ? (
+            <Image
+              src={logoUrl}
+              alt={branding.logoImage.alt || siteName}
+              width={32}
+              height={32}
+              className="size-8 rounded-full object-cover"
+            />
+          ) : (
+            <span className="inline-flex size-8 items-center justify-center rounded-full bg-[#C9CDD3]/15 text-[#C9CDD3] ring-1 ring-[#C9CDD3]/30 transition-all duration-300 group-hover:scale-105 group-hover:bg-[#C9CDD3]/25">
+              <Scissors className="size-4" />
+            </span>
+          )}
           <span className="font-heading text-2xl font-bold tracking-tight text-white transition-transform duration-300 group-hover:scale-[1.02]">
-            Renzo
+            {siteName}
           </span>
         </Link>
 

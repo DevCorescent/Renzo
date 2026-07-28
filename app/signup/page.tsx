@@ -47,8 +47,8 @@ export default function SignupPage() {
   return (
     <div className="auth-surface relative flex min-h-screen items-center justify-center overflow-hidden bg-stone-950 px-4 py-12 text-stone-100">
       {/* Glows */}
-      <div aria-hidden className="pointer-events-none absolute -top-40 right-[-10%] size-[36rem] rounded-full bg-gold/10 blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute bottom-[-20%] left-[-5%] size-[24rem] rounded-full bg-gold/5 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -top-40 right-[-10%] size-[36rem] rounded-full bg-white/10 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute bottom-[-20%] left-[-5%] size-[24rem] rounded-full bg-white/5 blur-3xl" />
 
       {/* Watermark */}
       <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
@@ -66,7 +66,7 @@ export default function SignupPage() {
         <div className="rounded-3xl border border-white/10 bg-stone-900/60 p-8 shadow-2xl backdrop-blur-md sm:p-10">
           {/* Logo */}
           <Link href="/" className="mb-8 flex items-center gap-2.5">
-            <span className="inline-flex size-9 items-center justify-center rounded-full bg-gold/15 text-gold ring-1 ring-gold/30">
+            <span className="inline-flex size-9 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/20">
               <Scissors className="size-4" />
             </span>
             <span className="font-heading text-xl font-bold text-white">Renzo</span>
@@ -103,7 +103,7 @@ export default function SignupPage() {
 
                 <p className="mt-6 text-center text-xs text-stone-500">
                   Already have an account?{" "}
-                  <Link href="/login" className="text-gold hover:underline">Sign in</Link>
+                  <Link href="/login" className="text-white hover:underline">Sign in</Link>
                 </p>
               </motion.div>
             ) : (
@@ -118,7 +118,7 @@ export default function SignupPage() {
                   initial={reduce ? false : { scale: 0 }}
                   animate={reduce ? undefined : { scale: 1 }}
                   transition={{ type: "spring", stiffness: 300, damping: 18, delay: 0.1 }}
-                  className="mx-auto mb-5 flex size-16 items-center justify-center rounded-full bg-gold/15 text-gold ring-1 ring-gold/30"
+                  className="mx-auto mb-5 flex size-16 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/20"
                 >
                   <CheckCircle2 className="size-8" />
                 </motion.div>
@@ -144,7 +144,7 @@ export default function SignupPage() {
                   animate={reduce ? undefined : { scaleX: 1 }}
                   transition={{ delay: 0.5, duration: 1.6, ease: "easeInOut" }}
                   style={{ originX: 0 }}
-                  className="mx-auto mt-6 h-0.5 w-32 rounded-full bg-gold/50"
+                  className="mx-auto mt-6 h-0.5 w-32 rounded-full bg-white/50"
                 />
               </motion.div>
             )}
@@ -155,7 +155,7 @@ export default function SignupPage() {
           <div className="mt-6 space-y-2 text-center">
             <p className="text-xs text-stone-600">
               Staff or admin?{" "}
-              <Link href="/staff/login" className="text-stone-400 transition-colors hover:text-gold">Sign in here</Link>
+              <Link href="/staff/login" className="text-stone-400 transition-colors hover:text-white">Sign in here</Link>
             </p>
             <p className="text-xs text-stone-700">
               <Link href="/" className="transition-colors hover:text-stone-500">← Back to home</Link>

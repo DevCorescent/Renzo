@@ -48,7 +48,7 @@ export function QuickActions({ actions, label = "Quick actions" }: { actions: Qu
                 onClick={() => setOpen(false)}
                 className="group flex items-start gap-3 rounded-lg px-2.5 py-2 transition-colors hover:bg-gray-50 dark:hover:bg-(--sa-hover)"
               >
-                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 ring-1 ring-amber-100 transition-colors group-hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20 dark:group-hover:bg-amber-500/20">
+                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-700 ring-1 ring-gray-200 transition-colors group-hover:bg-gray-200 dark:bg-white/10 dark:text-white dark:ring-white/20 dark:group-hover:bg-white/20">
                   <a.icon className="size-4" />
                 </span>
                 <span className="min-w-0">

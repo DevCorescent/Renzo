@@ -36,7 +36,7 @@ export function BookingSuggestTips({
     <div className="mb-5 space-y-2">
       <SuggestButton
         label="AI stylist tips"
-        className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-stone-900 px-3 py-1.5 text-xs font-medium text-stone-200 hover:border-amber-500/40 hover:text-amber-200 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-stone-900 px-3 py-1.5 text-xs font-medium text-stone-200 hover:border-white/40 hover:text-gray-200 disabled:opacity-50"
         onSuggest={run}
       />
       {error && <p className="text-xs text-red-400">{error}</p>}

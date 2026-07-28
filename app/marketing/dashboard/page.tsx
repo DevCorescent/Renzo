@@ -119,7 +119,7 @@ export default async function MarketingDashboardPage() {
   }));
 
   const glance = [
-    { label: "Active campaigns", value: activeCampaigns, icon: Megaphone, tone: "text-amber-500" },
+    { label: "Active campaigns", value: activeCampaigns, icon: Megaphone, tone: "text-gray-400" },
     { label: "Live offers", value: activeOffers, icon: Tag, tone: "text-emerald-500" },
     { label: "Active coupons", value: activeCoupons, icon: Ticket, tone: "text-sky-500" },
     { label: "Reviews pending", value: pendingReviews, icon: Star, tone: "text-violet-500" },
@@ -128,7 +128,7 @@ export default async function MarketingDashboardPage() {
   const ok = pendingReviews === 0;
   const banner = ok
     ? { text: "All reviews moderated", wrap: "bg-emerald-50/60 ring-emerald-100 dark:bg-emerald-500/10 dark:ring-emerald-500/20", txt: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500", ping: "bg-emerald-400" }
-    : { text: `${pendingReviews} review${pendingReviews === 1 ? "" : "s"} to moderate`, wrap: "bg-amber-50/60 ring-amber-100 dark:bg-amber-500/10 dark:ring-amber-500/20", txt: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500", ping: "bg-amber-400" };
+    : { text: `${pendingReviews} review${pendingReviews === 1 ? "" : "s"} to moderate`, wrap: "bg-gray-100/60 ring-gray-200 dark:bg-white/10 dark:ring-white/20", txt: "text-gray-700 dark:text-gray-300", dot: "bg-gray-400", ping: "bg-gray-300" };
 
   return (
     <div id={THEME_ROOT_ID} suppressHydrationWarning className="sa-dash -m-6 min-h-[calc(100vh-3.5rem)] bg-slate-50 p-4 transition-colors duration-300 sm:p-6">

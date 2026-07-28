@@ -55,8 +55,8 @@ export default async function GalleryPage({
               href="/gallery"
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 !category
-                  ? "bg-amber-500 text-stone-950"
-                  : "border border-white/10 text-stone-300 hover:border-white/20"
+                  ? "bg-white text-black"
+                  : "border border-white/20 text-white hover:bg-white/8"
               }`}
             >
               All
@@ -67,8 +67,8 @@ export default async function GalleryPage({
                 href={`/gallery?category=${encodeURIComponent(c.category)}`}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                   category === c.category
-                    ? "bg-amber-500 text-stone-950"
-                    : "border border-white/10 text-stone-300 hover:border-white/20"
+                    ? "bg-white text-black"
+                    : "border border-white/20 text-white hover:bg-white/8"
                 }`}
               >
                 {CATEGORY_LABELS[c.category] ?? c.category}
@@ -88,7 +88,7 @@ export default async function GalleryPage({
             </p>
             <Link
               href="/book"
-              className="mt-6 inline-block rounded-full bg-amber-500 px-6 py-2.5 text-sm font-bold text-stone-950 transition hover:bg-amber-400"
+              className="mt-6 inline-block rounded-full bg-white px-6 py-2.5 text-sm font-bold text-stone-950 transition hover:bg-gray-100"
             >
               Book now
             </Link>
@@ -98,7 +98,7 @@ export default async function GalleryPage({
             {items.map((item) => (
               <figure
                 key={item.id}
-                className="mb-4 break-inside-avoid overflow-hidden rounded-2xl border border-white/8 bg-stone-900"
+                className="mb-4 break-inside-avoid overflow-hidden rounded-2xl border border-white/10 bg-stone-900"
               >
                 <div className="relative aspect-[4/5] w-full bg-stone-800">
                   <Image

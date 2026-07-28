@@ -4,7 +4,7 @@
 import { useRef } from "react";
 import { Star, ArrowLeft, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TESTIMONIALS } from "./home-data";
+import type { TestimonialsData } from "@/lib/cms/schema";
 
 function initials(name: string): string {
   return name
@@ -15,8 +15,9 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
-export function Testimonials() {
+export function Testimonials({ data }: { data: TestimonialsData }) {
   const scroller = useRef<HTMLDivElement>(null);
+  const items = data.items.filter((item) => !item.hidden);
 
   const scrollByCards = (dir: number) => {
     const el = scroller.current;
@@ -29,9 +30,9 @@ export function Testimonials() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex items-end justify-between gap-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C4C9D1]">Kind words</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C4C9D1]">{data.eyebrow}</p>
             <h2 className="mt-3 font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              Hear from the Renzo Family
+              {data.title}
             </h2>
           </div>
           <div className="hidden shrink-0 gap-3 sm:flex">
@@ -58,9 +59,9 @@ export function Testimonials() {
           ref={scroller}
           className="mt-14 flex snap-x gap-8 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {TESTIMONIALS.map((t, i) => (
+          {items.map((t, i) => (
             <figure
-              key={t.name}
+              key={t.id}
               className={cn(
                 "flex w-[88%] shrink-0 snap-start flex-col rounded-2xl border p-8 sm:w-[calc(50%-1rem)] sm:p-10 lg:w-[calc(33.333%-1.34rem)]",
                 i === 1

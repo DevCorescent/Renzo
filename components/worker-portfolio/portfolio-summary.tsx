@@ -45,7 +45,7 @@ export function ProfessionalSummary({ summary }: { summary: PortfolioSummary }) 
         {hasSpecializations && (
           <div className="mt-6 border-t border-gray-100 pt-5">
             <p className="mb-3 flex items-center gap-1.5 text-xs font-medium text-gray-500">
-              <Sparkles className="size-3.5 text-amber-500" aria-hidden="true" />
+              <Sparkles className="size-3.5 text-gray-700" aria-hidden="true" />
               Specializations
             </p>
             <div className="flex flex-wrap gap-2">

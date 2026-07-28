@@ -10,7 +10,9 @@ import { PILL_SOLID, GLASS } from "./home-ui";
 import { MotionReveal } from "./motion";
 import { useInView } from "@/lib/hooks/use-in-view";
 import { useCountUp } from "@/lib/hooks/use-count-up";
-import { STATS, STATS_BLURB, type Stat } from "./home-data";
+import type { ExperienceData } from "@/lib/cms/schema";
+
+type Stat = ExperienceData["stats"][number];
 
 function StatItem({ stat, start, index }: { stat: Stat; start: boolean; index: number }) {
   const value = useCountUp(stat.value, { start });
@@ -45,7 +47,7 @@ function StatItem({ stat, start, index }: { stat: Stat; start: boolean; index: n
   );
 }
 
-export function Experience() {
+export function Experience({ data }: { data: ExperienceData }) {
   const { ref, inView } = useInView<HTMLDivElement>(0.3);
   const reduceMotion = useReducedMotion();
 
@@ -61,11 +63,11 @@ export function Experience() {
           <div className="min-w-0">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-4 py-1.5 backdrop-blur-xl">
               <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#C4C9D1]">
-                Our Story
+                {data.eyebrow}
               </span>
             </div>
             <h2 className="group font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              More Than a Salon, An{" "}
+              {data.titleLead}{" "}
               <motion.span
                 className="inline-block bg-[length:200%_100%] bg-gradient-to-r from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text text-transparent transition-transform duration-500 group-hover:translate-x-1.5"
                 animate={
@@ -79,40 +81,38 @@ export function Experience() {
                     : { duration: 4, repeat: Infinity, ease: "linear" }
                 }
               >
-                Experience
+                {data.titleAccent}
               </motion.span>
             </h2>
           </div>
           <div className="space-y-5 lg:pt-[2.85rem]">
             <p className="max-w-md leading-relaxed text-[#B7BEC8]">
-              At Renzo, we believe beauty is more than just a look — it&apos;s a feeling. Our
-              mission is to create a space where every visit leaves you more confident than the
-              last.
+              {data.paragraph}
             </p>
             <Link
-              href="/#about"
+              href={data.cta.href}
               className={cn(
                 buttonVariants({ size: "sm" }),
                 PILL_SOLID,
                 "group inline-flex items-center gap-2 px-6"
               )}
             >
-              Read More
+              {data.cta.label}
               <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </Link>
           </div>
         </MotionReveal>
 
         <p className="relative mt-8 max-w-lg text-sm leading-relaxed text-[#8D96A0]">
-          {STATS_BLURB}
+          {data.blurb}
         </p>
 
         <div
           ref={ref}
           className="relative mt-4 grid grid-cols-2 gap-x-4 gap-y-6 rounded-[28px] border border-white/10 bg-black/80 p-4 backdrop-blur-xl sm:grid-cols-4 sm:gap-0 sm:p-6"
         >
-          {STATS.map((stat, i) => (
-            <StatItem key={stat.label} stat={stat} start={inView} index={i} />
+          {data.stats.map((stat, i) => (
+            <StatItem key={stat.id} stat={stat} start={inView} index={i} />
           ))}
         </div>
       </div>

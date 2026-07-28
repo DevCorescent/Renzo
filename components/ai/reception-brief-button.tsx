@@ -72,7 +72,7 @@ export function ReceptionBriefButton() {
               )}
               {data.risks.length > 0 && (
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-700">
                     Watchouts
                   </p>
                   <ul className="list-disc space-y-1 pl-5 text-slate-600">

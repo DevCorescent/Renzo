@@ -84,7 +84,7 @@ function TextDiff({ current, requested }: { current: string; requested: string }
         <p className="whitespace-pre-wrap text-sm text-gray-600">{current || <em className="text-gray-400">Empty</em>}</p>
       </Panel>
       <Panel label="Requested" accent="requested">
-        <p className={`whitespace-pre-wrap text-sm ${changed ? "text-amber-800" : "text-gray-600"}`}>
+        <p className={`whitespace-pre-wrap text-sm ${changed ? "text-gray-700" : "text-gray-600"}`}>
           {requested || <em className="text-gray-400">Empty</em>}
         </p>
       </Panel>
@@ -100,7 +100,7 @@ function ScalarDiff({ current, requested }: { current: string; requested: string
       <span aria-hidden="true" className="text-gray-300">→</span>
       <span
         className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
-          changed ? "border-amber-200 bg-amber-50 text-amber-800" : "border-gray-100 bg-white text-gray-600"
+          changed ? "border-gray-200 bg-gray-100 text-gray-700" : "border-gray-100 bg-white text-gray-600"
         }`}
       >
         {requested}

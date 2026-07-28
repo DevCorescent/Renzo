@@ -52,7 +52,7 @@ export default async function CustomerReviewsPage() {
                 <div className="flex items-center gap-4 text-sm">
                   <div>
                     <span className="text-[11px] text-stone-500">Overall</span>
-                    <p className="text-gold">{"★".repeat(r.overallRating)}<span className="text-stone-700">{"★".repeat(5 - r.overallRating)}</span></p>
+                    <p className="text-white">{"★".repeat(r.overallRating)}<span className="text-stone-700">{"★".repeat(5 - r.overallRating)}</span></p>
                   </div>
                   {r.serviceRating && (
                     <div>

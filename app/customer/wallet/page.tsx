@@ -28,7 +28,7 @@ export default async function CustomerWalletPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-white/8 bg-stone-900 p-4">
           <p className="text-xs font-medium text-stone-500">Current Balance</p>
-          <p className="mt-2 text-2xl font-semibold text-gold">₹{balance.toLocaleString("en-IN")}</p>
+          <p className="mt-2 text-2xl font-semibold text-white">₹{balance.toLocaleString("en-IN")}</p>
         </div>
         <div className="rounded-xl border border-white/8 bg-stone-900 p-4">
           <p className="text-xs font-medium text-stone-500">Total Added</p>

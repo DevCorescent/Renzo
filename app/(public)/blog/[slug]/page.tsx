@@ -67,7 +67,7 @@ export default async function BlogPostPage({
         </Link>
 
         {post.category && (
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-amber-400">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-white">
             {post.category}
           </p>
         )}
@@ -106,7 +106,7 @@ export default async function BlogPostPage({
         <div className="mt-8 border-t border-white/5 pt-8">
           {looksLikeHtml ? (
             <div
-              className="prose prose-invert prose-stone max-w-none prose-headings:font-heading prose-a:text-amber-400"
+              className="prose prose-invert prose-stone max-w-none prose-headings:font-heading prose-a:text-white"
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
           ) : (

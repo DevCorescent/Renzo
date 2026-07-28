@@ -19,7 +19,7 @@ import { STATUS_TONE, type LeaveStats, type LeaveStatus } from "./types";
  */
 export function LeaveStatsCards({ stats }: { stats: LeaveStats }) {
   const cards: { label: string; value: number; tone: string }[] = [
-    { label: "Pending", value: stats.pending, tone: "text-yellow-700" },
+    { label: "Pending", value: stats.pending, tone: "text-gray-700" },
     { label: "Approved", value: stats.approved, tone: "text-green-700" },
     { label: "Rejected", value: stats.rejected, tone: "text-red-600" },
     { label: "Total requests", value: stats.total, tone: "text-gray-900" },

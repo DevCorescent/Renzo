@@ -36,7 +36,7 @@ function relTime(from: Date, now: Date) {
 const INVOICE_META: Record<string, { label: string; color: string }> = {
   PAID: { label: "Paid", color: "#059669" },
   PARTIAL: { label: "Partial", color: "#0ea5e9" },
-  UNPAID: { label: "Unpaid", color: "#f59e0b" },
+  UNPAID: { label: "Unpaid", color: "#9CA3AF" },
   REFUNDED: { label: "Refunded", color: "#8b5cf6" },
   CANCELLED: { label: "Cancelled", color: "#ef4444" },
 };
@@ -146,7 +146,7 @@ export default async function AccountantDashboardPage() {
 
   const glance = [
     { label: "Revenue (30d)", value: inr(revenue30), icon: IndianRupee, tone: "text-emerald-500" },
-    { label: "Outstanding", value: inr(outstanding), icon: Receipt, tone: "text-amber-500" },
+    { label: "Outstanding", value: inr(outstanding), icon: Receipt, tone: "text-gray-400" },
     { label: "Paid invoices", value: String(paidCount), icon: BarChart3, tone: "text-sky-500" },
     { label: "Refunds (30d)", value: inr(refunds30), icon: Wallet, tone: "text-rose-500" },
   ];
@@ -154,7 +154,7 @@ export default async function AccountantDashboardPage() {
   const ok = outstanding === 0;
   const banner = ok
     ? { text: "All invoices settled", wrap: "bg-emerald-50/60 ring-emerald-100 dark:bg-emerald-500/10 dark:ring-emerald-500/20", txt: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500", ping: "bg-emerald-400" }
-    : { text: `${inr(outstanding)} outstanding`, wrap: "bg-amber-50/60 ring-amber-100 dark:bg-amber-500/10 dark:ring-amber-500/20", txt: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500", ping: "bg-amber-400" };
+    : { text: `${inr(outstanding)} outstanding`, wrap: "bg-gray-100/60 ring-gray-200 dark:bg-white/10 dark:ring-white/20", txt: "text-gray-700 dark:text-gray-300", dot: "bg-gray-400", ping: "bg-gray-300" };
 
   return (
     <div id={THEME_ROOT_ID} suppressHydrationWarning className="sa-dash -m-6 min-h-[calc(100vh-3.5rem)] bg-slate-50 p-4 transition-colors duration-300 sm:p-6">

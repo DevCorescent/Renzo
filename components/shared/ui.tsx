@@ -76,7 +76,7 @@ type Tone = "neutral" | "success" | "warning" | "danger" | "info" | "primary";
 const toneCls: Record<Tone, string> = {
   neutral: "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-(--sa-text-2)",
   success: "bg-green-50 text-green-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  warning: "bg-yellow-50 text-yellow-700 dark:bg-yellow-500/15 dark:text-yellow-300",
+  warning: "bg-gray-100 text-gray-700 dark:bg-white/15 dark:text-white",
   danger:  "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300",
   info:    "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300",
   primary: "bg-gray-900 text-white dark:bg-white dark:text-gray-950",

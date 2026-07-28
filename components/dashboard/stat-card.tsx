@@ -41,7 +41,7 @@ export type StatIcon = keyof typeof STAT_ICONS;
 type Accent = "amber" | "emerald" | "sky" | "violet" | "rose" | "slate";
 
 const ACCENTS: Record<Accent, { bar: string; iconWrap: string; icon: string; spark: string }> = {
-  amber: { bar: "from-amber-400 to-amber-500", iconWrap: "bg-amber-50 ring-amber-100 dark:bg-amber-500/10 dark:ring-amber-500/20", icon: "text-amber-600 dark:text-amber-400", spark: "#f59e0b" },
+  amber: { bar: "from-gray-300 to-gray-400", iconWrap: "bg-gray-100 ring-gray-200 dark:bg-white/10 dark:ring-white/20", icon: "text-gray-700 dark:text-white", spark: "#9CA3AF" },
   emerald: { bar: "from-emerald-400 to-emerald-500", iconWrap: "bg-emerald-50 ring-emerald-100 dark:bg-emerald-500/10 dark:ring-emerald-500/20", icon: "text-emerald-600 dark:text-emerald-400", spark: "#10b981" },
   sky: { bar: "from-sky-400 to-sky-500", iconWrap: "bg-sky-50 ring-sky-100 dark:bg-sky-500/10 dark:ring-sky-500/20", icon: "text-sky-600 dark:text-sky-400", spark: "#0ea5e9" },
   violet: { bar: "from-violet-400 to-violet-500", iconWrap: "bg-violet-50 ring-violet-100 dark:bg-violet-500/10 dark:ring-violet-500/20", icon: "text-violet-600 dark:text-violet-400", spark: "#8b5cf6" },

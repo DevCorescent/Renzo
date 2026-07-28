@@ -10,9 +10,12 @@ import { buttonVariants } from "@/components/ui/button";
 import { PILL_SOLID } from "./home-ui";
 import { MotionStagger, MotionItem } from "./motion";
 import { cn } from "@/lib/utils";
-import { SERVICES } from "./home-data";
+import type { ServicesData } from "@/lib/cms/schema";
 
-export function Services() {
+export function Services({ data }: { data: ServicesData }) {
+  // `hidden` lets an author take one card off the page without deleting the
+  // content — the same "hide item" affordance every repeatable collection has.
+  const items = data.items.filter((item) => !item.hidden);
   const scroller = useRef<HTMLDivElement>(null);
   const [showHint, setShowHint] = useState(true);
 
@@ -36,17 +39,17 @@ export function Services() {
     <section className="bg-stone-950 py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
-          eyebrow="What we do"
-          title="Our Signature Services"
-          subtitle="From everyday grooming to special-occasion glam, our menu covers every look."
+          eyebrow={data.eyebrow}
+          title={data.title}
+          subtitle={data.subtitle}
         />
 
         <div className="relative mt-8">
           <div ref={scroller} className="overflow-x-auto pb-4 pr-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <MotionStagger className="flex snap-x gap-5">
-            {SERVICES.map((service) => (
+            {items.map((service) => (
               <MotionItem
-                key={service.name}
+                key={service.id}
                 hover
                 className={cn(
                   "group relative aspect-[3/4] shrink-0 snap-start overflow-hidden rounded-2xl ring-1 ring-white/10 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-black/50 hover:ring-white/20",
@@ -54,8 +57,8 @@ export function Services() {
                 )}
               >
                 <Image
-                  src={service.img}
-                  alt={service.name}
+                  src={service.image.url}
+                  alt={service.image.alt}
                   fill
                   sizes="20rem"
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -77,8 +80,8 @@ export function Services() {
                     {service.desc}
                   </p>
                   <Link
-                    href="/services"
-                    aria-label={`Book ${service.name}`}
+                    href={data.ctaHref}
+                    aria-label={`${data.ctaLabel} — ${service.name}`}
                     className={cn(
                       buttonVariants({ size: "sm" }),
                       PILL_SOLID,
@@ -86,7 +89,7 @@ export function Services() {
                       service.featured ? "inline-flex" : "hidden group-hover:inline-flex",
                     )}
                   >
-                    Book Now
+                    {data.ctaLabel}
                   </Link>
                 </div>
               </MotionItem>

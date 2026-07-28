@@ -23,13 +23,13 @@ function Field({
   rows?: number;
 }) {
   const className =
-    "w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-stone-500 focus:border-amber-500/50";
+    "w-full rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-white outline-none transition placeholder:text-stone-500 focus:border-white/40";
 
   return (
     <div>
       <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-stone-300">
         {label}
-        {required && <span className="text-amber-400"> *</span>}
+        {required && <span className="text-white"> *</span>}
       </label>
       {as === "textarea" ? (
         <textarea id={id} name={id} required={required} rows={rows ?? 4} placeholder={placeholder} className={className} />
@@ -90,7 +90,7 @@ export function ContactForm() {
         <button
           type="button"
           onClick={() => setDone(false)}
-          className="mt-6 text-sm text-amber-400 transition hover:text-amber-300"
+          className="mt-6 text-sm text-white transition hover:text-gray-200"
         >
           Send another message
         </button>
@@ -121,7 +121,7 @@ export function ContactForm() {
       <button
         type="submit"
         disabled={loading}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-500 py-3 text-sm font-bold text-stone-950 transition hover:bg-amber-400 disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-white py-3 text-sm font-bold text-stone-950 transition hover:bg-gray-100 disabled:opacity-60"
       >
         {loading && <Loader2 className="size-4 animate-spin" />}
         {loading ? "Sending…" : "Send message"}

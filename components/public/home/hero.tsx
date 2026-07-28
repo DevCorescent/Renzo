@@ -16,28 +16,14 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { GLASS } from "./home-ui";
-import { HERO_IMAGE, STYLISTS, TESTIMONIALS } from "./home-data";
+import type { Branding, HeroData } from "@/lib/cms/schema";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-const RATING =
-  TESTIMONIALS.reduce((sum, t) => sum + t.rating, 0) / TESTIMONIALS.length;
-
-const STATS = [
-  { value: "15K+", label: "Happy Clients" },
-  { value: "12+", label: "Years Experience" },
-  { value: RATING.toFixed(1), label: "Google Rating" },
-  { value: "40+", label: "Expert Stylists" },
-];
-
-const MARQUEE_ITEMS = [
-  "Haircuts",
-  "Colour & Balayage",
-  "Bridal Styling",
-  "Spa Treatments",
-  "Skin Facials",
-  "Nail Care",
-];
+/** Split an authored headline fragment into the words RevealWords animates. */
+function words(text: string): string[] {
+  return text.split(" ").filter(Boolean);
+}
 
 const container: Variants = {
   hidden: {},
@@ -85,7 +71,12 @@ function RevealWords({
   );
 }
 
-export function Hero() {
+/**
+ * Every string and image below comes from the CMS document. Nothing about the
+ * typography, colour, spacing or layout is reachable from `data` — those stay
+ * hardcoded here exactly as they were.
+ */
+export function Hero({ data, branding }: { data: HeroData; branding: Branding }) {
   const reduceMotion = useReducedMotion();
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -117,8 +108,8 @@ export function Hero() {
           className="absolute inset-0"
         >
           <Image
-            src={HERO_IMAGE}
-            alt="Luxury salon interior with a professional hairstylist styling a client at Renzo."
+            src={data.backgroundImage.url}
+            alt={data.backgroundImage.alt}
             fill
             priority
             sizes="100vw"
@@ -149,9 +140,19 @@ export function Hero() {
         aria-hidden
         className="pointer-events-none absolute -right-6 top-0 overflow-hidden"
       >
-        <span className="-rotate-6 whitespace-nowrap font-heading text-[16vw] font-black tracking-[-0.08em] text-white/[0.03]">
-          RENZO
-        </span>
+        {branding.watermarkImage.url ? (
+          <Image
+            src={branding.watermarkImage.url}
+            alt=""
+            width={900}
+            height={300}
+            className="-rotate-6 w-[40vw] opacity-[0.04]"
+          />
+        ) : (
+          <span className="-rotate-6 whitespace-nowrap font-heading text-[16vw] font-black tracking-[-0.08em] text-white/[0.03]">
+            {data.watermarkText}
+          </span>
+        )}
       </div>
 
       {/* Main content */}
@@ -169,7 +170,7 @@ export function Hero() {
               <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/80 px-5 py-2 backdrop-blur-xl">
                 <Sparkles className="h-4 w-4 text-[#C8A96A]" />
                 <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#D9D9D6]">
-                  Luxury Hair &amp; Beauty Studio
+                  {data.eyebrow}
                 </span>
               </div>
             </motion.div>
@@ -179,10 +180,10 @@ export function Hero() {
   id="hero-heading"
   className="mt-8 font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl"
 >
-  <RevealWords words={["Where", "Beauty"]} className="block" />
+  <RevealWords words={words(data.titleLead)} className="block" />
 
   <div className="block">
-    <RevealWords words={["Meets"]} className="inline-block mr-3" />
+    <RevealWords words={words(data.titleMiddle)} className="inline-block mr-3" />
 
     <motion.span
       variants={wordVariant}
@@ -202,7 +203,7 @@ export function Hero() {
       }}
       className="inline-block bg-gradient-to-r from-[#EAD7AA] via-[#C8A96A] to-[#F2E2BF] bg-[length:250%_100%] bg-clip-text text-transparent"
     >
-      Confidence
+      {data.titleAccent}
     </motion.span>
   </div>
 </h1>
@@ -212,22 +213,20 @@ export function Hero() {
               variants={fadeUp}
               className="mt-8 max-w-lg text-base leading-8 text-[#C3C8CE] sm:text-lg"
             >
-              Luxury haircuts, premium colouring, skin treatments and
-              personalised styling — crafted with precision by expert
-              stylists, for a look that carries into everything you do.
+              {data.paragraph}
             </motion.p>
 
             {/* CTAs */}
             <motion.div variants={fadeUp} className="mt-9 flex flex-wrap items-center gap-4">
               <Link
-                href="/book"
+                href={data.primaryCta.href}
                 className={cn(
                   buttonVariants({ size: "lg" }),
                   "group relative overflow-hidden rounded-full bg-[#C8A96A] px-8 text-black shadow-[0_10px_35px_-8px_rgba(200,169,106,.6)] transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.03] hover:bg-[#D8B87A] hover:shadow-[0_18px_50px_-10px_rgba(200,169,106,.8)]"
                 )}
               >
                 <span className="relative z-10 flex items-center">
-                  Book Appointment
+                  {data.primaryCta.label}
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </span>
                 <span
@@ -237,24 +236,24 @@ export function Hero() {
               </Link>
 
               <Link
-                href="/services"
+                href={data.secondaryCta.href}
                 className={cn(
                   buttonVariants({ size: "lg" }),
                   GLASS,
                   "rounded-full border border-white/15 bg-white/5 px-8 text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/10"
                 )}
               >
-                Explore Services
+                {data.secondaryCta.label}
               </Link>
 
               {/* Compact trust line */}
               <div className="ml-1 flex items-center gap-3">
                 <div className="flex -space-x-3">
-                  {STYLISTS.slice(0, 4).map((stylist) => (
+                  {data.avatars.map((avatar) => (
                     <Image
-                      key={stylist.name}
-                      src={stylist.img}
-                      alt={stylist.name}
+                      key={avatar.id}
+                      src={avatar.url}
+                      alt={avatar.alt}
                       width={36}
                       height={36}
                       className="h-9 w-9 rounded-full border-2 border-[#0A0B0D] object-cover"
@@ -264,9 +263,9 @@ export function Hero() {
                 <div className="text-xs leading-tight text-[#B7BEC8]">
                   <div className="flex items-center gap-1 text-white">
                     <Star className="h-3.5 w-3.5 fill-[#C8A96A] text-[#C8A96A]" />
-                    <span className="font-semibold">{RATING.toFixed(1)}</span>
+                    <span className="font-semibold">{data.ratingValue}</span>
                   </div>
-                  <span>15,000+ happy clients</span>
+                  <span>{data.trustLine}</span>
                 </div>
               </div>
             </motion.div>
@@ -277,8 +276,8 @@ export function Hero() {
             variants={fadeUp}
             className="hidden w-56 shrink-0 divide-y divide-white/10 rounded-[28px] border border-white/10 bg-black/80 backdrop-blur-xl lg:block"
           >
-            {STATS.map((stat) => (
-              <div key={stat.label} className="px-6 py-5 first:pt-6 last:pb-6">
+            {data.stats.map((stat) => (
+              <div key={stat.id} className="px-6 py-5 first:pt-6 last:pb-6">
                 <p className="text-3xl font-black text-[#C8A96A]">{stat.value}</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-[#B7BEC8]">
                   {stat.label}
@@ -301,12 +300,12 @@ export function Hero() {
             }
             className="flex shrink-0 items-center gap-8 pr-8"
           >
-            {[...MARQUEE_ITEMS, ...MARQUEE_ITEMS, ...MARQUEE_ITEMS].map((label, i) => (
+            {[...data.marquee, ...data.marquee, ...data.marquee].map((item, i) => (
               <span
-                key={label + i}
+                key={item.id + i}
                 className="flex items-center gap-8 whitespace-nowrap text-sm uppercase tracking-[0.2em] text-white/50"
               >
-                {label}
+                {item.label}
                 <span aria-hidden className="text-[#C8A96A]/70">
                   •
                 </span>
@@ -323,7 +322,7 @@ export function Hero() {
         transition={{ delay: 1 }}
         className="relative z-10 flex items-center justify-center gap-2 py-4 text-[#8D96A0]"
       >
-        <span className="text-[11px] uppercase tracking-[0.35em]">Scroll</span>
+        <span className="text-[11px] uppercase tracking-[0.35em]">{data.scrollLabel}</span>
         <motion.span
           animate={reduceMotion ? undefined : { y: [0, 5, 0] }}
           transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}

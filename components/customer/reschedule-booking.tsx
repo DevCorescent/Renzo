@@ -112,7 +112,7 @@ export function RescheduleBookingButton({
           onChange={(e) => setDate(e.target.value)}
           aria-label="New date"
           style={{ colorScheme: "dark" }}
-          className="w-full rounded-xl border border-white/8 bg-stone-950 px-2.5 py-2 text-sm text-stone-200 focus:border-amber-500/40 focus:outline-none"
+          className="w-full rounded-xl border border-white/8 bg-stone-950 px-2.5 py-2 text-sm text-stone-200 focus:border-white/40 focus:outline-none"
         />
         <input
           type="time"
@@ -120,7 +120,7 @@ export function RescheduleBookingButton({
           onChange={(e) => setTime(e.target.value)}
           aria-label="New time"
           style={{ colorScheme: "dark" }}
-          className="w-full rounded-xl border border-white/8 bg-stone-950 px-2.5 py-2 text-sm text-stone-200 focus:border-amber-500/40 focus:outline-none"
+          className="w-full rounded-xl border border-white/8 bg-stone-950 px-2.5 py-2 text-sm text-stone-200 focus:border-white/40 focus:outline-none"
         />
       </div>
 
@@ -130,7 +130,7 @@ export function RescheduleBookingButton({
         rows={2}
         maxLength={500}
         placeholder="Reason for rescheduling"
-        className="w-full resize-none rounded-xl border border-white/8 bg-stone-950 px-3 py-2 text-sm text-stone-200 placeholder:text-stone-600 focus:border-amber-500/40 focus:outline-none"
+        className="w-full resize-none rounded-xl border border-white/8 bg-stone-950 px-3 py-2 text-sm text-stone-200 placeholder:text-stone-600 focus:border-white/40 focus:outline-none"
       />
 
       {error && (
@@ -145,7 +145,7 @@ export function RescheduleBookingButton({
         <button
           type="submit"
           disabled={loading}
-          className="flex items-center gap-1.5 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-amber-400 disabled:opacity-60"
+          className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-gray-100 disabled:opacity-60"
         >
           {loading && <Loader2 className="size-3.5 animate-spin" />}
           {loading ? "Requesting…" : "Request reschedule"}

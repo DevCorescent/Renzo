@@ -76,7 +76,7 @@ export function BranchStatusToggle({
       {confirming && (
         <ToastShell tone="warning">
           <div className="flex items-start gap-2.5">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-gray-700" />
             <div className="flex-1">
               <p className="text-sm font-medium text-gray-900">Deactivate {branchName}?</p>
               <p className="mt-0.5 text-xs text-gray-500">
@@ -132,7 +132,7 @@ function ToastShell({
   children: React.ReactNode;
 }) {
   const border =
-    tone === "success" ? "border-emerald-200" : tone === "error" ? "border-red-200" : "border-amber-200";
+    tone === "success" ? "border-emerald-200" : tone === "error" ? "border-red-200" : "border-gray-200";
   return (
     <div
       role="status"

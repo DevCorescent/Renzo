@@ -39,7 +39,7 @@ function SidebarContent({
     <div className="flex h-full flex-col">
       {/* Brand */}
       <div className="flex h-14 items-center gap-2.5 border-b border-white/8 px-5">
-        <span className="inline-flex size-7 items-center justify-center rounded-full bg-gold/15 text-gold ring-1 ring-gold/30">
+        <span className="inline-flex size-7 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/20">
           <Scissors className="size-3.5" />
         </span>
         <span className="font-heading text-base font-bold tracking-tight text-white">Renzo</span>
@@ -62,13 +62,13 @@ function SidebarContent({
               className={cn(
                 "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
                 active
-                  ? "bg-gold/10 font-medium text-gold ring-1 ring-gold/20"
+                  ? "bg-white/10 font-medium text-white ring-1 ring-white/20"
                   : "text-stone-400 hover:bg-white/5 hover:text-stone-100"
               )}
             >
               <item.icon className="size-4 shrink-0" />
               {item.label}
-              {active && <ChevronRight className="ml-auto size-3 text-gold/60" />}
+              {active && <ChevronRight className="ml-auto size-3 text-white/60" />}
             </Link>
           );
         })}
@@ -137,7 +137,7 @@ export function CustomerShell({
       {/* Mobile top bar */}
       <div className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/8 bg-stone-950/90 px-4 backdrop-blur-sm lg:hidden">
         <Link href="/customer/dashboard" className="flex items-center gap-2">
-          <span className="inline-flex size-7 items-center justify-center rounded-full bg-gold/15 text-gold ring-1 ring-gold/30">
+          <span className="inline-flex size-7 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/20">
             <Scissors className="size-3.5" />
           </span>
           <span className="font-heading text-base font-bold text-white">Renzo</span>

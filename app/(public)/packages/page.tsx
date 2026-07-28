@@ -76,8 +76,8 @@ export default async function PackagesPage({
                 }
                 className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
                   (g.value === "" ? !gender : gender === g.value)
-                    ? "bg-amber-500 text-stone-950"
-                    : "border border-white/10 text-stone-400 hover:border-white/20"
+                    ? "bg-white text-black"
+                    : "border border-white/20 text-white hover:bg-white/8"
                 }`}
               >
                 {g.label}
@@ -119,7 +119,7 @@ export default async function PackagesPage({
               return (
                 <div
                   key={pkg.id}
-                  className="group relative overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-amber-500/30"
+                  className="group relative overflow-hidden rounded-2xl border border-white/10 bg-stone-900 transition hover:border-white/20"
                 >
                   <div className="relative h-40 w-full overflow-hidden bg-stone-800">
                     {pkg.image ? (
@@ -136,7 +136,7 @@ export default async function PackagesPage({
                       </div>
                     )}
                     {pkg.isPopular && (
-                      <span className="absolute right-2 top-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase text-stone-950">
+                      <span className="absolute right-2 top-2 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-stone-950">
                         Popular
                       </span>
                     )}
@@ -166,7 +166,7 @@ export default async function PackagesPage({
 
                     <div className="mt-4 flex items-end justify-between gap-2">
                       <div>
-                        <p className="font-semibold text-amber-400">
+                        <p className="font-semibold text-white">
                           ₹{pkg.price.toLocaleString("en-IN")}
                         </p>
                         {savings > 0 && (
@@ -187,7 +187,7 @@ export default async function PackagesPage({
 
                     <Link
                       href={`/book?packageId=${pkg.id}`}
-                      className="mt-4 block w-full rounded-full bg-amber-500 py-2 text-center text-xs font-bold text-stone-950 transition hover:bg-amber-400"
+                      className="mt-4 block w-full rounded-full bg-white py-2 text-center text-xs font-bold text-stone-950 transition hover:bg-gray-100"
                     >
                       Book this package →
                     </Link>

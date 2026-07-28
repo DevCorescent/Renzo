@@ -52,7 +52,7 @@ export default async function StylistsPage() {
                 <Link
                   key={w.id}
                   href={`/stylists/${w.id}`}
-                  className="group relative overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-amber-500/30"
+                  className="group relative overflow-hidden rounded-2xl border border-white/10 bg-stone-900 transition hover:border-white/20"
                 >
                   <div className="relative h-56 w-full overflow-hidden bg-stone-800">
                     {w.profilePhoto ? (
@@ -71,7 +71,7 @@ export default async function StylistsPage() {
                   </div>
 
                   <div className="p-4">
-                    <h2 className="font-semibold text-stone-100 transition group-hover:text-amber-400">
+                    <h2 className="font-semibold text-stone-100 transition group-hover:text-white">
                       {name}
                     </h2>
                     {w.designation?.name && (
@@ -84,7 +84,7 @@ export default async function StylistsPage() {
                     <div className="mt-3 flex items-center justify-between">
                       <span className="inline-flex items-center gap-1.5 text-sm text-stone-300">
                         <Star
-                          className={`size-3.5 ${rating > 0 ? "fill-amber-400 text-amber-400" : "text-stone-600"}`}
+                          className={`size-3.5 ${rating > 0 ? "fill-white text-white" : "text-stone-600"}`}
                         />
                         {rating > 0 ? rating.toFixed(1) : "—"}
                         {reviews > 0 && (
@@ -101,7 +101,7 @@ export default async function StylistsPage() {
                     </div>
 
                     <div className="mt-4">
-                      <span className="block w-full rounded-full bg-amber-500 py-2 text-center text-xs font-bold text-stone-950 transition group-hover:bg-amber-400">
+                      <span className="block w-full rounded-full bg-white py-2 text-center text-xs font-bold text-stone-950 transition group-hover:bg-gray-100">
                         View profile →
                       </span>
                     </div>

@@ -96,19 +96,19 @@ export default async function ServiceDetailPage({
           >
             <ChevronLeft className="size-3.5" /> All services
           </Link>
-          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-amber-400">
+          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-white">
             {service.category.name}
             {service.subCategory ? ` · ${service.subCategory.name}` : ""}
           </p>
           <h1 className="text-3xl font-bold sm:text-4xl">{service.name}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-stone-400">
             <span className="flex items-center gap-1.5">
-              <Clock className="size-3.5 text-amber-500/70" />
+              <Clock className="size-3.5 text-gray-400" />
               {service.duration} min
             </span>
             <span>{genderLabel}</span>
             {service.isPopular && (
-              <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase text-stone-950">
+              <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase text-stone-950">
                 Popular
               </span>
             )}
@@ -129,7 +129,7 @@ export default async function ServiceDetailPage({
             {service.variants.length > 0 && (
               <section>
                 <h2 className="mb-3 text-lg font-semibold">Options</h2>
-                <div className="divide-y divide-white/5 overflow-hidden rounded-xl border border-white/8 bg-stone-900">
+                <div className="divide-y divide-white/5 overflow-hidden rounded-xl border border-white/10 bg-stone-900">
                   {service.variants.map((v) => (
                     <div key={v.id} className="flex items-center justify-between gap-4 p-4">
                       <div>
@@ -141,7 +141,7 @@ export default async function ServiceDetailPage({
                           <Clock className="size-3" /> {v.duration} min
                         </p>
                       </div>
-                      <span className="shrink-0 font-semibold text-amber-400">
+                      <span className="shrink-0 font-semibold text-white">
                         ₹{v.price.toLocaleString("en-IN")}
                       </span>
                     </div>
@@ -157,15 +157,15 @@ export default async function ServiceDetailPage({
                   {service.serviceAddOns.map(({ addOn }) => (
                     <div
                       key={addOn.id}
-                      className="flex items-start gap-3 rounded-xl border border-white/8 bg-stone-900 p-4"
+                      className="flex items-start gap-3 rounded-xl border border-white/10 bg-stone-900 p-4"
                     >
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-stone-800 text-amber-500/70">
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-stone-800 text-gray-400">
                         <Plus className="size-4" />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium text-stone-100">{addOn.name}</p>
-                          <span className="shrink-0 text-sm font-semibold text-amber-400">
+                          <span className="shrink-0 text-sm font-semibold text-white">
                             +₹{addOn.price.toLocaleString("en-IN")}
                           </span>
                         </div>
@@ -184,9 +184,9 @@ export default async function ServiceDetailPage({
           </div>
 
           <aside className="lg:sticky lg:top-24 lg:self-start">
-            <div className="rounded-2xl border border-white/8 bg-stone-900 p-5">
+            <div className="rounded-2xl border border-white/10 bg-stone-900 p-5">
               <p className="text-xs uppercase tracking-widest text-stone-500">Starting from</p>
-              <p className="mt-1 text-3xl font-bold text-amber-400">
+              <p className="mt-1 text-3xl font-bold text-white">
                 ₹{service.basePrice.toLocaleString("en-IN")}
               </p>
               <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-400">
@@ -194,7 +194,7 @@ export default async function ServiceDetailPage({
               </p>
               <Link
                 href={`/book?serviceId=${service.id}`}
-                className="mt-5 block w-full rounded-full bg-amber-500 py-3 text-center text-sm font-bold text-stone-950 transition hover:bg-amber-400"
+                className="mt-5 block w-full rounded-full bg-white py-3 text-center text-sm font-bold text-stone-950 transition hover:bg-gray-100"
               >
                 Book this service
               </Link>

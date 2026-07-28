@@ -102,7 +102,7 @@ export function DataTable<T>({
               value={query}
               onChange={(e) => onSearch(e.target.value)}
               placeholder={searchPlaceholder}
-              className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50/60 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-amber-300 focus:bg-white focus:ring-2 focus:ring-amber-100 dark:border-(--sa-border) dark:bg-(--sa-tile) dark:text-(--sa-text) dark:placeholder:text-(--sa-muted) dark:focus:border-amber-500/40 dark:focus:bg-(--sa-surface) dark:focus:ring-amber-500/20"
+              className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50/60 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-gray-300 focus:bg-white focus:ring-2 focus:ring-gray-200 dark:border-(--sa-border) dark:bg-(--sa-tile) dark:text-(--sa-text) dark:placeholder:text-(--sa-muted) dark:focus:border-white/40 dark:focus:bg-(--sa-surface) dark:focus:ring-white/20"
             />
           </div>
           <span className="ml-auto text-xs text-gray-400 dark:text-(--sa-muted)">
@@ -168,7 +168,7 @@ export function DataTable<T>({
                     onClick={href ? () => router.push(href) : undefined}
                     className={cn(
                       "border-b border-gray-50 transition-colors last:border-0 dark:border-(--sa-border)",
-                      href ? "cursor-pointer hover:bg-amber-50/40 dark:hover:bg-amber-500/5" : "hover:bg-gray-50/70 dark:hover:bg-white/5"
+                      href ? "cursor-pointer hover:bg-gray-100/40 dark:hover:bg-white/5" : "hover:bg-gray-50/70 dark:hover:bg-white/5"
                     )}
                   >
                     {columns.map((c) => (

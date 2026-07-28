@@ -2,7 +2,7 @@ import prisma from "@/lib/db";
 import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { FileText, Image, MessageSquare, HelpCircle, LayoutTemplate } from "lucide-react";
+import { FileText, Image, MessageSquare, HelpCircle, LayoutTemplate, PanelsTopLeft } from "lucide-react";
 import { CmsCopyGenerator } from "@/components/ai/cms-copy-generator";
 
 // OWNER: Hemant | MODULE: Super Admin — CMS Hub
@@ -20,6 +20,7 @@ export default async function SuperAdminCmsPage() {
   ]);
 
   const sections = [
+    { label: "Homepage CMS", href: "/super-admin/cms/homepage", count: 1, icon: PanelsTopLeft, hint: "draft / preview / publish" },
     { label: "Banners", href: "/super-admin/cms/banners", count: bannerCount, icon: LayoutTemplate, hint: "active" },
     { label: "Blogs", href: "/super-admin/cms/blogs", count: blogCount, icon: FileText, hint: "published" },
     { label: "Gallery", href: "/super-admin/cms/gallery", count: galleryCount, icon: Image, hint: "active" },

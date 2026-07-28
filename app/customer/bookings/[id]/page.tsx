@@ -151,7 +151,7 @@ export default async function CustomerBookingDetailPage({ params }: { params: Pr
           <p className="text-xs text-stone-500 mt-0.5">{appointment.branch.address}, {appointment.branch.city}</p>
           <p className="text-xs text-stone-500">{appointment.branch.phone}</p>
           {appointment.branch.mapUrl && (
-            <Link href={appointment.branch.mapUrl} target="_blank" className="mt-2 inline-block text-xs text-gold hover:underline">
+            <Link href={appointment.branch.mapUrl} target="_blank" className="mt-2 inline-block text-xs text-white hover:underline">
               View on map →
             </Link>
           )}

@@ -10,9 +10,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { PILL_SOLID } from "./home-ui";
 import { MotionReveal, MotionStagger, MotionItem } from "./motion";
 import { cn } from "@/lib/utils";
-import { BLOG_POSTS } from "./home-data";
-
-const TICKER_ITEMS = ["Hair Care", "Skin Rituals", "Colour Trends", "Bridal Prep", "Styling Tips"];
+import type { BlogData } from "@/lib/cms/schema";
 
 function SpotlightCard({
   className,
@@ -48,8 +46,9 @@ function SpotlightCard({
   );
 }
 
-export function Blog() {
+export function Blog({ data }: { data: BlogData }) {
   const reduce = useReducedMotion();
+  const posts = data.posts.filter((post) => !post.hidden);
 
   return (
     <section className="relative overflow-hidden bg-[#0A0B0D] py-24 sm:py-32">
@@ -66,12 +65,12 @@ export function Blog() {
             transition={reduce ? undefined : { duration: 22, repeat: Infinity, ease: "linear" }}
             className="flex shrink-0 items-center gap-6"
           >
-            {[...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS].map((label, i) => (
+            {[...data.ticker, ...data.ticker, ...data.ticker].map((item, i) => (
               <span
-                key={label + i}
+                key={item.id + i}
                 className="flex items-center gap-6 whitespace-nowrap text-xs uppercase tracking-[0.22em] text-white/40"
               >
-                {label}
+                {item.label}
                 <span aria-hidden className="text-[#C4C9D1]/70">
                   •
                 </span>
@@ -84,11 +83,11 @@ export function Blog() {
           <div className="min-w-0">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-4 py-1.5 backdrop-blur-xl">
               <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#C4C9D1]">
-                Journal
+                {data.eyebrow}
               </span>
             </div>
             <h2 className="group font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              Our Latest{" "}
+              {data.titleLead}{" "}
               <motion.span
                 className="inline-block bg-[length:200%_100%] bg-gradient-to-r from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text text-transparent transition-transform duration-500 group-hover:translate-x-1.5"
                 animate={
@@ -102,14 +101,13 @@ export function Blog() {
                     : { duration: 4, repeat: Infinity, ease: "linear" }
                 }
               >
-                Stories
+                {data.titleAccent}
               </motion.span>
             </h2>
           </div>
           <div className="space-y-5 lg:pb-2">
             <p className="max-w-md leading-relaxed text-[#B7BEC8]">
-              Tips, trends and rituals from our stylists — everything you need to look and feel
-              your best between visits.
+              {data.paragraph}
             </p>
             <Link
               href="/blog"
@@ -119,7 +117,7 @@ export function Blog() {
                 "group inline-flex items-center gap-2 px-6"
               )}
             >
-              View All
+              {data.cta.label}
               <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </Link>
           </div>
@@ -127,11 +125,11 @@ export function Blog() {
 
         {/* Bento grid — first post featured, rest fill remaining cells */}
         <MotionStagger className="mt-14 grid auto-rows-[1fr] gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:grid-rows-2">
-          {BLOG_POSTS.map((post, i) => {
+          {posts.map((post, i) => {
             const featured = i === 0;
             return (
               <MotionItem
-                key={post.title}
+                key={post.id}
                 hover
                 className={cn(
                   "group relative flex flex-col overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] backdrop-blur-sm transition-all duration-300 hover:border-[#C4C9D1]/30 hover:shadow-[0_25px_70px_-20px_rgba(196,201,209,.25)]",
@@ -154,8 +152,8 @@ export function Blog() {
                     )}
                   >
                     <Image
-                      src={post.img}
-                      alt={post.title}
+                      src={post.image.url}
+                      alt={post.image.alt}
                       fill
                       sizes={
                         featured
@@ -194,12 +192,12 @@ export function Blog() {
                     </h3>
 
                     <Link
-                      href="/blog"
+                      href={post.href}
                       aria-label={`Read: ${post.title}`}
                       className="mt-5 inline-flex items-center gap-2 self-start text-sm font-medium text-white transition-colors duration-300 hover:text-[#C4C9D1]"
                     >
                       <span className="relative">
-                        Read Article
+                        {data.readLabel}
                         <span className="absolute inset-x-0 -bottom-1 h-px scale-x-0 bg-[#C4C9D1] transition-transform duration-300 origin-left group-hover:scale-x-100" />
                       </span>
                       <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />

@@ -55,9 +55,9 @@ export default async function BranchesPage({
   return (
     <div className="min-h-screen bg-stone-950">
       {/* Hero */}
-      <div className="border-b border-[#C8A96A]/15 bg-stone-900/60 py-14 text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-[#C8A96A] sm:text-4xl">Our Salons</h1>
-        <p className="mt-3 text-[#F0E6C8]/70">
+      <div className="border-b border-white/10 bg-stone-900/60 py-14 text-center">
+        <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">Our Salons</h1>
+        <p className="mt-3 text-gray-400">
           {branches.length} {branches.length === 1 ? "location" : "locations"} — find one near you
         </p>
 
@@ -68,8 +68,8 @@ export default async function BranchesPage({
               href="/branches"
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 !city
-                  ? "bg-[#C8A96A] text-stone-950"
-                  : "border border-[#C8A96A]/30 text-[#F0E6C8]/80 hover:border-[#C8A96A]/70 hover:text-[#C8A96A]"
+                  ? "bg-white text-black"
+                  : "border border-white/20 text-white hover:bg-white/8"
               }`}
             >
               All cities
@@ -80,8 +80,8 @@ export default async function BranchesPage({
                 href={`/branches?city=${encodeURIComponent(c.city)}`}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                   city === c.city
-                    ? "bg-[#C8A96A] text-stone-950"
-                    : "border border-[#C8A96A]/30 text-[#F0E6C8]/80 hover:border-[#C8A96A]/70 hover:text-[#C8A96A]"
+                    ? "bg-white text-black"
+                    : "border border-white/20 text-white hover:bg-white/8"
                 }`}
               >
                 {c.city}
@@ -94,7 +94,7 @@ export default async function BranchesPage({
       {/* Grid */}
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
         {branches.length === 0 ? (
-          <p className="py-20 text-center text-[#C8A96A]/50">No branches found.</p>
+          <p className="py-20 text-center text-gray-400">No branches found.</p>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {branches.map((b) => (

@@ -77,7 +77,7 @@ export function CancelBookingButton({ appointmentId }: { appointmentId: string }
         rows={2}
         maxLength={500}
         placeholder="Reason for cancellation"
-        className="w-full resize-none rounded-xl border border-white/8 bg-stone-950 px-3 py-2 text-sm text-stone-200 placeholder:text-stone-600 focus:border-amber-500/40 focus:outline-none"
+        className="w-full resize-none rounded-xl border border-white/8 bg-stone-950 px-3 py-2 text-sm text-stone-200 placeholder:text-stone-600 focus:border-white/40 focus:outline-none"
       />
 
       {error && (
