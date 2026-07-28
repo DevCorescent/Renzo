@@ -3,6 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Calendar } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Journal — Renzo",
   description: "Tips, trends and rituals from Renzo stylists.",

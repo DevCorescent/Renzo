@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { MapPin, Phone, Clock, ChevronRight } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const branch = await prisma.branch.findFirst({ where: { slug, isActive: true, isPublic: true }, select: { name: true, description: true } }).catch(() => null);

@@ -5,6 +5,8 @@ import type { PreloadedBranch, PreloadedService } from "./book-wizard";
 // Server Component — pre-loads branch + service from DB using URL params so the
 // client wizard starts at the right step with zero loading flash.
 
+export const dynamic = "force-dynamic";
+
 export const metadata = { title: "Book an Appointment — Renzo" };
 
 export default async function BookPage({

@@ -3,6 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Clock } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Services — Renzo",
   description: "Explore our full range of hair & beauty services. Book online in minutes.",

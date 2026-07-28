@@ -1,6 +1,8 @@
 import { getPublishedHomeContent } from "@/lib/cms/store";
 import { HomeContentRenderer } from "@/components/public/home/home-content-renderer";
 
+export const dynamic = "force-dynamic";
+
 // ============================================================================
 // OWNER  : Gauransh
 // MODULE : Homepage

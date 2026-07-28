@@ -3,6 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Clock, Sparkles } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Packages & Combos — Renzo",
   description: "Save with Renzo packages and combos. Curated service bundles at better prices.",

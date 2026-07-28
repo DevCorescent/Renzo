@@ -3,6 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Star } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Our Stylists — Renzo",
   description: "Meet Renzo's expert stylists. Browse profiles, ratings, and book your favourite artist.",

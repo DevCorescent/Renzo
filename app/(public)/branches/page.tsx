@@ -2,6 +2,8 @@ import prisma from "@/lib/db";
 import Link from "next/link";
 import { BranchCard } from "./branch-card";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Our Branches — Renzo",
   description: "Find a Renzo salon near you. Premium hair & beauty services across multiple locations.",

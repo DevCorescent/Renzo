@@ -3,6 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { Tag, Calendar } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Offers & Deals — Renzo",
   description: "Current Renzo salon offers and seasonal deals. Book and save.",

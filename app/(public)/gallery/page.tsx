@@ -3,6 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { ImageIcon } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Gallery — Renzo",
   description: "Browse Renzo salon looks, interiors, and before-and-after transformations.",
