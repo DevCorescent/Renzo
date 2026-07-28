@@ -188,6 +188,14 @@ export const API = {
     // Admin — Branch service pricing (Gauransh)
     branchServices:   `${BASE}/admin/branch-services`,
 
+    // Admin — Homepage CMS (Gauransh) — SUPER_ADMIN only
+    cmsHomepage:        `${BASE}/admin/cms/homepage`,
+    cmsHomepagePublish: `${BASE}/admin/cms/homepage/publish`,
+    cmsHomepageVersions:`${BASE}/admin/cms/homepage/versions`,
+    cmsHomepageVersion: (version: number) => `${BASE}/admin/cms/homepage/versions/${version}`,
+    cmsMedia:           `${BASE}/admin/cms/media`,
+    cmsMediaItem:       (id: string) => `${BASE}/admin/cms/media/${id}`,
+
     // Admin — Reviews (Shalmon)
     reviews:          `${BASE}/admin/reviews`,
     reviewApprove:    (id: string) => `${BASE}/admin/reviews/${id}/approve`,

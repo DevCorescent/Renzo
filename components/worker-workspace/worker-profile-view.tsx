@@ -68,7 +68,7 @@ export function WorkerProfileView({ data }: { data: WorkerWorkspaceData }) {
     { label: "Completed", value: p.completedBookings.toLocaleString("en-IN"), hint: `${completedPct}%`, icon: CheckCircle2, tint: "text-emerald-500 bg-emerald-50 dark:bg-emerald-500/15" },
     { label: "Revenue Generated", value: compactInr(p.revenueGenerated), hint: "All time", icon: Wallet, tint: "text-violet-500 bg-violet-50 dark:bg-violet-500/15" },
     { label: "Repeat Customers", value: String(p.repeatCustomers), hint: "returning", icon: Users, tint: "text-sky-500 bg-sky-50 dark:bg-sky-500/15" },
-    { label: "Attendance", value: attendance.attendancePct !== null ? `${attendance.attendancePct}%` : "—", hint: "this month", icon: BarChart3, tint: "text-amber-500 bg-amber-50 dark:bg-amber-500/15" },
+    { label: "Attendance", value: attendance.attendancePct !== null ? `${attendance.attendancePct}%` : "—", hint: "this month", icon: BarChart3, tint: "text-gray-400 bg-gray-100 dark:bg-white/10" },
     { label: "Cancellation Rate", value: `${p.cancellationRate}%`, hint: p.cancellationRate < 5 ? "Low" : "Watch", icon: ShieldAlert, tint: "text-rose-500 bg-rose-50 dark:bg-rose-500/15" },
   ];
 
@@ -98,7 +98,7 @@ export function WorkerProfileView({ data }: { data: WorkerWorkspaceData }) {
 
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-(--sa-text-2)">
                 <span className="inline-flex items-center gap-1 font-medium text-gray-700 dark:text-(--sa-text-2)">
-                  <Star className="size-4 fill-amber-400 text-amber-400" aria-hidden="true" />
+                  <Star className="size-4 fill-gray-400 text-gray-400" aria-hidden="true" />
                   {header.totalReviews > 0 ? header.averageRating.toFixed(1) : "—"}
                   <span className="font-normal text-gray-400 dark:text-(--sa-muted)">({header.totalReviews} reviews)</span>
                 </span>
@@ -182,7 +182,7 @@ export function WorkerProfileView({ data }: { data: WorkerWorkspaceData }) {
                     <div key={it.id} className="relative aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-white/10">
                       <Image src={it.afterImage} alt={it.title ?? it.category} fill sizes="120px" className="object-cover" />
                       {!it.isApproved && (
-                        <span className="absolute right-1 top-1 rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[9px] font-medium text-white">Pending</span>
+                        <span className="absolute right-1 top-1 rounded-full bg-white/90 px-1.5 py-0.5 text-[9px] font-medium text-black">Pending</span>
                       )}
                     </div>
                   ))}
@@ -234,7 +234,7 @@ export function WorkerProfileView({ data }: { data: WorkerWorkspaceData }) {
             <Row label="Book With Worker" value={<span className={worker.isPublic ? "font-medium text-emerald-600 dark:text-emerald-400" : "text-gray-500 dark:text-(--sa-text-2)"}>{worker.isPublic ? "Yes" : "No"}</span>} />
             <Row label="Designation" value={worker.designation?.name ?? "—"} />
             <Row label="Experience" value={`${worker.experience} ${worker.experience === 1 ? "Year" : "Years"}`} />
-            <Row label="Rating" value={<span className="inline-flex items-center gap-1 font-medium text-gray-800 dark:text-(--sa-text)"><Star className="size-3.5 fill-amber-400 text-amber-400" aria-hidden="true" />{header.totalReviews > 0 ? header.averageRating.toFixed(1) : "—"}</span>} />
+            <Row label="Rating" value={<span className="inline-flex items-center gap-1 font-medium text-gray-800 dark:text-(--sa-text)"><Star className="size-3.5 fill-gray-400 text-gray-400" aria-hidden="true" />{header.totalReviews > 0 ? header.averageRating.toFixed(1) : "—"}</span>} />
             <Row label="Total Reviews" value={String(header.totalReviews)} />
           </dl>
 

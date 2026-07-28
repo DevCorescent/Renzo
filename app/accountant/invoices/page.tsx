@@ -94,7 +94,7 @@ export default async function AccountantInvoicesPage() {
                 </TD>
                 <TD className="font-medium text-gray-900">₹{Number(i.totalAmount).toLocaleString("en-IN")}</TD>
                 <TD className="text-gray-700">₹{Number(i.paidAmount).toLocaleString("en-IN")}</TD>
-                <TD className={Number(i.balanceDue) > 0 ? "font-medium text-amber-600" : "text-gray-400"}>
+                <TD className={Number(i.balanceDue) > 0 ? "font-medium text-gray-900" : "text-gray-400"}>
                   {Number(i.balanceDue) > 0 ? `₹${Number(i.balanceDue).toLocaleString("en-IN")}` : "—"}
                 </TD>
                 <TD><Badge tone={STATUS_TONE[i.status] ?? "neutral"}>{i.status}</Badge></TD>

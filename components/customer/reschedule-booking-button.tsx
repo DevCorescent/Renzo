@@ -68,7 +68,7 @@ export function CustomerRescheduleButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 text-xs text-[#C8A96A] hover:underline"
+        className="inline-flex items-center gap-1 text-xs text-white hover:underline"
       >
         <CalendarDays className="size-3.5" />
         Reschedule
@@ -129,7 +129,7 @@ export function CustomerRescheduleButton({
         <button
           type="submit"
           disabled={busy}
-          className="inline-flex items-center gap-1 rounded-lg bg-[#C8A96A] px-3 py-1.5 text-xs font-semibold text-stone-950 transition hover:bg-[#E8CC88] disabled:opacity-60"
+          className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-stone-950 transition hover:bg-white/90 disabled:opacity-60"
         >
           {busy && <Loader2 className="size-3 animate-spin" />}
           Send request

@@ -57,7 +57,7 @@ export function PortfolioHero({ summary }: { summary: PortfolioSummary }) {
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{summary.name}</h1>
 
           {(summary.title || summary.department) && (
-            <p className="mt-1 text-sm text-amber-300/90">
+            <p className="mt-1 text-sm text-white/90">
               {summary.title}
               {summary.title && summary.department && (
                 <span className="text-white/30"> · </span>
@@ -85,7 +85,7 @@ export function PortfolioHero({ summary }: { summary: PortfolioSummary }) {
           {/* Rating */}
           {hasRating && (
             <div className="mt-5 inline-flex items-center gap-3 rounded-full bg-white/5 px-4 py-2 ring-1 ring-white/10">
-              <span className="text-xl font-semibold text-amber-300">
+              <span className="text-xl font-semibold text-white">
                 {summary.averageRating.toFixed(1)}
               </span>
               <StarRating value={summary.averageRating} size={16} />

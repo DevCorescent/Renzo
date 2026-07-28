@@ -248,7 +248,7 @@ export function PortfolioManager() {
                     <span
                       className={cn(
                         "absolute right-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium backdrop-blur",
-                        item.isApproved ? "bg-green-600/90 text-white" : "bg-amber-500/90 text-white"
+                        item.isApproved ? "bg-green-600/90 text-white" : "bg-white/90 text-black"
                       )}
                     >
                       {item.isApproved ? "Approved" : <><Clock className="size-2.5" aria-hidden="true" /> Pending</>}

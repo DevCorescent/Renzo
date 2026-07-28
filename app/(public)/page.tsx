@@ -1,40 +1,17 @@
-import { Hero } from "@/components/public/home/hero";
-import { Experience } from "@/components/public/home/experience";
-import { Services } from "@/components/public/home/services";
-import { Benefits } from "@/components/public/home/benefits";
-import { Gallery } from "@/components/public/home/gallery";
-import { Pricing } from "@/components/public/home/pricing";
-import { Blog } from "@/components/public/home/blog";
-import { Testimonials } from "@/components/public/home/testimonials";
-import { Contact } from "@/components/public/home/contact";
+import { getPublishedHomeContent } from "@/lib/cms/store";
+import { HomeContentRenderer } from "@/components/public/home/home-content-renderer";
 
 // ============================================================================
 // OWNER  : Gauransh
 // MODULE : Homepage
 // ROUTE  : /
 //
-// SECTIONS (dark, Veloura-style clone)
-// Hero → Experience (More Than a Salon + stats) → Signature Services →
-// Benefits → Gallery → Pricing → Blog → Testimonials → Contact
-//
-// NOTES
-// Composition only — each section lives in components/public/home/*, content is
-// centralised in components/public/home/home-data.ts. Header + Footer live in
-// the public layout.
+// The public homepage continues to render the same sections, but it now consumes
+// the published CMS content when present. The fallback remains the built-in
+// defaults so the page stays identical until content is published.
 // ============================================================================
 
-export default function HomePage() {
-  return (
-    <main className="bg-stone-950">
-      <Hero />
-      <Experience />
-      <Services />
-      <Benefits />
-      <Gallery />
-      <Pricing />
-      <Blog />
-      <Testimonials />
-      <Contact />
-    </main>
-  );
+export default async function HomePage() {
+  const content = await getPublishedHomeContent();
+  return <HomeContentRenderer content={content} />;
 }

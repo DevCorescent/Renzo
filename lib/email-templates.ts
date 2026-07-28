@@ -17,7 +17,7 @@ const BASE = (content: string) => `<!DOCTYPE html>
           <!-- Header -->
           <tr>
             <td style="background:#111;padding:28px 36px;border-bottom:1px solid #2a2a2a;text-align:center;">
-              <span style="font-size:26px;font-weight:700;letter-spacing:4px;color:#C8A96A;">RENZO</span>
+              <span style="font-size:26px;font-weight:700;letter-spacing:4px;color:#FFFFFF;">RENZO</span>
               <p style="margin:4px 0 0;font-size:11px;letter-spacing:2px;color:#6b6b6b;text-transform:uppercase;">Luxury Hair &amp; Beauty Studio</p>
             </td>
           </tr>
@@ -58,11 +58,11 @@ export function otpEmail(name: string, otp: string, purpose: string): { subject:
 
   const html = BASE(`
     <h2 style="margin:0 0 8px;font-size:22px;color:#fff;font-weight:600;">Your verification code</h2>
-    <p style="margin:0 0 28px;font-size:14px;color:#999;line-height:1.6;">Hi ${name || "there"}, use the code below to ${reason}. It expires in <strong style="color:#C8A96A;">5 minutes</strong>.</p>
+    <p style="margin:0 0 28px;font-size:14px;color:#999;line-height:1.6;">Hi ${name || "there"}, use the code below to ${reason}. It expires in <strong style="color:#FFFFFF;">5 minutes</strong>.</p>
 
     <div style="text-align:center;margin:0 0 28px;">
-      <div style="display:inline-block;background:#111;border:1px solid #C8A96A;border-radius:12px;padding:20px 40px;">
-        <span style="font-size:42px;font-weight:700;letter-spacing:12px;color:#C8A96A;">${otp}</span>
+      <div style="display:inline-block;background:#111;border:1px solid #FFFFFF;border-radius:12px;padding:20px 40px;">
+        <span style="font-size:42px;font-weight:700;letter-spacing:12px;color:#FFFFFF;">${otp}</span>
       </div>
     </div>
 
@@ -100,7 +100,7 @@ export function bookingConfirmationEmail(data: BookingEmailData): { subject: str
 
   const html = BASE(`
     <div style="text-align:center;margin-bottom:28px;">
-      <div style="display:inline-block;background:#C8A96A20;border:1px solid #C8A96A40;border-radius:50%;padding:14px 18px;">
+      <div style="display:inline-block;background:#111111;border:1px solid #2a2a2a;border-radius:50%;padding:14px 18px;">
         <span style="font-size:28px;">✓</span>
       </div>
     </div>
@@ -112,7 +112,7 @@ export function bookingConfirmationEmail(data: BookingEmailData): { subject: str
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
           <td style="padding:8px 0;color:#888;font-size:13px;border-bottom:1px solid #2a2a2a;">Booking #</td>
-          <td style="padding:8px 0;color:#C8A96A;font-size:13px;font-weight:600;text-align:right;border-bottom:1px solid #2a2a2a;">${data.appointmentNo}</td>
+          <td style="padding:8px 0;color:#FFFFFF;font-size:13px;font-weight:600;text-align:right;border-bottom:1px solid #2a2a2a;">${data.appointmentNo}</td>
         </tr>
         <tr>
           <td style="padding:8px 0;color:#888;font-size:13px;border-bottom:1px solid #2a2a2a;">Date</td>
@@ -129,7 +129,7 @@ export function bookingConfirmationEmail(data: BookingEmailData): { subject: str
         ${workerRow}
         <tr>
           <td style="padding:8px 0;color:#888;font-size:13px;">Total</td>
-          <td style="padding:8px 0;color:#C8A96A;font-size:15px;font-weight:700;text-align:right;">₹${data.totalAmount.toLocaleString("en-IN")}</td>
+          <td style="padding:8px 0;color:#FFFFFF;font-size:15px;font-weight:700;text-align:right;">₹${data.totalAmount.toLocaleString("en-IN")}</td>
         </tr>
       </table>
     </div>
@@ -154,9 +154,9 @@ export function bookingConfirmationEmail(data: BookingEmailData): { subject: str
 export function bookingCancellationEmail(data: { name: string; appointmentNo: string; date: string; branch: string }): { subject: string; html: string; text: string } {
   const html = BASE(`
     <h2 style="margin:0 0 8px;font-size:22px;color:#fff;font-weight:600;">Booking Cancelled</h2>
-    <p style="margin:0 0 24px;font-size:14px;color:#999;line-height:1.6;">Hi ${data.name}, your appointment <strong style="color:#C8A96A;">${data.appointmentNo}</strong> on <strong style="color:#fff;">${data.date}</strong> at ${data.branch} has been cancelled.</p>
+    <p style="margin:0 0 24px;font-size:14px;color:#999;line-height:1.6;">Hi ${data.name}, your appointment <strong style="color:#FFFFFF;">${data.appointmentNo}</strong> on <strong style="color:#fff;">${data.date}</strong> at ${data.branch} has been cancelled.</p>
 
-    <p style="margin:0 0 8px;font-size:14px;color:#ccc;line-height:1.6;">If this was a mistake or you'd like to rebook, please visit your account or call us at <strong style="color:#C8A96A;">+91 98765 43210</strong>.</p>
+    <p style="margin:0 0 8px;font-size:14px;color:#ccc;line-height:1.6;">If this was a mistake or you'd like to rebook, please visit your account or call us at <strong style="color:#FFFFFF;">+91 98765 43210</strong>.</p>
     <p style="margin:0;font-size:12px;color:#666;">Any payments will be refunded within 5–7 business days.</p>
   `);
 
@@ -178,7 +178,7 @@ export function appointmentRescheduleEmail(data: {
 }): { subject: string; html: string; text: string } {
   const html = BASE(`
     <div style="text-align:center;margin-bottom:28px;">
-      <div style="display:inline-block;background:#C8A96A20;border:1px solid #C8A96A40;border-radius:50%;padding:14px 18px;">
+      <div style="display:inline-block;background:#111111;border:1px solid #2a2a2a;border-radius:50%;padding:14px 18px;">
         <span style="font-size:28px;">📅</span>
       </div>
     </div>
@@ -190,7 +190,7 @@ export function appointmentRescheduleEmail(data: {
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
           <td style="padding:8px 0;color:#888;font-size:13px;border-bottom:1px solid #2a2a2a;">Booking #</td>
-          <td style="padding:8px 0;color:#C8A96A;font-size:13px;font-weight:600;text-align:right;border-bottom:1px solid #2a2a2a;">${data.appointmentNo}</td>
+          <td style="padding:8px 0;color:#FFFFFF;font-size:13px;font-weight:600;text-align:right;border-bottom:1px solid #2a2a2a;">${data.appointmentNo}</td>
         </tr>
         <tr>
           <td style="padding:8px 0;color:#888;font-size:13px;border-bottom:1px solid #2a2a2a;">New Date</td>
@@ -207,7 +207,7 @@ export function appointmentRescheduleEmail(data: {
       </table>
     </div>
 
-    <p style="margin:0;font-size:12px;color:#666;text-align:center;">If you have any questions, log in to your account or call us at <strong style="color:#C8A96A;">+91 98765 43210</strong>.</p>
+    <p style="margin:0;font-size:12px;color:#666;text-align:center;">If you have any questions, log in to your account or call us at <strong style="color:#FFFFFF;">+91 98765 43210</strong>.</p>
   `);
 
   return {
@@ -251,14 +251,14 @@ const INVOICE_SHELL = (body: string) => `<!DOCTYPE html>
 
         <!-- Rose accent bar -->
         <tr>
-          <td style="background:#D4687A;height:5px;font-size:0;line-height:0;">&nbsp;</td>
+          <td style="background:#111111;height:5px;font-size:0;line-height:0;">&nbsp;</td>
         </tr>
 
         <!-- Brand header -->
         <tr>
           <td style="padding:32px 40px 24px;text-align:center;border-bottom:1px solid #F0F0F0;">
-            <div style="display:inline-block;width:48px;height:48px;border-radius:50%;border:2px solid #D4687A;line-height:48px;text-align:center;margin-bottom:10px;">
-              <span style="font-size:20px;font-weight:700;color:#D4687A;vertical-align:middle;">R</span>
+            <div style="display:inline-block;width:48px;height:48px;border-radius:50%;border:2px solid #111111;line-height:48px;text-align:center;margin-bottom:10px;">
+              <span style="font-size:20px;font-weight:700;color:#111111;vertical-align:middle;">R</span>
             </div>
             <div style="font-size:20px;font-weight:700;letter-spacing:4px;color:#18181B;">RENZO</div>
             <div style="font-size:10px;letter-spacing:2px;color:#71717A;text-transform:uppercase;margin-top:3px;">Hair &amp; Beauty Salon</div>
@@ -335,21 +335,21 @@ export function invoiceEmail(data: InvoiceEmailData): { subject: string; html: s
     <!-- Invoice meta -->
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       <tr>
-        <td style="padding:10px 16px;background:#FBE8EC;border-radius:10px 10px 0 0;">
+        <td style="padding:10px 16px;background:#F4F4F5;border-radius:10px 10px 0 0;">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
-              <td style="font-size:11px;font-weight:700;color:#D4687A;text-transform:uppercase;letter-spacing:1.2px;">Invoice No.</td>
+              <td style="font-size:11px;font-weight:700;color:#111111;text-transform:uppercase;letter-spacing:1.2px;">Invoice No.</td>
               <td style="font-size:13px;font-weight:700;color:#18181B;text-align:right;">${data.invoiceNo}</td>
             </tr>
           </table>
         </td>
       </tr>
       <tr>
-        <td style="padding:0 16px;background:#FFF5F7;border-radius:0 0 10px 10px;">
+        <td style="padding:0 16px;background:#FAFAFA;border-radius:0 0 10px 10px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
-              <td style="padding:9px 0;font-size:12px;color:#71717A;border-bottom:1px solid #F2E0E3;">Date</td>
-              <td style="padding:9px 0;font-size:12px;color:#3F3F46;text-align:right;border-bottom:1px solid #F2E0E3;">${data.date}</td>
+              <td style="padding:9px 0;font-size:12px;color:#71717A;border-bottom:1px solid #E4E4E7;">Date</td>
+              <td style="padding:9px 0;font-size:12px;color:#3F3F46;text-align:right;border-bottom:1px solid #E4E4E7;">${data.date}</td>
             </tr>
             <tr>
               <td style="padding:9px 0;font-size:12px;color:#71717A;">Branch</td>
@@ -377,10 +377,10 @@ export function invoiceEmail(data: InvoiceEmailData): { subject: string; html: s
       <!-- Total row — highlighted -->
       <tr>
         <td colspan="2" style="padding:4px 0 0;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:#FBE8EC;border-radius:8px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F4F5;border-radius:8px;">
             <tr>
-              <td style="padding:12px 16px;font-size:15px;font-weight:700;color:#D4687A;">Total</td>
-              <td style="padding:12px 16px;font-size:15px;font-weight:700;color:#D4687A;text-align:right;">${inr(data.total)}</td>
+              <td style="padding:12px 16px;font-size:15px;font-weight:700;color:#111111;">Total</td>
+              <td style="padding:12px 16px;font-size:15px;font-weight:700;color:#111111;text-align:right;">${inr(data.total)}</td>
             </tr>
           </table>
         </td>
@@ -394,7 +394,7 @@ export function invoiceEmail(data: InvoiceEmailData): { subject: string; html: s
 
     <!-- Thank you note -->
     <div style="margin-top:28px;padding-top:20px;border-top:1px solid #F0F0F0;text-align:center;">
-      <p style="margin:0;font-size:18px;font-weight:700;color:#D4687A;">Thank You!</p>
+      <p style="margin:0;font-size:18px;font-weight:700;color:#111111;">Thank You!</p>
       <p style="margin:6px 0 0;font-size:12px;color:#A1A1AA;">We look forward to seeing you again at Renzo.</p>
     </div>
   `;
@@ -411,7 +411,7 @@ export function invoiceEmail(data: InvoiceEmailData): { subject: string; html: s
 export function workerWelcomeEmail(data: { name: string; email: string; password: string; branchName: string }): { subject: string; html: string; text: string } {
   const html = BASE(`
     <h2 style="margin:0 0 8px;font-size:22px;color:#fff;font-weight:600;">Welcome to Renzo, ${data.name}!</h2>
-    <p style="margin:0 0 24px;font-size:14px;color:#999;line-height:1.6;">Your staff account has been created for <strong style="color:#C8A96A;">${data.branchName}</strong>. Use the credentials below to sign in.</p>
+    <p style="margin:0 0 24px;font-size:14px;color:#999;line-height:1.6;">Your staff account has been created for <strong style="color:#FFFFFF;">${data.branchName}</strong>. Use the credentials below to sign in.</p>
 
     <div style="background:#111;border:1px solid #2a2a2a;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
       <table width="100%" cellpadding="0" cellspacing="0">
@@ -421,7 +421,7 @@ export function workerWelcomeEmail(data: { name: string; email: string; password
         </tr>
         <tr>
           <td style="padding:8px 0;color:#888;font-size:13px;">Temporary Password</td>
-          <td style="padding:8px 0;color:#C8A96A;font-size:14px;font-weight:700;font-family:monospace;text-align:right;">${data.password}</td>
+          <td style="padding:8px 0;color:#FFFFFF;font-size:14px;font-weight:700;font-family:monospace;text-align:right;">${data.password}</td>
         </tr>
       </table>
     </div>

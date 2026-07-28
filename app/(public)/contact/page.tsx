@@ -24,18 +24,18 @@ export default function ContactPage() {
 
             <ul className="mt-8 space-y-4 text-sm text-stone-300">
               <li className="flex items-start gap-3">
-                <MapPin className="mt-0.5 size-5 shrink-0 text-amber-500/70" />
+                <MapPin className="mt-0.5 size-5 shrink-0 text-gray-400" />
                 {CONTACT_INFO.address}
               </li>
               <li className="flex items-center gap-3">
-                <Phone className="size-5 shrink-0 text-amber-500/70" />
-                <a href={`tel:${CONTACT_INFO.phone.replace(/\s/g, "")}`} className="transition hover:text-amber-400">
+                <Phone className="size-5 shrink-0 text-gray-400" />
+                <a href={`tel:${CONTACT_INFO.phone.replace(/\s/g, "")}`} className="transition hover:text-white">
                   {CONTACT_INFO.phone}
                 </a>
               </li>
               <li className="flex items-center gap-3">
-                <Mail className="size-5 shrink-0 text-amber-500/70" />
-                <a href={`mailto:${CONTACT_INFO.email}`} className="transition hover:text-amber-400">
+                <Mail className="size-5 shrink-0 text-gray-400" />
+                <a href={`mailto:${CONTACT_INFO.email}`} className="transition hover:text-white">
                   {CONTACT_INFO.email}
                 </a>
               </li>
@@ -43,7 +43,7 @@ export default function ContactPage() {
 
             <p className="mt-8 text-xs text-stone-500">
               Prefer to book online?{" "}
-              <Link href="/book" className="text-amber-400 transition hover:text-amber-300">
+              <Link href="/book" className="text-white transition hover:text-gray-200">
                 Open the booking wizard →
               </Link>
             </p>

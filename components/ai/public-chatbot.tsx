@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import { MessageCircle, X, Send, Loader2 } from "lucide-react";
 import { API } from "@/lib/endpoints";
 import { useAiEnabled } from "@/components/ai/use-ai-enabled";
@@ -9,6 +10,7 @@ type Msg = { role: "user" | "assistant"; content: string };
 
 export function PublicChatbot() {
   const { enabled, loading: checking } = useAiEnabled();
+  const isHome = usePathname() === "/";
   const [open, setOpen] = React.useState(false);
   const [input, setInput] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -85,7 +87,9 @@ export function PublicChatbot() {
                 key={`${i}-${m.role}`}
                 className={`max-w-[90%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
                   m.role === "user"
-                    ? "ml-auto bg-amber-500/15 text-amber-100"
+                    ? isHome
+                      ? "ml-auto bg-amber-500/15 text-amber-100"
+                      : "ml-auto bg-white/10 text-gray-200"
                     : "bg-stone-900 text-stone-300"
                 }`}
               >
@@ -113,12 +117,20 @@ export function PublicChatbot() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask about booking…"
               maxLength={2000}
-              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-stone-900 px-3 py-2 text-sm text-stone-100 placeholder:text-stone-600 focus:border-amber-500/40 focus:outline-none"
+              className={
+                isHome
+                  ? "min-w-0 flex-1 rounded-xl border border-white/10 bg-stone-900 px-3 py-2 text-sm text-stone-100 placeholder:text-stone-600 focus:border-amber-500/40 focus:outline-none"
+                  : "min-w-0 flex-1 rounded-xl border border-white/10 bg-stone-900 px-3 py-2 text-sm text-stone-100 placeholder:text-stone-600 focus:border-white/40 focus:outline-none"
+              }
             />
             <button
               type="submit"
               disabled={busy || !input.trim()}
-              className="rounded-xl bg-amber-500/90 px-3 text-stone-950 disabled:opacity-40"
+              className={
+                isHome
+                  ? "rounded-xl bg-amber-500/90 px-3 text-stone-950 disabled:opacity-40"
+                  : "rounded-xl bg-white px-3 text-stone-950 disabled:opacity-40"
+              }
               aria-label="Send"
             >
               <Send className="size-4" />
@@ -130,7 +142,11 @@ export function PublicChatbot() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex size-12 items-center justify-center rounded-full bg-amber-500 text-stone-950 shadow-lg shadow-amber-900/30 transition hover:bg-amber-400"
+        className={
+          isHome
+            ? "flex size-12 items-center justify-center rounded-full bg-amber-500 text-stone-950 shadow-lg shadow-amber-900/30 transition hover:bg-amber-400"
+            : "flex size-12 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/40 transition hover:bg-gray-100"
+        }
         aria-label={open ? "Close Renzo assistant" : "Open Renzo assistant"}
       >
         {open ? <X className="size-5" /> : <MessageCircle className="size-5" />}

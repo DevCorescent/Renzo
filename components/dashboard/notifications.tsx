@@ -35,10 +35,10 @@ export type NotificationItem = {
 const dotTone: Record<StatusTone, string> = {
   neutral: "bg-gray-400",
   success: "bg-emerald-500",
-  warning: "bg-amber-500",
+  warning: "bg-gray-500",
   danger: "bg-red-500",
   info: "bg-sky-500",
-  accent: "bg-amber-500",
+  accent: "bg-gray-500",
 };
 
 // The Notification row shape the feed API returns (only the fields the bell shows).
@@ -127,8 +127,8 @@ export function Notifications({ items = [], dark = false }: { items?: Notificati
         <Bell className="size-4.5" />
         {unread > 0 && (
           <span className="absolute right-1.5 top-1.5 flex size-2 items-center justify-center">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-amber-400 opacity-60" />
-            <span className="relative inline-flex size-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-(--sa-surface)" />
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-gray-400 opacity-60" />
+            <span className="relative inline-flex size-2 rounded-full bg-gray-500 ring-2 ring-white dark:ring-(--sa-surface)" />
           </span>
         )}
       </button>
@@ -145,7 +145,7 @@ export function Notifications({ items = [], dark = false }: { items?: Notificati
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-(--sa-border)">
               <p className="text-sm font-semibold text-gray-900 dark:text-(--sa-text)">Notifications</p>
               {unread > 0 && (
-                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20">
+                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-700 ring-1 ring-gray-200 dark:bg-white/10 dark:text-white dark:ring-white/20">
                   {unread} new
                 </span>
               )}
@@ -171,7 +171,7 @@ export function Notifications({ items = [], dark = false }: { items?: Notificati
                         <span className="block text-sm font-medium text-gray-800 dark:text-(--sa-text)">{n.title}</span>
                         {n.meta && <span className="block text-xs text-gray-400 dark:text-(--sa-muted)">{n.meta}</span>}
                       </span>
-                      {n.unread && <span className="mt-1 size-1.5 shrink-0 rounded-full bg-amber-500" />}
+                      {n.unread && <span className="mt-1 size-1.5 shrink-0 rounded-full bg-gray-500" />}
                     </Wrapper>
                   );
                 })

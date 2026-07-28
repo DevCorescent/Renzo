@@ -22,7 +22,7 @@ export function SectionHeading({
       className={cn(align === "center" ? "mx-auto max-w-2xl text-center" : "max-w-xl", className)}
     >
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C4C9D1]">{eyebrow}</p>
-      <h2 className="mt-3 font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+      <h2 className="mt-3 font-heading text-[2rem] font-medium leading-tight tracking-tight text-white sm:text-4xl sm:font-semibold lg:text-5xl">
         {title}
       </h2>
       {subtitle && <p className="mt-4 leading-relaxed text-stone-400">{subtitle}</p>}

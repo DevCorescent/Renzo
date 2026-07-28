@@ -55,7 +55,7 @@ export default async function BlogPage() {
               <Link
                 key={post.id}
                 href={`/blog/${post.slug}`}
-                className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-amber-500/30"
+                className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-white/20"
               >
                 <div className="relative aspect-[16/10] w-full overflow-hidden bg-stone-800">
                   {post.coverImage ? (
@@ -75,7 +75,7 @@ export default async function BlogPage() {
                 <div className="flex flex-1 flex-col p-4">
                   <div className="flex items-center gap-2 text-xs text-stone-500">
                     {post.category && (
-                      <span className="font-semibold uppercase tracking-widest text-amber-500/80">
+                      <span className="font-semibold uppercase tracking-widest text-gray-300">
                         {post.category}
                       </span>
                     )}
@@ -89,13 +89,13 @@ export default async function BlogPage() {
                       </>
                     )}
                   </div>
-                  <h2 className="mt-2 font-semibold text-stone-100 transition group-hover:text-amber-400">
+                  <h2 className="mt-2 font-semibold text-stone-100 transition group-hover:text-white">
                     {post.title}
                   </h2>
                   {post.excerpt && (
                     <p className="mt-1 line-clamp-2 flex-1 text-xs text-stone-500">{post.excerpt}</p>
                   )}
-                  <span className="mt-4 text-xs font-medium text-stone-400 group-hover:text-amber-400 transition">
+                  <span className="mt-4 text-xs font-medium text-stone-400 group-hover:text-white transition">
                     Read article →
                   </span>
                 </div>

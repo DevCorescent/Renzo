@@ -23,7 +23,7 @@ export type CalEvent = {
 };
 
 const STATUS_TONE: Record<string, string> = {
-  PENDING: "bg-amber-100 text-amber-700",
+  PENDING: "bg-gray-100 text-gray-700",
   CONFIRMED: "bg-sky-100 text-sky-700",
   CHECKED_IN: "bg-violet-100 text-violet-700",
   STARTED: "bg-indigo-100 text-indigo-700",

@@ -91,7 +91,7 @@ export default async function OffersPage({
               href="/offers"
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                 !branchId
-                  ? "bg-amber-500 text-stone-950"
+                  ? "bg-white text-black"
                   : "border border-white/10 text-stone-300 hover:border-white/20"
               }`}
             >
@@ -103,7 +103,7 @@ export default async function OffersPage({
                 href={`/offers?branchId=${b.id}`}
                 className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                   branchId === b.id
-                    ? "bg-amber-500 text-stone-950"
+                    ? "bg-white text-black"
                     : "border border-white/10 text-stone-300 hover:border-white/20"
                 }`}
               >
@@ -124,7 +124,7 @@ export default async function OffersPage({
               return (
                 <article
                   key={o.id}
-                  className="group relative overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-amber-500/30"
+                  className="group relative overflow-hidden rounded-2xl border border-white/8 bg-stone-900 transition hover:border-white/20"
                 >
                   <div className="relative h-40 w-full overflow-hidden bg-stone-800">
                     {o.image ? (
@@ -136,19 +136,19 @@ export default async function OffersPage({
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center bg-gradient-to-br from-amber-500/20 to-stone-800">
-                        <Tag className="size-10 text-amber-500/50" />
+                      <div className="flex h-full items-center justify-center bg-gradient-to-br from-white/10 to-stone-800">
+                        <Tag className="size-10 text-gray-400" />
                       </div>
                     )}
                     {disc && (
-                      <span className="absolute left-2 top-2 rounded-full bg-amber-500 px-2.5 py-0.5 text-[10px] font-bold uppercase text-stone-950">
+                      <span className="absolute left-2 top-2 rounded-full bg-white px-2.5 py-0.5 text-[10px] font-bold uppercase text-stone-950">
                         {disc}
                       </span>
                     )}
                   </div>
 
                   <div className="p-4">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-500/80">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-300">
                       {OFFER_LABELS[o.type] ?? o.type}
                     </span>
                     <h2 className="mt-1 font-semibold text-stone-100">{o.title}</h2>
@@ -158,7 +158,7 @@ export default async function OffersPage({
 
                     <div className="mt-3 space-y-1 text-xs text-stone-400">
                       <p className="flex items-center gap-1.5">
-                        <Calendar className="size-3.5 shrink-0 text-amber-500/70" />
+                        <Calendar className="size-3.5 shrink-0 text-gray-400" />
                         From {formatDate(o.validFrom)}
                         {o.validUntil ? ` · until ${formatDate(o.validUntil)}` : ""}
                       </p>
@@ -169,7 +169,7 @@ export default async function OffersPage({
 
                     <Link
                       href={o.branchId ? `/book?branchId=${o.branchId}` : "/book"}
-                      className="mt-4 block w-full rounded-full bg-amber-500 py-2 text-center text-xs font-bold text-stone-950 transition hover:bg-amber-400"
+                      className="mt-4 block w-full rounded-full bg-white py-2 text-center text-xs font-bold text-stone-950 transition hover:bg-gray-100"
                     >
                       Book & save →
                     </Link>

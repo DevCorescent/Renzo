@@ -207,7 +207,7 @@ export function ApplyLeaveModal({
           )}
 
           {noTypes && (
-            <p className="rounded border border-yellow-100 bg-yellow-50 px-3 py-2 text-xs text-yellow-800">
+            <p className="rounded border border-gray-200 bg-gray-100 px-3 py-2 text-xs text-gray-700">
               No leave types are configured yet. Please contact your administrator.
             </p>
           )}

@@ -34,7 +34,7 @@ export function SummaryCards({ rows }: { rows: LeaveRow[] }) {
 
   const cards: { label: string; value: number; tone: string }[] = [
     { label: "Total requests", value: total, tone: "text-gray-900" },
-    { label: "Pending", value: pending, tone: "text-yellow-700" },
+    { label: "Pending", value: pending, tone: "text-gray-700" },
     { label: "Approved", value: approved, tone: "text-green-700" },
     { label: "Rejected", value: rejected, tone: "text-red-600" },
   ];

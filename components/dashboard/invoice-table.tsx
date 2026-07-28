@@ -70,7 +70,7 @@ export function InvoiceTable({ rows }: { rows: InvoiceRow[] }) {
         sortable: true,
         sortValue: (r) => r.balance,
         cell: (r) => (
-          <span className={r.balance > 0 ? "tabular-nums font-medium text-amber-600 dark:text-amber-400" : "tabular-nums text-gray-400 dark:text-(--sa-muted)"}>
+          <span className={r.balance > 0 ? "tabular-nums font-medium text-gray-700 dark:text-white" : "tabular-nums text-gray-400 dark:text-(--sa-muted)"}>
             {inr(r.balance)}
           </span>
         ),

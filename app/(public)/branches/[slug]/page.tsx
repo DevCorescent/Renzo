@@ -59,10 +59,10 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
         ) : null}
         <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-stone-950/30 to-transparent" />
         <div className="absolute bottom-0 left-0 p-6 sm:p-8">
-          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-amber-400">Renzo Salon</p>
+          <p className="mb-1 text-xs font-medium uppercase tracking-widest text-white">Renzo Salon</p>
           <h1 className="text-3xl font-bold sm:text-4xl">{branch.name}</h1>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-stone-400">
-            <MapPin className="size-3.5 text-amber-500/70" />
+            <MapPin className="size-3.5 text-gray-400" />
             {branch.address}, {branch.city}, {branch.state}
           </p>
         </div>
@@ -76,7 +76,7 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
               <h2 className="text-lg font-semibold">Services at this branch</h2>
               <Link
                 href={`/book?branchId=${branch.id}`}
-                className="rounded-full bg-amber-500 px-5 py-2 text-sm font-semibold text-stone-950 hover:bg-amber-400 transition"
+                className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-stone-950 hover:bg-gray-100 transition"
               >
                 Book now
               </Link>
@@ -110,12 +110,12 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
                             </div>
                           )}
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium text-stone-100 group-hover:text-amber-400 transition">{sp.service.name}</p>
+                            <p className="font-medium text-stone-100 group-hover:text-white transition">{sp.service.name}</p>
                             <p className="text-xs text-stone-500">{sp.service.duration} min · {sp.service.gender.toLowerCase()}</p>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-amber-400">₹{sp.price.toLocaleString("en-IN")}</p>
-                            <ChevronRight className="ml-auto mt-0.5 size-4 text-stone-600 group-hover:text-amber-400 transition" />
+                            <p className="font-semibold text-white">₹{sp.price.toLocaleString("en-IN")}</p>
+                            <ChevronRight className="ml-auto mt-0.5 size-4 text-stone-600 group-hover:text-white transition" />
                           </div>
                         </Link>
                       ))}
@@ -133,11 +133,11 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
               <h3 className="mb-3 text-sm font-semibold text-stone-300">Contact</h3>
               <div className="space-y-2 text-sm text-stone-400">
                 <p className="flex items-start gap-2">
-                  <MapPin className="mt-0.5 size-4 shrink-0 text-amber-500/70" />
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-gray-400" />
                   {branch.address}, {branch.city}, {branch.state} {branch.pincode}
                 </p>
                 <p className="flex items-center gap-2">
-                  <Phone className="size-4 shrink-0 text-amber-500/70" />
+                  <Phone className="size-4 shrink-0 text-gray-400" />
                   {branch.phone}
                 </p>
               </div>
@@ -146,7 +146,7 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
                   href={branch.mapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-3 inline-block text-xs text-amber-400 hover:underline"
+                  className="mt-3 inline-block text-xs text-white hover:underline"
                 >
                   View on map →
                 </Link>
@@ -157,7 +157,7 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
             {branch.timings.length > 0 && (
               <div className="rounded-xl border border-white/8 bg-stone-900 p-5">
                 <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-stone-300">
-                  <Clock className="size-4 text-amber-500/70" /> Hours
+                  <Clock className="size-4 text-gray-400" /> Hours
                 </h3>
                 <div className="space-y-1.5">
                   {branch.timings.map((t: BranchTiming) => (
@@ -177,7 +177,7 @@ export default async function BranchDetailPage({ params }: { params: Promise<{ s
             {/* Book CTA */}
             <Link
               href={`/book?branchId=${branch.id}`}
-              className="block rounded-xl bg-amber-500 p-4 text-center font-semibold text-stone-950 hover:bg-amber-400 transition"
+              className="block rounded-xl bg-white p-4 text-center font-semibold text-stone-950 hover:bg-gray-100 transition"
             >
               Book an Appointment
             </Link>

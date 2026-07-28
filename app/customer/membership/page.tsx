@@ -36,7 +36,7 @@ export default async function CustomerMembershipPage() {
       </div>
 
       {activeMembership ? (
-        <div className="rounded-xl border border-gold/20 bg-gold/5 p-5">
+        <div className="rounded-xl border border-white/20 bg-white/5 p-5">
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -79,7 +79,7 @@ export default async function CustomerMembershipPage() {
                   <Badge tone={TIER_TONE[plan.tier] ?? "neutral"} className="mt-1">{plan.tier}</Badge>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-semibold text-[#C8A96A]">₹{Number(plan.price).toLocaleString("en-IN")}</p>
+                  <p className="text-lg font-semibold text-white">₹{Number(plan.price).toLocaleString("en-IN")}</p>
                   <p className="text-xs text-stone-500">{plan.validityDays} days</p>
                 </div>
               </div>
@@ -100,7 +100,7 @@ export default async function CustomerMembershipPage() {
               </div>
               <button
                 type="button"
-                className="mt-4 w-full rounded-lg bg-[#C8A96A] py-2 text-sm font-semibold text-stone-950 transition hover:bg-[#E8CC88]"
+                className="mt-4 w-full rounded-lg bg-white py-2 text-sm font-semibold text-stone-950 transition hover:bg-gray-100"
               >
                 Buy Now
               </button>

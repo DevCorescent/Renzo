@@ -10,9 +10,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { PILL_SOLID } from "./home-ui";
 import { MotionReveal, MotionStagger, MotionItem } from "./motion";
 import { cn } from "@/lib/utils";
-import { BLOG_POSTS } from "./home-data";
-
-const TICKER_ITEMS = ["Hair Care", "Skin Rituals", "Colour Trends", "Bridal Prep", "Styling Tips"];
+import type { BlogData } from "@/lib/cms/schema";
 
 function SpotlightCard({
   className,
@@ -48,11 +46,12 @@ function SpotlightCard({
   );
 }
 
-export function Blog() {
+export function Blog({ data }: { data: BlogData }) {
   const reduce = useReducedMotion();
+  const posts = data.posts.filter((post) => !post.hidden);
 
   return (
-    <section className="relative overflow-hidden bg-[#0A0B0D] py-24 sm:py-32">
+   <section className="relative overflow-hidden bg-[#0A0B0D] py-8 sm:py-12 lg:py-14">
       <div
         aria-hidden
         className="pointer-events-none absolute right-[-10%] top-0 size-[32rem] rounded-full bg-[#C4C9D1]/[0.06] blur-3xl"
@@ -60,18 +59,19 @@ export function Blog() {
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Category ticker — ties section to Hero's marquee language */}
-        <div className="mb-10 overflow-hidden border-y border-white/10 py-3">
+       <div className="mb-6 sm:mb-8 overflow-hidden border-y border-white/10 py-2.5">
+        
           <motion.div
             animate={reduce ? undefined : { x: ["0%", "-50%"] }}
             transition={reduce ? undefined : { duration: 22, repeat: Infinity, ease: "linear" }}
             className="flex shrink-0 items-center gap-6"
           >
-            {[...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS].map((label, i) => (
+            {[...data.ticker, ...data.ticker, ...data.ticker].map((item, i) => (
               <span
-                key={label + i}
+                key={item.id + i}
                 className="flex items-center gap-6 whitespace-nowrap text-xs uppercase tracking-[0.22em] text-white/40"
               >
-                {label}
+                {item.label}
                 <span aria-hidden className="text-[#C4C9D1]/70">
                   •
                 </span>
@@ -80,36 +80,37 @@ export function Blog() {
           </motion.div>
         </div>
 
-        <MotionReveal className="grid gap-8 lg:grid-cols-2 lg:items-end">
-          <div className="min-w-0">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-4 py-1.5 backdrop-blur-xl">
-              <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#C4C9D1]">
-                Journal
-              </span>
-            </div>
-            <h2 className="group font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              Our Latest{" "}
-              <motion.span
-                className="inline-block bg-[length:200%_100%] bg-gradient-to-r from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text text-transparent transition-transform duration-500 group-hover:translate-x-1.5"
-                animate={
-                  reduce
-                    ? undefined
-                    : { backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }
-                }
-                transition={
-                  reduce
-                    ? undefined
-                    : { duration: 4, repeat: Infinity, ease: "linear" }
-                }
-              >
-                Stories
-              </motion.span>
-            </h2>
-          </div>
-          <div className="space-y-5 lg:pb-2">
+       <MotionReveal className="grid gap-6 lg:grid-cols-2 lg:items-end">
+  <div className="min-w-0">
+    <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/80 px-4 py-1.5 backdrop-blur-xl">
+      <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[#C4C9D1]">
+        {data.eyebrow}
+      </span>
+    </div>
+
+    <h2 className="group font-heading text-[clamp(1.9rem,6vw,3rem)] font-semibold leading-none tracking-tight text-white whitespace-nowrap">
+      {data.titleLead}{" "}
+      <motion.span
+        className="inline-block bg-[length:200%_100%] bg-gradient-to-r from-[#F2F2F2] via-[#9AA0AA] to-white bg-clip-text text-transparent transition-transform duration-500 group-hover:translate-x-1.5"
+        animate={
+          reduce
+            ? undefined
+            : { backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }
+        }
+        transition={
+          reduce
+            ? undefined
+            : { duration: 4, repeat: Infinity, ease: "linear" }
+        }
+      >
+        {data.titleAccent}
+      </motion.span>
+    </h2>
+  </div>
+
+  <div className="space-y-4 lg:pb-1">
             <p className="max-w-md leading-relaxed text-[#B7BEC8]">
-              Tips, trends and rituals from our stylists — everything you need to look and feel
-              your best between visits.
+              {data.paragraph}
             </p>
             <Link
               href="/blog"
@@ -119,19 +120,19 @@ export function Blog() {
                 "group inline-flex items-center gap-2 px-6"
               )}
             >
-              View All
+              {data.cta.label}
               <ArrowUpRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </Link>
           </div>
         </MotionReveal>
 
         {/* Bento grid — first post featured, rest fill remaining cells */}
-        <MotionStagger className="mt-14 grid auto-rows-[1fr] gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:grid-rows-2">
-          {BLOG_POSTS.map((post, i) => {
+       <MotionStagger className="mt-8 sm:mt-10 lg:mt-12 grid auto-rows-[1fr] gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:grid-rows-2">
+          {posts.map((post, i) => {
             const featured = i === 0;
             return (
               <MotionItem
-                key={post.title}
+                key={post.id}
                 hover
                 className={cn(
                   "group relative flex flex-col overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] backdrop-blur-sm transition-all duration-300 hover:border-[#C4C9D1]/30 hover:shadow-[0_25px_70px_-20px_rgba(196,201,209,.25)]",
@@ -154,8 +155,8 @@ export function Blog() {
                     )}
                   >
                     <Image
-                      src={post.img}
-                      alt={post.title}
+                      src={post.image.url}
+                      alt={post.image.alt}
                       fill
                       sizes={
                         featured
@@ -175,7 +176,7 @@ export function Blog() {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0A0B0D]/85 via-[#0A0B0D]/10 to-transparent" />
                   </div>
 
-                  <div className="relative z-20 flex flex-1 flex-col p-6 sm:p-7">
+                 <div className="relative z-20 flex flex-1 flex-col p-5 sm:p-6 lg:p-7">
                     <div className="flex items-center gap-3 text-xs">
                       <span className="font-semibold uppercase tracking-widest text-[#C4C9D1]">
                         {post.tag}
@@ -194,12 +195,12 @@ export function Blog() {
                     </h3>
 
                     <Link
-                      href="/blog"
+                      href={post.href}
                       aria-label={`Read: ${post.title}`}
-                      className="mt-5 inline-flex items-center gap-2 self-start text-sm font-medium text-white transition-colors duration-300 hover:text-[#C4C9D1]"
+                     className="mt-4 inline-flex items-center gap-2 self-start text-sm font-medium text-white transition-colors duration-300 hover:text-[#C4C9D1]"
                     >
                       <span className="relative">
-                        Read Article
+                        {data.readLabel}
                         <span className="absolute inset-x-0 -bottom-1 h-px scale-x-0 bg-[#C4C9D1] transition-transform duration-300 origin-left group-hover:scale-x-100" />
                       </span>
                       <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />

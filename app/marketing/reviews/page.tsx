@@ -76,7 +76,7 @@ export default async function MarketingReviewsPage() {
                   {r.worker ? `${r.worker.firstName} ${r.worker.lastName}` : "—"}
                 </TD>
                 <TD>
-                  <span className="font-mono text-sm text-amber-600">{"★".repeat(r.overallRating)}</span>
+                  <span className="font-mono text-sm text-gray-700">{"★".repeat(r.overallRating)}</span>
                   <span className="font-mono text-sm text-gray-200">{"★".repeat(5 - r.overallRating)}</span>
                 </TD>
                 <TD className="text-gray-700">{r.serviceRating ?? "—"}</TD>

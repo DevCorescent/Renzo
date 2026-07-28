@@ -54,11 +54,11 @@ export default function CustomerLoginPage() {
       {/* Ambient glows */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-40 right-[-10%] size-[36rem] rounded-full bg-gold/10 blur-3xl"
+        className="pointer-events-none absolute -top-40 right-[-10%] size-[36rem] rounded-full bg-white/10 blur-3xl"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute bottom-[-20%] left-[-5%] size-[28rem] rounded-full bg-gold/5 blur-3xl"
+        className="pointer-events-none absolute bottom-[-20%] left-[-5%] size-[28rem] rounded-full bg-white/5 blur-3xl"
       />
 
       {/* Watermark */}
@@ -79,7 +79,7 @@ export default function CustomerLoginPage() {
         className="relative hidden flex-col justify-between p-12 lg:flex lg:w-[46%]"
       >
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="inline-flex size-9 items-center justify-center rounded-full bg-gold/15 text-gold ring-1 ring-gold/30">
+          <span className="inline-flex size-9 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/20">
             <Scissors className="size-4" />
           </span>
           <span className="font-heading text-2xl font-bold tracking-tight text-white">
@@ -92,7 +92,7 @@ export default function CustomerLoginPage() {
             Where Beauty
             <br />
             Meets{" "}
-            <span className="bg-gradient-to-r from-[#EAD7AA] via-[#C8A96A] to-[#F2E2BF] bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-white via-[#D1D5DB] to-white bg-clip-text text-transparent">
               Confidence
             </span>
           </p>
@@ -110,7 +110,7 @@ export default function CustomerLoginPage() {
       <div className="relative flex flex-1 flex-col items-center justify-center px-4 py-12 sm:px-8 lg:px-12">
         {/* Mobile logo */}
         <Link href="/" className="mb-10 flex items-center gap-2 lg:hidden">
-          <span className="inline-flex size-8 items-center justify-center rounded-full bg-gold/15 text-gold ring-1 ring-gold/30">
+          <span className="inline-flex size-8 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/20">
             <Scissors className="size-4" />
           </span>
           <span className="font-heading text-xl font-bold text-white">Renzo</span>
@@ -156,7 +156,7 @@ export default function CustomerLoginPage() {
           <div className="mt-10 space-y-3 text-center">
             <p className="text-xs text-stone-600">
               New customer?{" "}
-              <Link href="/signup" className="text-gold hover:underline">
+              <Link href="/signup" className="text-white hover:underline">
                 Create your account →
               </Link>
             </p>

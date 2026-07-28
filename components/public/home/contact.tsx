@@ -6,7 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { PILL_SOLID } from "./home-ui";
 import { MotionReveal } from "./motion";
 import { cn } from "@/lib/utils";
-import { CONTACT_IMAGE, CONTACT_INFO } from "./home-data";
+import type { ContactData } from "@/lib/cms/schema";
 
 function Field({
   id,
@@ -35,13 +35,13 @@ function Field({
   );
 }
 
-export function Contact() {
+export function Contact({ data }: { data: ContactData }) {
   return (
     <section id="contact" className="bg-stone-950 pb-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="relative overflow-hidden rounded-3xl ring-1 ring-white/10">
           <Image
-            src={CONTACT_IMAGE}
+            src={data.backgroundImage.url}
             alt=""
             fill
             sizes="100vw"
@@ -52,23 +52,23 @@ export function Contact() {
           <div className="relative grid gap-10 p-6 sm:p-8 lg:grid-cols-2 lg:gap-16 lg:p-12">
             <MotionReveal className="flex min-w-0 flex-col justify-center gap-6">
               <h2 className="whitespace-nowrap font-heading text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-                Renzo
+                {data.title}
               </h2>
               <p className="max-w-sm break-words leading-relaxed text-stone-300">
-                {CONTACT_INFO.tagline}
+                {data.tagline}
               </p>
               <ul className="space-y-4 text-sm text-stone-300">
                 <li className="flex items-start gap-3">
                   <MapPin className="mt-0.5 size-5 shrink-0 text-gold" />
-                  <span className="break-words">{CONTACT_INFO.address}</span>
+                  <span className="break-words">{data.address}</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <Phone className="size-5 shrink-0 text-gold" />
-                  <span className="break-words">{CONTACT_INFO.phone}</span>
+                  <span className="break-words">{data.phone}</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <Mail className="size-5 shrink-0 text-gold" />
-                  <span className="break-words">{CONTACT_INFO.email}</span>
+                  <span className="break-words">{data.email}</span>
                 </li>
               </ul>
             </MotionReveal>
@@ -77,16 +77,16 @@ export function Contact() {
               delay={0.1}
               className="rounded-2xl border border-white/10 bg-stone-950/60 p-5 backdrop-blur sm:p-6 md:p-8"
             >
-              <div role="group" aria-label="Booking enquiry" className="space-y-5">
-                <Field id="contact-name" label="Name" type="text" placeholder="Full name" />
-                <Field id="contact-phone" label="Phone" type="tel" placeholder="Phone number" />
-                <Field id="contact-email" label="Email" type="email" placeholder="you@email.com" />
+              <div role="group" aria-label={data.formTitle} className="space-y-5">
+                <Field id="contact-name" label={data.nameLabel} type="text" placeholder={data.namePlaceholder} />
+                <Field id="contact-phone" label={data.phoneLabel} type="tel" placeholder={data.phonePlaceholder} />
+                <Field id="contact-email" label={data.emailLabel} type="email" placeholder={data.emailPlaceholder} />
                 <div className="pt-2">
                   <Link
-                    href="/book"
+                    href={data.cta.href}
                     className={cn(buttonVariants({ size: "lg" }), PILL_SOLID, "w-full")}
                   >
-                    Book Now
+                    {data.cta.label}
                   </Link>
                 </div>
               </div>

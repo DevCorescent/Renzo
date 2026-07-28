@@ -82,7 +82,7 @@ export function ProfileEditForm({ initial }: { initial: Initial }) {
             <button
               onClick={save}
               disabled={saving}
-              className="flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-stone-950 transition hover:bg-amber-400 disabled:opacity-60"
+              className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-stone-950 transition hover:bg-gray-100 disabled:opacity-60"
             >
               {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
               Save
@@ -102,21 +102,21 @@ export function ProfileEditForm({ initial }: { initial: Initial }) {
               <input
                 value={form.firstName}
                 onChange={(e) => set("firstName", e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-amber-500/50"
+                className="w-full rounded-lg border border-white/10 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-white/40"
               />
             </Field>
             <Field label="Last Name">
               <input
                 value={form.lastName}
                 onChange={(e) => set("lastName", e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-amber-500/50"
+                className="w-full rounded-lg border border-white/10 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-white/40"
               />
             </Field>
             <Field label="Gender">
               <select
                 value={form.gender}
                 onChange={(e) => set("gender", e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-amber-500/50"
+                className="w-full rounded-lg border border-white/10 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-white/40"
               >
                 <option value="">— Select —</option>
                 <option value="MALE">Male</option>
@@ -129,7 +129,7 @@ export function ProfileEditForm({ initial }: { initial: Initial }) {
                 type="date"
                 value={form.dateOfBirth}
                 onChange={(e) => set("dateOfBirth", e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-amber-500/50"
+                className="w-full rounded-lg border border-white/10 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-white/40"
               />
             </Field>
             <Field label="Anniversary">
@@ -137,7 +137,7 @@ export function ProfileEditForm({ initial }: { initial: Initial }) {
                 type="date"
                 value={form.anniversary}
                 onChange={(e) => set("anniversary", e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-amber-500/50"
+                className="w-full rounded-lg border border-white/10 bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none focus:border-white/40"
               />
             </Field>
           </div>
@@ -166,7 +166,7 @@ function Field({ label, required, children }: { label: string; required?: boolea
   return (
     <div>
       <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-stone-500">
-        {label}{required && <span className="ml-0.5 text-amber-500">*</span>}
+        {label}{required && <span className="ml-0.5 text-white">*</span>}
       </label>
       {children}
     </div>

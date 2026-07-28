@@ -72,7 +72,7 @@ export type LeaveSummaryData = {
 
 export function LeaveSummary({ data }: { data: LeaveSummaryData }) {
   const cards: { label: string; value: number; tone: string }[] = [
-    { label: "Pending", value: data.pending, tone: "text-yellow-700" },
+    { label: "Pending", value: data.pending, tone: "text-gray-700" },
     { label: "Approved", value: data.approved, tone: "text-green-700" },
     { label: "Rejected", value: data.rejected, tone: "text-red-600" },
     { label: "Cancelled", value: data.cancelled, tone: "text-gray-500" },

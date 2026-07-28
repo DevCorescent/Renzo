@@ -10,7 +10,8 @@ import {
   LayoutDashboard, CalendarDays, Clock, CalendarOff, Images, User,
   UserCheck, Receipt, Users, Boxes, Star, BarChart3, Building2,
   Scissors, Package, Megaphone, ScrollText, Settings, PlusCircle,
-  LayoutTemplate, Menu, X, LogOut, ChevronRight, ChevronDown,
+  LayoutTemplate,
+  PanelsTopLeft, Menu, X, LogOut, ChevronRight, ChevronDown,
   Truck, Tag, Percent, Gift, ArrowLeftRight, ShoppingCart, ClipboardCheck,
   CalendarPlus, UserPlus, Wallet, Crown, Sparkles, Store,
 } from "lucide-react";
@@ -80,6 +81,7 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
       { label: "Reviews",    href: "/super-admin/reviews",     icon: Star },
       { label: "Reports",    href: "/super-admin/reports",     icon: BarChart3 },
       { label: "CMS",        href: "/super-admin/cms",         icon: LayoutTemplate },
+      { label: "Homepage CMS",href: "/super-admin/cms/homepage", icon: PanelsTopLeft },
       { label: "Audit Logs", href: "/super-admin/audit-logs",  icon: ScrollText },
       { label: "Settings",   href: "/super-admin/settings",    icon: Settings },
     ],

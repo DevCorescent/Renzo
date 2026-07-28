@@ -100,7 +100,7 @@ export function ReviewDialog({
         )}
         <button
           onClick={() => setOpen(true)}
-          className="rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-amber-400 active:scale-95"
+          className="rounded-full bg-white px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-white/90 active:scale-95"
         >
           {isEdit ? "Edit review" : "Rate stylist"}
         </button>
@@ -131,7 +131,7 @@ export function ReviewDialog({
             <Star
               className={`size-7 ${
                 n <= (hover || rating)
-                  ? "fill-amber-400 text-amber-400"
+                  ? "fill-white text-white"
                   : "text-stone-700"
               }`}
             />
@@ -145,7 +145,7 @@ export function ReviewDialog({
         rows={3}
         maxLength={1000}
         placeholder="Tell others about your experience (optional)"
-        className="w-full resize-none rounded-xl border border-white/8 bg-stone-950 px-3 py-2 text-sm text-stone-200 placeholder:text-stone-600 focus:border-amber-500/40 focus:outline-none"
+        className="w-full resize-none rounded-xl border border-white/8 bg-stone-950 px-3 py-2 text-sm text-stone-200 placeholder:text-stone-600 focus:border-white/40 focus:outline-none"
       />
 
       {error && (
@@ -158,7 +158,7 @@ export function ReviewDialog({
         <button
           type="submit"
           disabled={loading}
-          className="flex items-center gap-1.5 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-amber-400 disabled:opacity-60"
+          className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-white/90 disabled:opacity-60"
         >
           {loading && <Loader2 className="size-3.5 animate-spin" />}
           {loading ? "Submitting…" : isEdit ? "Save changes" : "Submit review"}
@@ -187,7 +187,7 @@ function StarRow({ value }: { value: number }) {
       {[1, 2, 3, 4, 5].map((i) => (
         <Star
           key={i}
-          className={`size-4 ${i <= value ? "fill-amber-400 text-amber-400" : "text-stone-700"}`}
+          className={`size-4 ${i <= value ? "fill-white text-white" : "text-stone-700"}`}
         />
       ))}
     </span>

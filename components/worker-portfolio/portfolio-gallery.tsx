@@ -111,7 +111,7 @@ export function PortfolioGallery({ items }: { items: GalleryItem[] }) {
                     </span>
                   )}
                   {!item.isApproved && (
-                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-amber-500/90 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur">
+                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-medium text-black backdrop-blur">
                       <Clock className="size-2.5" aria-hidden="true" />
                       Pending review
                     </span>
