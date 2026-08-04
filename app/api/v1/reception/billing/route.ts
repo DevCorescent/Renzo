@@ -1,34 +1,60 @@
+// ============================================================================
+// OWNER: Shalmon | MODULE: Reception Billing
+// ROUTE : /api/v1/reception/billing
+//
+// GET  — Invoice list for the desk, branch-scoped.
+// POST — Generate an invoice FROM AN APPOINTMENT.
+//
+// THREE BUGS FIXED HERE
+// ---------------------
+// 1. TENANCY (list): `?branchId=` from the client used to override the session,
+//    and a caller with no branch saw every branch. Both now come from
+//    requireBranchScope(), which ignores a client-supplied branchId for a scoped
+//    role — the precise pattern lib/branch-scope.ts exists to kill.
+// 2. TENANCY (create): any receptionist could invoice ANY branch's appointment.
+//    assertBillingAccess() settles branch and role together.
+// 3. TAX: the invoice copied `appointment.taxAmount`, which every booking path
+//    sets to 0 — so no invoice ever charged GST. Tax now comes from the branch's
+//    live BranchSetting at the moment the bill is raised.
+//
+// Blank (no-appointment) billing lives at ./blank; the direct product sale lives
+// at /api/v1/reception/sale. All three share lib/billing-service.ts.
+// ============================================================================
+
 import { NextRequest } from "next/server";
 import { created, err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { branchWhere, requireBranchScope } from "@/lib/branch-scope";
+import { writeAudit } from "@/lib/audit";
 import prisma from "@/lib/db";
 import { genCode } from "@/lib/codes";
 import type { InvoiceStatus, Prisma } from "@prisma/client";
+import {
+  appointmentBillableReason,
+  assertBillingAccess,
+  computeInvoiceTotals,
+  isTotalsError,
+  toInvoiceItemRows,
+  type InvoiceLine,
+} from "@/lib/billing-service";
 
-type NewItem = {
-  type: string;
-  refId: string;
-  name: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-};
+const MODULE = "BILLING";
+const ROLES = ["RECEPTIONIST", "BRANCH_ADMIN", "SUPER_ADMIN", "OWNER"] as const;
 
-// OWNER: Shalmon | MODULE: Reception Billing
-// GET /api/v1/reception/billing — Invoice list for the reception desk
-// Defaults to the logged-in staff member's branch; admins may pass ?branchId=
 export async function GET(req: NextRequest) {
-  const { user, error } = await requireAuth(req, "RECEPTIONIST", "BRANCH_ADMIN", "SUPER_ADMIN", "OWNER");
+  const { user, error } = await requireAuth(req, ...ROLES);
   if (error) return error;
 
+  const url = new URL(req.url);
+  const { scope, error: scopeError } = requireBranchScope(user, url);
+  if (scopeError) return scopeError;
+
   try {
-    const url = new URL(req.url);
     const { page, limit, skip, search } = parsePagination(url);
     const status = url.searchParams.get("status");
-    const branchId = url.searchParams.get("branchId") ?? user.branchId;
 
     const where: Prisma.InvoiceWhereInput = {
-      ...(branchId ? { branchId } : {}),
+      ...branchWhere(scope),
       ...(status ? { status: status as InvoiceStatus } : {}),
       ...(search ? { invoiceNo: { contains: search, mode: "insensitive" } } : {}),
     };
@@ -43,17 +69,20 @@ export async function GET(req: NextRequest) {
       }),
       prisma.invoice.count({ where }),
     ]);
+
     return paginated(items, total, page, limit);
   } catch {
     return err("Internal server error", 500);
   }
 }
 
-// POST /api/v1/reception/billing — Generate an invoice from an appointment
-// Body: { appointmentId, discountAmount?, notes? }
+// POST — Body: { appointmentId, discountAmount?, tipAmount?, roundOff?, notes? }
 export async function POST(req: NextRequest) {
-  const { user, error } = await requireAuth(req, "RECEPTIONIST", "BRANCH_ADMIN", "SUPER_ADMIN", "OWNER");
+  const { user, error } = await requireAuth(req, ...ROLES);
   if (error) return error;
+
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
 
   try {
     const body = await req.json().catch(() => null);
@@ -68,23 +97,30 @@ export async function POST(req: NextRequest) {
     const appointment = await prisma.appointment.findUnique({
       where: { id: appointmentId },
       include: {
-        invoice: true,
+        invoice: { select: { id: true } },
         services: { include: { service: { select: { name: true } } } },
         addOns: { include: { addOn: { select: { name: true } } } },
         packages: { include: { package: { select: { name: true } } } },
       },
     });
-
     if (!appointment) return err("Appointment not found", 404);
-    if (appointment.invoice) {
-      return err("An invoice already exists for this appointment", 409);
-    }
-    if (appointment.status === "CANCELLED") {
-      return err("Cannot bill a cancelled appointment", 409);
+
+    // Branch + role + the tax rate that applies, in one place.
+    const access = await assertBillingAccess({
+      userType: user.userType,
+      scope,
+      targetBranchId: appointment.branchId,
+    });
+    if (!access.ok) return err(access.message, access.status);
+    if (!access.caps.canBillAppointment) {
+      return err("Forbidden — your role cannot generate invoices", 403);
     }
 
-    // One invoice line per booked service / add-on / package.
-    const items: NewItem[] = [
+    const blocked = appointmentBillableReason(appointment.status, Boolean(appointment.invoice));
+    if (blocked) return err(blocked, 409);
+
+    // One line per booked service / add-on / package.
+    const lines: InvoiceLine[] = [
       ...appointment.services.map((s) => ({
         type: "SERVICE",
         refId: s.serviceId,
@@ -111,25 +147,23 @@ export async function POST(req: NextRequest) {
       })),
     ];
 
-    if (items.length === 0) {
-      return err("Appointment has no billable services", 422);
+    if (lines.length === 0) return err("Appointment has no billable services", 422);
+
+    const totals = computeInvoiceTotals({
+      lines,
+      // An explicit discount wins; otherwise whatever was agreed at booking.
+      discountAmount:
+        body.discountAmount != null ? Number(body.discountAmount) : appointment.discountAmount ?? 0,
+      taxPercent: access.taxPercent,
+      tipAmount: body.tipAmount != null ? Number(body.tipAmount) : 0,
+      roundOff: body.roundOff != null ? Number(body.roundOff) : 0,
+      // Anything already collected against the booking (an advance).
+      payments: appointment.paidAmount > 0 ? [{ amount: appointment.paidAmount }] : [],
+    });
+
+    if (isTotalsError(totals)) {
+      return err("Validation failed", 422, { [totals.field]: [totals.error] });
     }
-
-    // Prefer the booked line totals; tax carries over from the appointment.
-    const subtotal = items.reduce((sum, i) => sum + i.total, 0);
-    const taxAmount = appointment.taxAmount ?? 0;
-    const discountAmount =
-      body.discountAmount != null ? Number(body.discountAmount) : appointment.discountAmount ?? 0;
-
-    if (!Number.isFinite(discountAmount) || discountAmount < 0) {
-      return err("Validation failed", 422, { discountAmount: ["Must be a non-negative number"] });
-    }
-
-    const totalAmount = Math.max(0, subtotal + taxAmount - discountAmount);
-    const paidAmount = appointment.paidAmount ?? 0;
-    const balanceDue = Math.max(0, totalAmount - paidAmount);
-    const status: InvoiceStatus =
-      balanceDue <= 0 ? "PAID" : paidAmount > 0 ? "PARTIAL" : "UNPAID";
 
     const invoice = await prisma.invoice.create({
       data: {
@@ -137,27 +171,35 @@ export async function POST(req: NextRequest) {
         appointmentId: appointment.id,
         customerId: appointment.customerId,
         branchId: appointment.branchId,
-        subtotal,
-        taxAmount,
-        discountAmount,
-        totalAmount,
-        paidAmount,
-        balanceDue,
-        status,
+        subtotal: totals.subtotal,
+        taxAmount: totals.taxAmount,
+        discountAmount: totals.discountAmount,
+        totalAmount: totals.totalAmount,
+        paidAmount: totals.paidAmount,
+        balanceDue: totals.balanceDue,
+        status: totals.status,
         notes: typeof body.notes === "string" ? body.notes : null,
         generatedBy: user.userId,
-        items: {
-          create: items.map((i) => ({
-            type: i.type,
-            refId: i.refId,
-            name: i.name,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            total: i.total,
-          })),
-        },
+        items: { create: toInvoiceItemRows(lines, totals.tipAmount) },
       },
       include: { items: true },
+    });
+
+    await writeAudit(user, {
+      action: "CREATE",
+      module: MODULE,
+      refId: invoice.id,
+      refType: "Invoice",
+      newValue: {
+        invoiceNo: invoice.invoiceNo,
+        appointmentId: appointment.id,
+        branchId: appointment.branchId,
+        subtotal: totals.subtotal,
+        discountAmount: totals.discountAmount,
+        taxAmount: totals.taxAmount,
+        totalAmount: totals.totalAmount,
+        status: totals.status,
+      },
     });
 
     return created(invoice, "Invoice generated");

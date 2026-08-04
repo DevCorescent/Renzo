@@ -1,25 +1,32 @@
 import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope, branchWhere } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 import { parseDateRange } from "@/lib/reports";
 
 // OWNER: Shalmon | MODULE: Appointment Stats Report
 // GET /api/v1/admin/reports/appointments?branchId&from&to
+//
+// BRANCH SCOPE: ?branchId= narrows for a platform role and is IGNORED for a
+// branch admin, whose branch comes from their session. Reading it straight from
+// the query param let a branch admin omit it and total the whole business.
 export async function GET(req: NextRequest) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
 
+  const url = new URL(req.url);
+  const { scope, error: scopeError } = requireBranchScope(user, url);
+  if (scopeError) return scopeError;
+
   try {
-    const url = new URL(req.url);
     const { from, to } = parseDateRange(url);
-    const branchId = url.searchParams.get("branchId");
 
     const grouped = await prisma.appointment.groupBy({
       by: ["status"],
       where: {
         appointmentDate: { gte: from, lte: to },
-        ...(branchId ? { branchId } : {}),
+        ...branchWhere(scope),
       },
       _count: { _all: true },
       _sum: { totalAmount: true },

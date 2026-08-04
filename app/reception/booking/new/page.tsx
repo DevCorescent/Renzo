@@ -77,11 +77,14 @@ export default function ReceptionNewBookingPage() {
   }, []);
 
   // Slots for the picked worker + date, based on the first selected service.
+  //
+  // The "not ready yet" case is DERIVED below rather than cleared here:
+  // synchronously calling setState in an effect body triggers a second render
+  // pass with the stale grid still painted, which is what
+  // react-hooks/set-state-in-effect catches.
   useEffect(() => {
-    if (!branchId || !workerId || !date || selectedServices.length === 0) {
-      setSlotGrid([]);
-      return;
-    }
+    if (!branchId || !workerId || !date || selectedServices.length === 0) return;
+
     let cancelled = false;
     const q = new URLSearchParams({ branchId, serviceId: selectedServices[0], date, workerId });
     fetch(`${API.public.slots}?${q}`)
@@ -90,6 +93,10 @@ export default function ReceptionNewBookingPage() {
       .catch(() => { if (!cancelled) setSlotGrid([]); });
     return () => { cancelled = true; };
   }, [branchId, workerId, date, selectedServices]);
+
+  // Slots only mean anything once a worker, date and service are all chosen.
+  const slotsReady = Boolean(branchId && workerId && date && selectedServices.length > 0);
+  const visibleSlots = slotsReady ? slotGrid : [];
 
   function toggleService(id: string) {
     setSelectedServices((prev) =>
@@ -269,9 +276,9 @@ export default function ReceptionNewBookingPage() {
 
             <div className="mt-4">
               <span className="mb-1.5 block text-xs font-medium text-gray-600">Time *</span>
-              {workerId && slotGrid.length > 0 ? (
+              {workerId && visibleSlots.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {slotGrid.filter((s) => s.status !== "PAST").map((s) => {
+                  {visibleSlots.filter((s) => s.status !== "PAST").map((s) => {
                     const booked = s.status === "BOOKED";
                     return (
                       <button
@@ -300,7 +307,7 @@ export default function ReceptionNewBookingPage() {
                   className={`${inputCls} max-w-40`}
                 />
               )}
-              {workerId && slotGrid.length === 0 && selectedServices.length > 0 && (
+              {workerId && visibleSlots.length === 0 && selectedServices.length > 0 && (
                 <p className="mt-1.5 text-[11px] text-gray-400">
                   No live slots for this stylist/date — enter a time manually.
                 </p>

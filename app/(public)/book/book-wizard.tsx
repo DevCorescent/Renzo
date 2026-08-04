@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { API } from "@/lib/endpoints";
 import {
   MapPin,
@@ -30,6 +30,21 @@ import {
 } from "@/components/shared/google-login-button";
 
 /* ── shared types (exported for use in server page) ────────────────────────── */
+
+/** Exactly what POST /api/v1/public/appointments returns. */
+export type BookedAppointment = {
+  id: string;
+  appointmentNo: string;
+  status: string;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  totalAmount: number;
+  branch: { name: string; address: string | null; phone: string | null } | null;
+  worker: { firstName: string; lastName: string | null } | null;
+  services: { name: string; price: number }[];
+  customer: { firstName: string; lastName: string | null; phone: string | null };
+};
 
 export type PreloadedBranch = {
   id: string;
@@ -1595,7 +1610,6 @@ export function BookWizard({
   initialBranch: PreloadedBranch | null;
   initialService: PreloadedService | null;
 }) {
-  const router = useRouter();
 
   // Determine initial step based on what was pre-loaded server-side
   const initStep: Step =
@@ -1625,6 +1639,11 @@ export function BookWizard({
   // Inline phone-OTP: shown when confirming a booking while signed out, so the
   // customer authenticates without leaving the flow, then the booking completes.
   const [needsAuth, setNeedsAuth] = React.useState(false);
+  /** Guest details panel — shown when name/phone are still missing at confirm. */
+  const [needsDetails, setNeedsDetails] = React.useState(false);
+  const [custEmail, setCustEmail] = React.useState("");
+  /** Set once the booking succeeds; renders the confirmation in place. */
+  const [booked, setBooked] = React.useState<BookedAppointment | null>(null);
   const [authPhase, setAuthPhase] = React.useState<"phone" | "code">("phone");
   const [custName, setCustName] = React.useState("");
   const [phone, setPhone] = React.useState("");
@@ -1639,38 +1658,66 @@ export function BookWizard({
     setWorkerChosen(false);
   }
 
+  /**
+   * Book as a GUEST.
+   *
+   * Posts to /api/v1/public/appointments, which needs no account. This used to
+   * post to the CUSTOMER endpoint and treat its 401 as "show the login form",
+   * which meant every public booking ended at a sign-in wall — the bug this
+   * replaces. Sign-in is now genuinely optional, and offered AFTER the booking
+   * is safely made.
+   *
+   * A branch that sets `requireLoginToBook` still answers 401; only then does the
+   * wizard fall back to the inline sign-in it always had.
+   */
   async function handleConfirm() {
     if (!branch || services.length === 0 || !date || !slot) return;
-    const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
+
+    // Name and phone are what turn an anonymous visitor into a bookable
+    // customer; ask for them here rather than behind a login.
+    if (!custName.trim() || !phone.trim()) {
+      setNeedsDetails(true);
+      setConfirmError("Enter your name and mobile number to confirm.");
+      return;
+    }
+
     setConfirmLoading(true);
     setConfirmError(null);
     try {
-      const res = await fetch(API.customer.appointments, {
+      const res = await fetch(API.public.appointments, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           branchId: branch.id,
           // Omitted entirely when the customer picked "any stylist".
           ...(worker ? { workerId: worker.id } : {}),
-          services: services.map((s) => ({ serviceId: s.id })),
+          serviceIds: services.map((s) => s.id),
           appointmentDate: date,
           startTime: slot,
-          endTime: endTime(slot, totalDuration),
+          customerName: custName.trim(),
+          customerPhone: phone.trim(),
+          ...(custEmail.trim() ? { customerEmail: custEmail.trim() } : {}),
           notes: notes.trim() || undefined,
         }),
       });
-      const json = await res.json();
-      if (res.status === 401 || res.status === 403) {
-        // Signed out or using a non-customer session — authenticate inline via
-        // phone OTP, then retry this booking.
+      const json = await res.json().catch(() => null);
+
+      if (res.status === 401) {
+        // Only reachable when the branch explicitly requires an account.
         setNeedsAuth(true);
         setConfirmError(null);
         return;
       }
-      if (!res.ok)
-        throw new Error(json?.error ?? json?.message ?? "Booking failed");
-      router.push(`/customer/bookings/${json.data?.id ?? ""}`);
+      if (!res.ok || !json?.success) {
+        const fieldErrors = json?.errors
+          ? Object.values(json.errors as Record<string, string[]>).flat().join(" · ")
+          : "";
+        throw new Error(fieldErrors || json?.message || "Booking failed");
+      }
+
+      // Success is shown in place. Navigating to /customer/bookings would bounce
+      // a guest straight back to the login screen we just removed.
+      setBooked(json.data as BookedAppointment);
     } catch (e) {
       setConfirmError(
         e instanceof Error ? e.message : "Booking failed. Please try again.",
@@ -1906,7 +1953,82 @@ export function BookWizard({
           </>
         )}
 
-        {step === "confirm" && branch && services.length > 0 && date && slot && (
+        {/* ── Success. Rendered in place: sending a guest to /customer/* would
+            bounce them to the very login screen this flow removes. ── */}
+        {booked && (
+          <div className="mx-auto max-w-xl rounded-3xl border border-white/10 bg-stone-900 p-6 text-center">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+              <Check className="size-6" aria-hidden="true" />
+            </div>
+            <h2 className="mt-4 text-xl font-medium text-white">Appointment confirmed</h2>
+            <p className="mt-1 text-sm text-white/60">
+              Booking reference{" "}
+              <span className="font-mono text-white">{booked.appointmentNo}</span>
+            </p>
+
+            <dl className="mt-6 space-y-2 text-left text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-white/50">When</dt>
+                <dd className="text-white">
+                  {new Date(booked.appointmentDate).toLocaleDateString("en-IN", {
+                    weekday: "short",
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  })}{" "}
+                  · {booked.startTime}–{booked.endTime}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-white/50">Where</dt>
+                <dd className="text-right text-white">{booked.branch?.name ?? "—"}</dd>
+              </div>
+              {booked.worker && (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-white/50">Stylist</dt>
+                  <dd className="text-white">
+                    {booked.worker.firstName} {booked.worker.lastName ?? ""}
+                  </dd>
+                </div>
+              )}
+              <div className="flex justify-between gap-4">
+                <dt className="text-white/50">Services</dt>
+                <dd className="text-right text-white">
+                  {booked.services.map((s) => s.name).join(", ")}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4 border-t border-white/10 pt-2">
+                <dt className="text-white/50">Estimated total</dt>
+                <dd className="font-medium text-white">
+                  ₹{Number(booked.totalAmount).toLocaleString("en-IN")}
+                </dd>
+              </div>
+            </dl>
+
+            <p className="mt-5 text-xs text-white/40">
+              We&apos;ve saved this against {booked.customer.phone}. Show the reference at the
+              salon — no account needed.
+            </p>
+
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <Link
+                href="/"
+                className="rounded-xl border border-white/15 px-4 py-2 text-sm text-white/80 transition hover:bg-white/5"
+              >
+                Back to home
+              </Link>
+              <Link
+                href="/login"
+                className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-stone-900 transition hover:bg-white/90"
+              >
+                Create an account (optional)
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {!booked && step === "confirm" && branch && services.length > 0 && date && slot && (
           <>
             <button
               onClick={() => {
@@ -1931,6 +2053,71 @@ export function BookWizard({
                 loading={confirmLoading}
                 error={confirmError}
               />
+              {/* Guest details — the normal path. No account required. */}
+              {!needsAuth && (
+                <div className="sticky top-24 self-start rounded-3xl border border-white/10 bg-stone-900 p-5">
+                  <h3 className="text-sm font-medium text-white">Your details</h3>
+                  <p className="mt-1 text-xs text-white/50">
+                    No account needed — we only use this to confirm your appointment.
+                  </p>
+
+                  <label className="mt-4 block text-xs text-white/60" htmlFor="guest-name">
+                    Full name
+                  </label>
+                  <input
+                    id="guest-name"
+                    value={custName}
+                    onChange={(e) => setCustName(e.target.value)}
+                    placeholder="Priya Sharma"
+                    autoComplete="name"
+                    className="mt-1 h-11 w-full rounded-xl border border-white/10 bg-stone-950 px-3 text-sm text-white outline-none transition focus:border-white/30"
+                  />
+
+                  <label className="mt-3 block text-xs text-white/60" htmlFor="guest-phone">
+                    Mobile number
+                  </label>
+                  <input
+                    id="guest-phone"
+                    type="tel"
+                    inputMode="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="9876543210"
+                    autoComplete="tel"
+                    className="mt-1 h-11 w-full rounded-xl border border-white/10 bg-stone-950 px-3 text-sm text-white outline-none transition focus:border-white/30"
+                  />
+
+                  <label className="mt-3 block text-xs text-white/60" htmlFor="guest-email">
+                    Email <span className="text-white/30">(optional)</span>
+                  </label>
+                  <input
+                    id="guest-email"
+                    type="email"
+                    value={custEmail}
+                    onChange={(e) => setCustEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    className="mt-1 h-11 w-full rounded-xl border border-white/10 bg-stone-950 px-3 text-sm text-white outline-none transition focus:border-white/30"
+                  />
+
+                  {needsDetails && !custName.trim() && (
+                    <p className="mt-2 text-xs text-rose-300">Please enter your name.</p>
+                  )}
+                  {needsDetails && !phone.trim() && (
+                    <p className="mt-1 text-xs text-rose-300">Please enter your mobile number.</p>
+                  )}
+
+                  <p className="mt-4 border-t border-white/10 pt-3 text-xs text-white/40">
+                    Already have an account?{" "}
+                    <Link href="/login" className="text-white/70 underline">
+                      Sign in
+                    </Link>{" "}
+                    to see all your bookings — entirely optional.
+                  </p>
+                </div>
+              )}
+
+              {/* Only reachable when the branch explicitly requires an account. */}
               {needsAuth && (
                 <div className="sticky top-24 self-start rounded-3xl border border-white/10 bg-stone-900 p-5">
                   <InlineAuth

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope, type BranchScope } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 
 type TimingInput = {
@@ -11,14 +12,33 @@ type TimingInput = {
   slotDuration?: number;
 };
 
+// The branch id is in the PATH, so it is entirely caller-controlled. Without
+// this, a branch admin could rewrite ANOTHER branch's opening hours — which
+// silently breaks that branch's bookable slots for every customer.
+//
+// 404 rather than 403, matching branch settings: an out-of-scope branch must not
+// be distinguishable from one that does not exist.
+function denyOtherBranch(scope: BranchScope, branchId: string) {
+  return !scope.isGlobal && branchId !== scope.branchId
+    ? err("Branch not found", 404)
+    : null;
+}
+
 // OWNER: Aman | MODULE: Branch Timings
 // GET /api/v1/admin/branches/[id]/timings — Get all 7-day timings for a branch
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
+
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
 
   try {
     const { id } = await params;
+
+    const denied = denyOtherBranch(scope, id);
+    if (denied) return denied;
+
     const timings = await prisma.branchTiming.findMany({
       where: { branchId: id },
       orderBy: { dayOfWeek: "asc" },
@@ -31,11 +51,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 // PUT /api/v1/admin/branches/[id]/timings — Bulk upsert day timings
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
+
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
 
   try {
     const { id } = await params;
+
+    const denied = denyOtherBranch(scope, id);
+    if (denied) return denied;
+
     const body = await req.json();
 
     const days: TimingInput[] = Array.isArray(body) ? body : body.timings;

@@ -1,25 +1,32 @@
 import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope, branchWhere } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 import { parseDateRange } from "@/lib/reports";
 import type { Prisma } from "@prisma/client";
 
 // OWNER: Shalmon | MODULE: Inventory Report
 // GET /api/v1/admin/reports/inventory?branchId&from&to
+//
+// BRANCH SCOPE: stock, movements and purchase orders all carry a branchId, so
+// all three narrow together. A branch admin previously saw every branch's stock
+// levels and purchase spend simply by omitting the parameter.
 export async function GET(req: NextRequest) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "INVENTORY_MANAGER", "BRANCH_ADMIN");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "INVENTORY_MANAGER", "BRANCH_ADMIN");
   if (error) return error;
 
-  try {
-    const url = new URL(req.url);
-    const { from, to } = parseDateRange(url);
-    const branchId = url.searchParams.get("branchId");
+  const url = new URL(req.url);
+  const { scope, error: scopeError } = requireBranchScope(user, url);
+  if (scopeError) return scopeError;
 
-    const stockWhere: Prisma.StockWhereInput = branchId ? { branchId } : {};
+  try {
+    const { from, to } = parseDateRange(url);
+
+    const stockWhere: Prisma.StockWhereInput = branchWhere(scope);
     const movementWhere: Prisma.StockMovementWhereInput = {
       createdAt: { gte: from, lte: to },
-      ...(branchId ? { branchId } : {}),
+      ...branchWhere(scope),
     };
 
     const [stocks, movements, purchaseAgg] = await Promise.all([
@@ -41,7 +48,7 @@ export async function GET(req: NextRequest) {
         where: {
           createdAt: { gte: from, lte: to },
           status: { in: ["RECEIVED", "PARTIAL"] },
-          ...(branchId ? { branchId } : {}),
+          ...branchWhere(scope),
         },
       }),
     ]);

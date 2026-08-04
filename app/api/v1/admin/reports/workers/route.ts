@@ -1,25 +1,32 @@
 import { NextRequest } from "next/server";
 import { err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope, branchWhere } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 import { parseDateRange } from "@/lib/reports";
 
 // OWNER: Shalmon | MODULE: Worker Performance Report
 // GET /api/v1/admin/reports/workers?branchId&from&to
+//
+// BRANCH SCOPE: the appointments are filtered by branch, so a branch admin sees
+// each stylist's numbers AT THEIR BRANCH — not that person's business-wide
+// takings, which is another branch's commercial data.
 export async function GET(req: NextRequest) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
 
+  const url = new URL(req.url);
+  const { scope, error: scopeError } = requireBranchScope(user, url);
+  if (scopeError) return scopeError;
+
   try {
-    const url = new URL(req.url);
     const { page, limit, skip } = parsePagination(url);
     const { from, to } = parseDateRange(url);
-    const branchId = url.searchParams.get("branchId");
 
     const baseWhere = {
       appointmentDate: { gte: from, lte: to },
       workerId: { not: null },
-      ...(branchId ? { branchId } : {}),
+      ...branchWhere(scope),
     };
 
     const [grouped, completedGrouped] = await Promise.all([

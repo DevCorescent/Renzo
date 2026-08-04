@@ -6,7 +6,7 @@ import { ArrowUpRight } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PILL_SOLID, GLASS } from "./home-ui";
+import { PILL_SOLID } from "./home-ui";
 import { MotionReveal } from "./motion";
 import { useInView } from "@/lib/hooks/use-in-view";
 import { useCountUp } from "@/lib/hooks/use-count-up";

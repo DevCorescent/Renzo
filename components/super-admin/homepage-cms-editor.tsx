@@ -432,7 +432,7 @@ export function HomepageCmsEditor({
                     key={section.id}
                     className={cn(
                       "rounded border border-gray-200 dark:border-(--sa-border)",
-                      !section.enabled && "bg-gray-50/60 dark:bg-white/[0.02]"
+                      !section.enabled && "bg-gray-50/60 dark:bg-white/2"
                     )}
                   >
                     <div className="flex flex-wrap items-center gap-2 p-3">

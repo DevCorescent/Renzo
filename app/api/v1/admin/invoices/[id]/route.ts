@@ -1,13 +1,26 @@
 import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope, type BranchScope } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 
 // OWNER: Shalmon | MODULE: Invoices
+//
+// BRANCH SCOPE: an invoice id is guessable-adjacent — it appears in URLs, PDFs
+// and support tickets — so knowing one must not be enough to read it. Both
+// methods answer 404 (never 403) for another branch's invoice: a 403 would
+// confirm the id exists, turning this into an existence oracle.
+function outOfScope(scope: BranchScope, branchId: string): boolean {
+  return !scope.isGlobal && branchId !== scope.branchId;
+}
+
 // GET /api/v1/admin/invoices/[id] — Invoice detail with items, payments, refunds
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN", "ACCOUNTANT");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN", "ACCOUNTANT");
   if (error) return error;
+
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
 
   try {
     const { id } = await params;
@@ -15,7 +28,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       where: { id },
       include: { items: true, payments: true, refunds: true },
     });
-    if (!invoice) return err("Invoice not found", 404);
+    if (!invoice || outOfScope(scope, invoice.branchId)) return err("Invoice not found", 404);
     return ok(invoice);
   } catch {
     return err("Internal server error", 500);
@@ -24,8 +37,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 // PATCH /api/v1/admin/invoices/[id] — Update status / notes
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN", "ACCOUNTANT");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN", "ACCOUNTANT");
   if (error) return error;
+
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
 
   try {
     const { id } = await params;
@@ -33,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!body || typeof body !== "object") return err("Invalid JSON body", 400);
 
     const existing = await prisma.invoice.findUnique({ where: { id } });
-    if (!existing) return err("Invoice not found", 404);
+    if (!existing || outOfScope(scope, existing.branchId)) return err("Invoice not found", 404);
 
     const data: { status?: string; notes?: string } = {};
     if (typeof body.status === "string") data.status = body.status;

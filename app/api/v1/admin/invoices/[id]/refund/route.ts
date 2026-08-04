@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { created, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 import type { PaymentMethod } from "@prisma/client";
 
@@ -10,9 +11,16 @@ const METHODS: PaymentMethod[] = [
 
 // OWNER: Shalmon | MODULE: Refunds
 // POST /api/v1/admin/invoices/[id]/refund — Issue a refund and adjust the invoice
+//
+// BRANCH SCOPE: a refund moves real money out. Without the branch check below, a
+// branch admin holding any invoice id could refund another branch's takings —
+// the most damaging thing an authenticated user could do here.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
+
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
 
   try {
     const { id } = await params;
@@ -29,7 +37,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (Object.keys(errors).length) return err("Validation failed", 422, errors);
 
     const invoice = await prisma.invoice.findUnique({ where: { id } });
-    if (!invoice) return err("Invoice not found", 404);
+    // 404 for another branch's invoice — never 403, which would confirm the id.
+    if (!invoice || (!scope.isGlobal && invoice.branchId !== scope.branchId)) {
+      return err("Invoice not found", 404);
+    }
     if (amount > invoice.paidAmount) {
       return err("Refund exceeds the paid amount", 422, {
         amount: [`Cannot refund more than paid (${invoice.paidAmount})`],

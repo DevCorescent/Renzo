@@ -1,7 +1,7 @@
 import prisma from "@/lib/db";
 import { getServerUser } from "@/lib/server-session";
 import { redirect } from "next/navigation";
-import { Badge, Card, CardHeader, CardTitle } from "@/components/shared/ui";
+import { Badge, Card, CardHeader } from "@/components/shared/ui";
 
 // OWNER: Hemant | MODULE: CMS — FAQs
 

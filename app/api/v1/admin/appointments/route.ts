@@ -6,6 +6,7 @@ import {
 } from "@prisma/client";
 import { err, paginated, created } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope, branchWhere } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 
 // ============================================================================
@@ -28,22 +29,12 @@ function optionalTrimmedString(value: unknown): string | undefined {
     : undefined;
 }
 
-function parseFiniteNumber(value: unknown): number | null {
-  if (value === undefined || value === null || value === "") {
-    return null;
-  }
-
-  const number = Number(value);
-
-  return Number.isFinite(number) ? number : NaN;
-}
-
 /* ============================================================================
    GET /api/v1/admin/appointments
 ============================================================================ */
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireAuth(
+  const { user, error } = await requireAuth(
     req,
     "SUPER_ADMIN",
     "OWNER",
@@ -52,9 +43,15 @@ export async function GET(req: NextRequest) {
 
   if (error) return error;
 
-  try {
-    const url = new URL(req.url);
+  const url = new URL(req.url);
 
+  // Branch comes from the SESSION for a branch admin. Read from the query param,
+  // it let them omit it and list every branch's appointments — customer names,
+  // stylists and amounts for the whole business.
+  const { scope, error: scopeError } = requireBranchScope(user, url);
+  if (scopeError) return scopeError;
+
+  try {
     const page = Math.max(
       Number(url.searchParams.get("page") ?? "1"),
       1
@@ -77,16 +74,13 @@ export async function GET(req: NextRequest) {
     const paymentStatus =
       url.searchParams.get("paymentStatus");
 
-    const branchId =
-      url.searchParams.get("branchId");
-
     const workerId =
       url.searchParams.get("workerId");
 
     const appointmentDate =
       url.searchParams.get("appointmentDate");
 
-    const where: Prisma.AppointmentWhereInput = {};
+    const where: Prisma.AppointmentWhereInput = { ...branchWhere(scope) };
 
     // ------------------------------------------------------------------------
     // Search
@@ -130,10 +124,6 @@ export async function GET(req: NextRequest) {
     if (paymentStatus) {
       where.paymentStatus =
         paymentStatus as PaymentStatus;
-    }
-
-    if (branchId) {
-      where.branchId = branchId;
     }
 
     if (workerId) {

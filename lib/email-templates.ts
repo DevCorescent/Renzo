@@ -292,7 +292,7 @@ export function invoiceEmail(data: InvoiceEmailData): { subject: string; html: s
 
   const itemRows = data.items
     .map(
-      (item, i) => `
+      (item, _i) => `
       <tr>
         <td style="padding:11px 0;font-size:13px;color:#3F3F46;border-bottom:1px solid #F0F0F0;">${item.label}</td>
         <td style="padding:11px 0;font-size:13px;color:#18181B;font-weight:500;text-align:right;border-bottom:1px solid #F0F0F0;">${inr(item.amount)}</td>

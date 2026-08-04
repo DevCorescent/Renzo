@@ -37,6 +37,8 @@ export const API = {
     slots:        `${BASE}/public/slots`,
     offers:       `${BASE}/public/offers`,
     contact:      `${BASE}/public/contact`,
+    // Guest booking — no account, no OTP (Gauransh)
+    appointments: `${BASE}/public/appointments`,
   },
 
   // ── Customer portal (Gauransh + Shalmon) ──────────────────────────────────
@@ -91,6 +93,10 @@ export const API = {
     payment:      (id: string) => `${BASE}/reception/billing/${id}/payment`,
     applyCoupon:  (id: string) => `${BASE}/reception/billing/${id}/coupon`,
     applyGiftCard: (id: string) => `${BASE}/reception/billing/${id}/gift-card`,
+    attendance:   `${BASE}/reception/attendance`,
+    customers:    `${BASE}/reception/customers`,
+    // Direct sale — products/services with no appointment (Gauransh)
+    sale:         `${BASE}/reception/sale`,
   },
 
   // ── Admin — Branches & Workers (Aman) ─────────────────────────────────────
@@ -206,6 +212,35 @@ export const API = {
     workerReport:     `${BASE}/admin/reports/workers`,
     inventoryReport:  `${BASE}/admin/reports/inventory`,
     appointmentReport:`${BASE}/admin/reports/appointments`,
+
+    // Attendance (Gauransh)
+    attendance:       `${BASE}/admin/attendance`,
+    attendanceSummary:`${BASE}/admin/attendance/summary`,
+    attendanceCalendar:`${BASE}/admin/attendance/calendar`,
+    attendanceReport: `${BASE}/admin/attendance/report`,
+    attendanceExport: `${BASE}/admin/attendance/export`,
+    attendanceBulk:   `${BASE}/admin/attendance/bulk`,
+    // Per-shift URLs are derived client-side as `${shifts}/${id}`: a function
+    // endpoint cannot be handed to a client component as a prop.
+    shifts:           `${BASE}/admin/shifts`,
+
+    // Customers — manual / walk-in entry (Gauransh)
+    customers:        `${BASE}/admin/customers`,
+    customerSearch:   `${BASE}/admin/customers/search`,
+    customerExport:   `${BASE}/admin/customers/export`,
+    customerImport:   `${BASE}/admin/customers/import`,
+
+    // Manual Operations (Gauransh). `products` and `membershipPlans` already
+    // exist above and are reused as-is.
+    expenses:         `${BASE}/admin/expenses`,
+    expense:          (id: string) => `${BASE}/admin/expenses/${id}`,
+    loyaltyAdjust:    `${BASE}/admin/loyalty/adjust`,
+    membershipSell:   `${BASE}/admin/memberships/sell`,
+    operationsSearch: `${BASE}/admin/operations/search`,
+  },
+
+  branchAdmin: {
+    attendance: `${BASE}/branch-admin/attendance`,
   },
 
   // ── AI (Groq) ──────────────────────────────────────────────────────────────

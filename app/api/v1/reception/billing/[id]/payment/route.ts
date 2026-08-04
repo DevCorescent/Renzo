@@ -138,6 +138,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         description: `Earned on invoice ${invoice.invoiceNo}`,
       });
 
+      // 6. Keep the customer's lifetime figures true.
+      //
+      // This used to be missing here while the counter-sale paths did it, so a
+      // customer's totalSpend counted retail but NOT the appointment revenue that
+      // is most of the business — every "top customers" figure was wrong.
+      // A VISIT is counted once, when an appointment's invoice is fully settled;
+      // a part payment moves spend but does not add a second visit.
+      await tx.customer.update({
+        where: { id: invoice.customerId },
+        data: {
+          totalSpend: { increment: amount },
+          ...(fullyPaid && invoice.appointmentId ? { totalVisits: { increment: 1 } } : {}),
+        },
+      });
+
       return {
         payment,
         invoice: updatedInvoice,

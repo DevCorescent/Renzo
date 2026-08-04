@@ -1,19 +1,28 @@
 import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 import { recomputeRatingSummary } from "@/lib/ratings";
 
 // OWNER: Shalmon | MODULE: Reviews — Approve
 // POST /api/v1/admin/reviews/[id]/approve
+//
+// BRANCH SCOPE: approving publishes a review and rewrites the star averages it
+// feeds. Another branch's reputation is not this branch's to publish.
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
 
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
+
   try {
     const { id } = await params;
     const review = await prisma.review.findUnique({ where: { id } });
-    if (!review) return err("Review not found", 404);
+    if (!review || (!scope.isGlobal && review.branchId !== scope.branchId)) {
+      return err("Review not found", 404);
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       const r = await tx.review.update({

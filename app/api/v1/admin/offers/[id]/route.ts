@@ -1,18 +1,31 @@
 import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 
 // OWNER: Shalmon | MODULE: Offers
 // GET /api/v1/admin/offers/[id]
+//
+// BRANCH SCOPE: a null branchId means the offer runs business-wide, so a branch
+// admin legitimately sees those alongside their own. Only another BRANCH'S offer
+// is withheld.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "MARKETING_MANAGER", "BRANCH_ADMIN");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "MARKETING_MANAGER", "BRANCH_ADMIN");
   if (error) return error;
+
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
 
   try {
     const { id } = await params;
     const offer = await prisma.offer.findUnique({ where: { id } });
-    if (!offer) return err("Offer not found", 404);
+    if (
+      !offer ||
+      (!scope.isGlobal && offer.branchId !== null && offer.branchId !== scope.branchId)
+    ) {
+      return err("Offer not found", 404);
+    }
     return ok(offer);
   } catch {
     return err("Internal server error", 500);
