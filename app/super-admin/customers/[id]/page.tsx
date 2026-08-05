@@ -2,6 +2,7 @@ import prisma from "@/lib/db";
 import { getServerUser } from "@/lib/server-session";
 import { redirect, notFound } from "next/navigation";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { ActivatePremiumButton } from "@/components/customers/activate-premium-button";
 
 // OWNER: Hemant | MODULE: Super Admin — Customer Detail
 
@@ -13,38 +14,72 @@ const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" |
 
 export default async function SuperAdminCustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const authUser = await getServerUser();
-  if (authUser?.userType !== "SUPER_ADMIN") redirect("/login");
+  if (authUser?.userType !== "SUPER_ADMIN") redirect("/staff/login");
   const { id } = await params;
 
-  const customer = await prisma.customer.findUnique({
-    where: { id },
-    include: {
-      wallet: { include: { transactions: { orderBy: { createdAt: "desc" }, take: 10 } } },
-      loyaltyAccount: { include: { transactions: { orderBy: { createdAt: "desc" }, take: 10 } } },
-      appointments: {
-        orderBy: { appointmentDate: "desc" },
-        take: 20,
-        include: {
-          branch: { select: { name: true } },
-          services: { include: { service: { select: { name: true } } } },
+  const [customer, plans, branches] = await Promise.all([
+    prisma.customer.findUnique({
+      where: { id },
+      include: {
+        wallet: { include: { transactions: { orderBy: { createdAt: "desc" }, take: 10 } } },
+        loyaltyAccount: { include: { transactions: { orderBy: { createdAt: "desc" }, take: 10 } } },
+        appointments: {
+          orderBy: { appointmentDate: "desc" },
+          take: 20,
+          include: {
+            branch: { select: { name: true } },
+            services: { include: { service: { select: { name: true } } } },
+          },
+        },
+        memberships: {
+          include: { plan: { select: { name: true, tier: true } } },
+          orderBy: { purchasedAt: "desc" },
         },
       },
-      memberships: {
-        include: { plan: { select: { name: true, tier: true } } },
-        orderBy: { purchasedAt: "desc" },
+    }),
+    prisma.membershipPlan.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        tier: true,
+        price: true,
+        validityDays: true,
+        walletCredit: true,
       },
-    },
-  });
+    }),
+    prisma.branch.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   if (!customer) notFound();
 
+  const now = new Date();
+  const activeMembership = customer.memberships.find(
+    (m) => m.status === "ACTIVE" && m.endDate >= now
+  );
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">{customer.firstName} {customer.lastName}</h1>
-        <p className="mt-0.5 text-sm text-gray-500">
-          {customer.phone} {customer.email ? `· ${customer.email}` : ""}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">{customer.firstName} {customer.lastName}</h1>
+          <p className="mt-0.5 text-sm text-gray-500">
+            {customer.phone} {customer.email ? `· ${customer.email}` : ""}
+          </p>
+        </div>
+        <ActivatePremiumButton
+          customerId={customer.id}
+          defaultBranchId={customer.branchId}
+          hasActiveMembership={Boolean(activeMembership)}
+          activePlanName={activeMembership?.plan.name ?? null}
+          plans={plans}
+          branches={branches}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-4">
@@ -88,25 +123,34 @@ export default async function SuperAdminCustomerDetailPage({ params }: { params:
         </Table>
       </Card>
 
-      {customer.memberships.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle>Memberships</CardTitle></CardHeader>
-          <Table>
-            <THead><tr><TH>Plan</TH><TH>Tier</TH><TH>Start</TH><TH>End</TH><TH>Status</TH></tr></THead>
-            <tbody>
-              {customer.memberships.map((m) => (
-                <TR key={m.id}>
-                  <TD className="font-medium text-gray-900">{m.plan.name}</TD>
-                  <TD className="text-gray-500">{m.plan.tier}</TD>
-                  <TD className="font-mono text-xs text-gray-500">{new Date(m.startDate).toLocaleDateString("en-IN")}</TD>
-                  <TD className="font-mono text-xs text-gray-500">{new Date(m.endDate).toLocaleDateString("en-IN")}</TD>
-                  <TD><Badge tone={m.status === "ACTIVE" ? "success" : m.status === "EXPIRED" ? "neutral" : "danger"}>{m.status}</Badge></TD>
-                </TR>
-              ))}
-            </tbody>
-          </Table>
-        </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle>Memberships ({customer.memberships.length})</CardTitle>
+          </div>
+        </CardHeader>
+        <Table>
+          <THead><tr><TH>Plan</TH><TH>Tier</TH><TH>Start</TH><TH>End</TH><TH>Status</TH></tr></THead>
+          <tbody>
+            {customer.memberships.map((m) => (
+              <TR key={m.id}>
+                <TD className="font-medium text-gray-900">{m.plan.name}</TD>
+                <TD className="text-gray-500">{m.plan.tier}</TD>
+                <TD className="font-mono text-xs text-gray-500">{new Date(m.startDate).toLocaleDateString("en-IN")}</TD>
+                <TD className="font-mono text-xs text-gray-500">{new Date(m.endDate).toLocaleDateString("en-IN")}</TD>
+                <TD><Badge tone={m.status === "ACTIVE" ? "success" : m.status === "EXPIRED" ? "neutral" : "danger"}>{m.status}</Badge></TD>
+              </TR>
+            ))}
+            {customer.memberships.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-400">
+                  No memberships yet. Use Activate Premium above to grant one.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </Table>
+      </Card>
     </div>
   );
 }

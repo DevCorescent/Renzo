@@ -214,16 +214,15 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      if (paidAmount > 0) {
-        await tx.customer.update({
-          where: { id: customer.id },
-          data: {
-            totalSpend: { increment: paidAmount },
-            // A member is no longer merely a walk-in.
-            customerType: "MEMBERSHIP",
-          },
-        });
-      }
+      // Always mark them as a member once a live plan is attached — paid or
+      // complimentary (super-admin grant with priceOverride 0).
+      await tx.customer.update({
+        where: { id: customer.id },
+        data: {
+          customerType: "MEMBERSHIP",
+          ...(paidAmount > 0 ? { totalSpend: { increment: paidAmount } } : {}),
+        },
+      });
 
       return { invoice, membership };
     });
