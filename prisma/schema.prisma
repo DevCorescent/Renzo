@@ -54,6 +54,42 @@ enum BookingSource {
   WHATSAPP
 }
 
+/// What a branch spent money on. Deliberately coarse — this is a front-desk
+/// petty-cash record, not a chart of accounts.
+enum ExpenseCategory {
+  ELECTRICITY
+  RENT
+  CLEANING
+  PANTRY
+  MAINTENANCE
+  MARKETING
+  SUPPLIES
+  TRANSPORT
+  MISCELLANEOUS
+}
+
+/// How a customer relates to the salon. Distinct from BookingSource, which
+/// describes a single appointment rather than the person.
+enum CustomerType {
+  WALK_IN
+  RETURNING
+  VIP
+  MEMBERSHIP
+}
+
+/// Where the customer came from. Recorded once, at first entry.
+enum CustomerSource {
+  WALK_IN
+  REFERENCE
+  INSTAGRAM
+  FACEBOOK
+  GOOGLE
+  WEBSITE
+  WHATSAPP
+  PHONE_CALL
+  OTHER
+}
+
 enum PaymentStatus {
   PENDING
   PARTIAL
@@ -92,6 +128,8 @@ enum AttendanceStatus {
   HALF_DAY
   LATE
   ON_LEAVE
+  HOLIDAY
+  WEEK_OFF
 }
 
 enum LeaveStatus {
@@ -353,6 +391,8 @@ model Branch {
   stockTransfersTo   StockTransfer[] @relation("TransferTo")
   workerShifts     WorkerShift[]
   attendances      Attendance[]
+  customers        Customer[]
+  expenses         Expense[]
   payrolls         Payroll[]
   performanceTargets PerformanceTarget[]
   campaigns        Campaign[]
@@ -408,12 +448,21 @@ model BranchSetting {
   rescheduleHours        Int     @default(24)
   autoConfirmBookings    Boolean @default(true)
   requireDepositPercent  Float   @default(0)
+  /// When false (the default), the public site books GUESTS — no account, no OTP.
+  /// A branch that genuinely needs sign-in flips this on; nothing else forces it.
+  requireLoginToBook     Boolean @default(false)
+  /// May the front desk raise an invoice with no appointment behind it?
+  /// Branch Admin can always do it; this opens the same power to RECEPTIONIST.
+  allowReceptionBlankBill Boolean @default(false)
   loyaltyEnabled         Boolean @default(true)
   membershipEnabled      Boolean @default(true)
   onlinePaymentEnabled   Boolean @default(true)
   offlinePaymentEnabled  Boolean @default(true)
   invoicePrefix          String  @default("INV")
   receiptPrefix          String  @default("RCP")
+  /// Paper the branch's till actually prints on: A4 | THERMAL_80 | THERMAL_58.
+  /// A string, not an enum, so a branch can be re-papered without a migration.
+  printFormat            String  @default("A4")
 
   branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
@@ -678,6 +727,7 @@ model WorkerProfile {
   payrolls         Payroll[]
   performanceTargets PerformanceTarget[]
   appointments     Appointment[]
+  assistingOn      Appointment[]        @relation("AppointmentAssistant")
   appointmentServices AppointmentService[]
   rescheduleRequests RescheduleRequest[]
   reviews          Review[]
@@ -772,17 +822,20 @@ model WorkerAvailability {
 // ─────────────────────────────────────────────────────────────
 
 model Shift {
-  id          String   @id @default(cuid())
-  name        String
-  startTime   String   // "09:00"
-  endTime     String   // "18:00"
-  breakStart  String?
-  breakEnd    String?
-  workingDays Int[]    // [1,2,3,4,5] Mon–Fri
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id           String   @id @default(cuid())
+  name         String
+  startTime    String   // "09:00"
+  endTime      String   // "18:00"
+  breakStart   String?
+  breakEnd     String?
+  workingDays  Int[]    // [1,2,3,4,5] Mon–Fri
+  graceMinutes Int      @default(10) // minutes past startTime before a check-in counts as LATE
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
 
   workerShifts WorkerShift[]
+  attendances  Attendance[]
 
   @@map("shifts")
 }
@@ -806,27 +859,97 @@ model WorkerShift {
 }
 
 model Attendance {
-  id              String           @id @default(cuid())
-  workerId        String
-  branchId        String
-  date            DateTime         @db.Date
-  checkIn         DateTime?
-  checkOut        DateTime?
-  breakStart      DateTime?
-  breakEnd        DateTime?
-  status          AttendanceStatus @default(PRESENT)
-  lateMinutes     Int              @default(0)
-  overtimeMinutes Int              @default(0)
-  workingMinutes  Int              @default(0)
-  notes           String?
-  markedBy        String?
+  id       String   @id @default(cuid())
+  workerId String
+  branchId String
+  date     DateTime @db.Date
+  // The shift this day was measured against, captured at write time so a later
+  // roster change cannot retroactively rewrite what "late" meant on a past day.
+  shiftId  String?
+
+  checkIn    DateTime?
+  checkOut   DateTime?
+  breakStart DateTime?
+  breakEnd   DateTime?
+
+  status AttendanceStatus @default(PRESENT)
+
+  // Derived by lib/attendance.ts — never written by hand.
+  lateMinutes          Int @default(0)
+  overtimeMinutes      Int @default(0)
+  workingMinutes       Int @default(0)
+  breakMinutes         Int @default(0)
+  earlyArrivalMinutes  Int @default(0)
+  earlyLeaveMinutes    Int @default(0)
+
+  /// Overtime counts toward payroll only once a platform admin approves it.
+  overtimeApproved Boolean @default(false)
+  /// Locked rows are payroll-frozen: only SUPER_ADMIN/OWNER may still change them.
+  isLocked         Boolean @default(false)
+
+  // ── MANUAL ENTRY ──────────────────────────────────────────────────────────
+  // A row is manual when a human authored it rather than a clock action. Kept as
+  // a flag on the SAME row (not a parallel table) so every existing report, export
+  // and aggregate keeps working and manual/automatic remain directly comparable.
+  isManual        Boolean   @default(false)
+  manualReason    String?
+  manualCreatedBy String? // userId of the author, kept even if markedBy is later reassigned
+  manualCreatedAt DateTime?
+  approvedBy      String? // userId; null = pending approval
+  approvedAt      DateTime?
+
+  // Supervisor corrections to the derived figures. NULL means "trust the engine".
+  // The effective values still live in lateMinutes/overtimeMinutes above, so
+  // nothing downstream needs to know an override happened — only the audit does.
+  lateOverrideMinutes     Int?
+  overtimeOverrideMinutes Int?
+
+  notes    String?
+  markedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   worker WorkerProfile @relation(fields: [workerId], references: [id])
   branch Branch        @relation(fields: [branchId], references: [id])
+  shift  Shift?        @relation(fields: [shiftId], references: [id])
 
   @@unique([workerId, date])
   @@index([branchId, date])
+  @@index([date])
+  @@index([shiftId])
+  @@index([isManual])
   @@map("attendances")
+}
+
+/// A branch's operating cost, entered by hand at the front desk.
+///
+/// The ONE genuinely new model in the manual-operations module: every other
+/// manual action (billing, payments, memberships, gift cards, inventory, loyalty)
+/// writes through a model that already exists. Expenses had no home at all.
+model Expense {
+  id          String          @id @default(cuid())
+  branchId    String
+  category    ExpenseCategory
+  amount      Float
+  /// The date the money was actually spent, which is not always today.
+  expenseDate DateTime        @db.Date
+  description String
+  /// Reuses the existing PaymentMethod enum rather than inventing a parallel one.
+  paidVia     PaymentMethod   @default(CASH)
+  vendor      String?
+  referenceNo String? // bill / receipt number
+  notes       String?
+
+  createdBy String // userId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@index([branchId, expenseDate])
+  @@index([category])
+  @@map("expenses")
 }
 
 model LeaveType {
@@ -983,7 +1106,34 @@ model Customer {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  // ── WALK-IN / FRONT-DESK ENTRY ────────────────────────────────────────────
+  // The salon takes walk-ins, so a customer may exist with nothing but a name and
+  // a phone. These columns are all optional for exactly that reason — a receptionist
+  // must never be blocked from booking someone because a postcode is missing.
+  alternatePhone String?
+  address        String?
+  city           String?
+  state          String?
+  pincode        String?
+
+  /// The branch that first entered this customer. Null for self-registered
+  /// customers, who belong to the salon rather than to any one location.
+  branchId     String?
+  customerType CustomerType   @default(WALK_IN)
+  entrySource  CustomerSource @default(WALK_IN)
+
+  /// True when a staff member keyed this customer in rather than the customer
+  /// self-registering. Drives the "Manual" badge and the manual-entry reports.
+  isManualEntry Boolean @default(false)
+  createdBy     String? // userId of the staff member who entered them
+
+  /// Soft delete only — transactional history (invoices, appointments) must
+  /// survive a customer being removed from the active list.
+  deletedAt DateTime?
+  deletedBy String?
+
   user           User                    @relation(fields: [userId], references: [id])
+  branch         Branch?                 @relation(fields: [branchId], references: [id])
   beautyProfile  CustomerBeautyProfile?
   notes          CustomerNote[]
   tagAssignments CustomerTagAssignment[]
@@ -1002,6 +1152,9 @@ model Customer {
   @@index([phone])
   @@index([email])
   @@index([referralCode])
+  @@index([branchId])
+  @@index([isManualEntry])
+  @@index([deletedAt])
   @@map("customers")
 }
 
@@ -1131,12 +1284,23 @@ model Appointment {
   isGroupBooking   Boolean           @default(false)
   reminderSent     Boolean           @default(false)
   reviewRequested  Boolean           @default(false)
+
+  /// Which room / cabin the service runs in. Free text for the same reason
+  /// `chairCabinNo` is: salons label these "Room 2", "VIP", "Spa 1" — an entity
+  /// table would force every branch onto one naming scheme they do not share.
+  roomNo             String?
+  /// A second stylist assisting on the same booking (hair wash, colour prep).
+  /// Deliberately NOT a second `workerId`: the assistant does not own the slot
+  /// and must not block their own calendar the way the lead stylist does.
+  assistantWorkerId  String?
+
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
   customer            Customer              @relation(fields: [customerId], references: [id])
   branch              Branch                @relation(fields: [branchId], references: [id])
   worker              WorkerProfile?        @relation(fields: [workerId], references: [id])
+  assistantWorker     WorkerProfile?        @relation("AppointmentAssistant", fields: [assistantWorkerId], references: [id])
   services            AppointmentService[]
   addOns              AppointmentAddOn[]
   packages            AppointmentPackage[]

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope, denyIfWorkerOutOfScope } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 import { notifyWorkerAppointmentAssigned } from "@/lib/notifications";
 
@@ -16,15 +17,21 @@ import { notifyWorkerAppointmentAssigned } from "@/lib/notifications";
 // ACCESS
 // SUPER_ADMIN
 // OWNER
-// BRANCH_ADMIN
-// RECEPTIONIST
+// BRANCH_ADMIN   (own branch only)
+// RECEPTIONIST   (own branch only)
+//
+// BRANCH SCOPE
+// BOTH sides are checked, because either one alone leaves a hole: an unchecked
+// APPOINTMENT lets a desk staff another branch's booking, and an unchecked
+// WORKER lets them roster somebody who does not work there — and notify that
+// person about a shift at a salon they have never been to.
 // ============================================================================
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth(
+  const { user, error } = await requireAuth(
     req,
     "SUPER_ADMIN",
     "OWNER",
@@ -33,6 +40,9 @@ export async function PATCH(
   );
 
   if (error) return error;
+
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
 
   try {
     const { id } = await params;
@@ -67,7 +77,8 @@ export async function PATCH(
       },
     });
 
-    if (!appointment) {
+    // 404, not 403 — a 403 would confirm the id belongs to a real appointment.
+    if (!appointment || (!scope.isGlobal && appointment.branchId !== scope.branchId)) {
       return err("Appointment not found", 404);
     }
 
@@ -85,6 +96,11 @@ export async function PATCH(
     if (!worker) {
       return err("Worker not found", 404);
     }
+
+    // WorkerProfile has no branchId column, so membership is read from the
+    // WorkerBranch join table. Also answers 404.
+    const workerDenied = await denyIfWorkerOutOfScope(prisma, worker.id, scope);
+    if (workerDenied) return workerDenied;
 
     // Only a real change should notify — re-assigning the same worker is a no-op alert.
     const workerChanged = appointment.workerId !== worker.id;

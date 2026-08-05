@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { created, err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 import type { OfferType, Prisma } from "@prisma/client";
 
@@ -8,19 +9,28 @@ const TYPES: OfferType[] = ["SEASONAL", "FIRST_BOOKING", "MEMBERSHIP", "FLASH", 
 
 // OWNER: Shalmon | MODULE: Offers
 // GET /api/v1/admin/offers — List offers (filter branchId, type, isActive)
+//
+// BRANCH SCOPE: NOT plain branchWhere(). Offer.branchId is nullable and null
+// means "every branch", so a branch admin must see their own offers PLUS the
+// business-wide ones — filtering on branchId alone would hide the company
+// promotions their own front desk is expected to honour.
 export async function GET(req: NextRequest) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "MARKETING_MANAGER", "BRANCH_ADMIN");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "MARKETING_MANAGER", "BRANCH_ADMIN");
   if (error) return error;
 
+  const url = new URL(req.url);
+  const { scope, error: scopeError } = requireBranchScope(user, url);
+  if (scopeError) return scopeError;
+
   try {
-    const url = new URL(req.url);
     const { page, limit, skip } = parsePagination(url);
-    const branchId = url.searchParams.get("branchId");
     const type = url.searchParams.get("type");
     const isActive = url.searchParams.get("isActive");
 
     const where: Prisma.OfferWhereInput = {
-      ...(branchId ? { branchId } : {}),
+      ...(scope.branchId
+        ? { OR: [{ branchId: scope.branchId }, { branchId: null }] }
+        : {}),
       ...(type ? { type: type as OfferType } : {}),
       ...(isActive != null ? { isActive: isActive === "true" } : {}),
     };

@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, CardBody } from "@/components/shared/ui";
 import { CollectPaymentForm } from "@/components/reception/collect-payment-form";
+import { InvoiceActions } from "@/components/operations/invoice-actions";
 
 // OWNER: Hemant | MODULE: Reception — Invoice Detail
 
@@ -38,6 +39,14 @@ export default async function ReceptionBillingDetailPage({ params }: { params: P
 
   if (!invoice || invoice.branchId !== authUser.branchId) notFound();
 
+  // Loaded from the invoice's OWN customerId rather than through the appointment:
+  // a direct sale or a counter membership has no appointment, and reading the
+  // customer off one would leave those invoices anonymous on screen.
+  const customer = await prisma.customer.findUnique({
+    where: { id: invoice.customerId },
+    select: { firstName: true, lastName: true, phone: true, email: true },
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between">
@@ -48,21 +57,34 @@ export default async function ReceptionBillingDetailPage({ params }: { params: P
         <Badge tone={STATUS_TONE[invoice.status] ?? "neutral"}>{invoice.status}</Badge>
       </div>
 
-      {invoice.appointment && (
-        <Card>
-          <CardHeader><CardTitle>Customer & Appointment</CardTitle></CardHeader>
-          <CardBody>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-xs text-gray-500">Customer</p>
-                <p className="font-medium text-gray-900">
-                  {invoice.appointment.customer.firstName} {invoice.appointment.customer.lastName}
-                </p>
-                <p className="text-xs text-gray-400">{invoice.appointment.customer.phone}</p>
-                {invoice.appointment.customer.email && (
-                  <p className="text-xs text-gray-400">{invoice.appointment.customer.email}</p>
-                )}
-              </div>
+      <Card>
+        <CardHeader><CardTitle>Invoice actions</CardTitle></CardHeader>
+        <CardBody>
+          <InvoiceActions
+            invoiceId={invoice.id}
+            invoiceNo={invoice.invoiceNo}
+            customerPhone={customer?.phone ?? null}
+            customerEmail={customer?.email ?? null}
+            canReprint
+          />
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{invoice.appointment ? "Customer & Appointment" : "Customer"}</CardTitle>
+        </CardHeader>
+        <CardBody>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-xs text-gray-500">Customer</p>
+              <p className="font-medium text-gray-900">
+                {customer ? `${customer.firstName} ${customer.lastName ?? ""}`.trim() : "—"}
+              </p>
+              <p className="text-xs text-gray-400">{customer?.phone ?? "No phone"}</p>
+              {customer?.email && <p className="text-xs text-gray-400">{customer.email}</p>}
+            </div>
+            {invoice.appointment ? (
               <div>
                 <p className="text-xs text-gray-500">Worker</p>
                 <p className="text-gray-700">
@@ -74,10 +96,16 @@ export default async function ReceptionBillingDetailPage({ params }: { params: P
                   {invoice.appointment.services.map((s) => s.service.name).join(", ") || "—"}
                 </p>
               </div>
-            </div>
-          </CardBody>
-        </Card>
-      )}
+            ) : (
+              <div>
+                <p className="text-xs text-gray-500">Source</p>
+                <p className="text-gray-700">Counter sale</p>
+                <p className="mt-1 text-xs text-gray-500">No appointment — billed directly.</p>
+              </div>
+            )}
+          </div>
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Line Items</CardTitle></CardHeader>

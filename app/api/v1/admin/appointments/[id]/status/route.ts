@@ -5,6 +5,7 @@ import {
 } from "@prisma/client";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 import { notifyAppointmentConfirmed } from "@/lib/notifications";
 
@@ -19,15 +20,21 @@ import { notifyAppointmentConfirmed } from "@/lib/notifications";
 // ACCESS
 // SUPER_ADMIN
 // OWNER
-// BRANCH_ADMIN
-// RECEPTIONIST
+// BRANCH_ADMIN   (own branch only)
+// RECEPTIONIST   (own branch only)
+//
+// BRANCH SCOPE
+// Cancelling or completing an appointment is a branch's own business. Without
+// the check below, any front desk holding an appointment id could cancel a
+// booking at another branch — and a CONFIRMED transition would message that
+// branch's customer.
 // ============================================================================
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth(
+  const { user, error } = await requireAuth(
     req,
     "SUPER_ADMIN",
     "OWNER",
@@ -36,6 +43,9 @@ export async function PATCH(
   );
 
   if (error) return error;
+
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
 
   try {
     const { id } = await params;
@@ -75,7 +85,12 @@ export async function PATCH(
         },
       });
 
-    if (!existingAppointment) {
+    // 404, not 403 — a 403 would confirm the id belongs to a real appointment
+    // somewhere in the business.
+    if (
+      !existingAppointment ||
+      (!scope.isGlobal && existingAppointment.branchId !== scope.branchId)
+    ) {
       return err("Appointment not found", 404);
     }
 

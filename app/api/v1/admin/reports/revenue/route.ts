@@ -1,26 +1,34 @@
 import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope, branchWhere } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 import { parseDateRange, bucketKey } from "@/lib/reports";
 
 // OWNER: Shalmon | MODULE: Revenue Report
 // GET /api/v1/admin/reports/revenue?branchId&from&to&groupBy=day|week|month
+//
+// BRANCH SCOPE: every role admitted here is global today, so ?branchId= still
+// narrows exactly as before. It goes through requireBranchScope anyway, so the
+// day ACCOUNTANT is reclassified as branch-scoped this route follows without
+// anyone having to remember it.
 export async function GET(req: NextRequest) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "ACCOUNTANT");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "ACCOUNTANT");
   if (error) return error;
 
+  const url = new URL(req.url);
+  const { scope, error: scopeError } = requireBranchScope(user, url);
+  if (scopeError) return scopeError;
+
   try {
-    const url = new URL(req.url);
     const { from, to } = parseDateRange(url);
-    const branchId = url.searchParams.get("branchId");
     const groupBy = url.searchParams.get("groupBy") ?? "day";
 
     const invoices = await prisma.invoice.findMany({
       where: {
         createdAt: { gte: from, lte: to },
         status: { not: "CANCELLED" },
-        ...(branchId ? { branchId } : {}),
+        ...branchWhere(scope),
       },
       select: { createdAt: true, totalAmount: true, paidAmount: true },
     });

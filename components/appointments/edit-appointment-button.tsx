@@ -55,7 +55,10 @@ export function EditAppointmentButton({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [slotGrid, setSlotGrid] = React.useState<SlotEntry[] | null>(null);
-  const [slotsLoading, setSlotsLoading] = React.useState(false);
+  // Which slot query has finished. Loading is derived by comparing it with the
+  // query the current inputs describe — that removes the synchronous
+  // setState(true) the effect used to do, without losing the spinner.
+  const [loadedSlotKey, setLoadedSlotKey] = React.useState<string | null>(null);
 
   // Fetch branch workers for reassignment (admin mode only).
   React.useEffect(() => {
@@ -70,14 +73,15 @@ export function EditAppointmentButton({
       .catch(() => setWorkers([]));
   }, [mode, open, branchId]);
 
+  // The "not ready yet" case is DERIVED below rather than cleared here:
+  // synchronously calling setState in an effect body triggers a second render
+  // pass with the stale grid still painted, which is what
+  // react-hooks/set-state-in-effect catches.
   React.useEffect(() => {
-    if (!canEdit || !open || !branchId || !serviceId || !date) {
-      setSlotGrid(null);
-      return;
-    }
+    if (!canEdit || !open || !branchId || !serviceId || !date) return;
 
     let cancelled = false;
-    setSlotsLoading(true);
+    const key = `${branchId}|${serviceId}|${workerId ?? ""}|${date}`;
     const q = new URLSearchParams({
       branchId,
       serviceId,
@@ -101,13 +105,21 @@ export function EditAppointmentButton({
         if (!cancelled) setSlotGrid(null);
       })
       .finally(() => {
-        if (!cancelled) setSlotsLoading(false);
+        if (!cancelled) setLoadedSlotKey(key);
       });
 
     return () => {
       cancelled = true;
     };
   }, [canEdit, open, branchId, serviceId, workerId, date]);
+
+  // Slots only mean anything once the dialog is open on an editable booking with
+  // a branch, service and date chosen.
+  const slotsReady = Boolean(canEdit && open && branchId && serviceId && date);
+  const visibleSlots = slotsReady ? slotGrid : null;
+  const slotKey = slotsReady ? `${branchId}|${serviceId}|${workerId ?? ""}|${date}` : null;
+  // Ready, but the answer for THESE inputs has not landed yet.
+  const slotsLoading = slotsReady && loadedSlotKey !== slotKey;
 
   if (!canEdit) return null;
 
@@ -170,7 +182,7 @@ export function EditAppointmentButton({
           onChange={(e) => setDate(e.target.value)}
           className="rounded border border-gray-200 px-1.5 py-0.5 text-xs text-gray-800 dark:border-[var(--sa-border)] dark:bg-[var(--sa-tile)] dark:text-[var(--sa-text)]"
         />
-        {!slotGrid ? (
+        {!visibleSlots ? (
           <input
             type="time"
             value={time}
@@ -184,9 +196,9 @@ export function EditAppointmentButton({
         <p className="flex items-center gap-1 text-[11px] text-gray-400 dark:text-[var(--sa-muted)]">
           <Loader2 className="size-3 animate-spin" /> Loading slots…
         </p>
-      ) : slotGrid && slotGrid.length > 0 ? (
+      ) : (visibleSlots?.length ?? 0) > 0 ? (
         <div className="grid max-h-28 grid-cols-3 gap-1 overflow-y-auto">
-          {slotGrid.map((s) => {
+          {visibleSlots!.map((s) => {
             const booked = s.status === "BOOKED";
             const isCurrent =
               date === toDateInput(appointmentDate) && s.time === startTime;

@@ -256,6 +256,154 @@ function InvoiceDoc({ d }: { d: InvoicePdfData }) {
   );
 }
 
-export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
+// ============================================================================
+// THERMAL RECEIPT — 80mm and 58mm rolls
+//
+// A SECOND LAYOUT, not a second document: it renders the same InvoicePdfData the
+// A4 invoice does, so the two can never disagree about what was charged. It has
+// to be separate because the A4 design is a decorative two-column sheet, and
+// neither the decoration nor the columns survive being squeezed onto 58mm of
+// paper — a till receipt is a single narrow column by nature.
+//
+// Widths are the printable area of the roll, not the roll itself: an 80mm roll
+// prints ~72mm, a 58mm roll ~48mm. Points = mm × 2.835.
+// ============================================================================
+
+export type PrintFormat = "A4" | "THERMAL_80" | "THERMAL_58";
+
+const MM = 2.835;
+const ROLL: Record<"THERMAL_80" | "THERMAL_58", { width: number; font: number; pad: number }> = {
+  THERMAL_80: { width: 72 * MM, font: 8, pad: 6 },
+  THERMAL_58: { width: 48 * MM, font: 6.5, pad: 4 },
+};
+
+function thermalStyles(kind: "THERMAL_80" | "THERMAL_58") {
+  const { font, pad } = ROLL[kind];
+  return StyleSheet.create({
+    page: {
+      fontFamily: "Inter",
+      fontSize: font,
+      color: "#000000",
+      backgroundColor: WHITE,
+      paddingHorizontal: pad,
+      paddingVertical: pad + 2,
+    },
+    center: { textAlign: "center" },
+    brand: { fontSize: font + 4, fontWeight: 700, textAlign: "center" },
+    tagline: { fontSize: font - 1, textAlign: "center", color: MUTED, marginBottom: 3 },
+    meta: { fontSize: font - 0.5, textAlign: "center", color: MUTED },
+    hr: { borderBottomWidth: 0.5, borderBottomColor: "#000000", marginVertical: 3 },
+    row: { flexDirection: "row", justifyContent: "space-between", marginBottom: 1 },
+    // Wraps rather than truncating: a receipt has room below, never beside.
+    itemName: { flex: 1, paddingRight: 3 },
+    amount: { minWidth: 38, textAlign: "right" },
+    bold: { fontWeight: 700 },
+    total: { fontSize: font + 2, fontWeight: 700 },
+    footer: { fontSize: font - 1, textAlign: "center", color: MUTED, marginTop: 4 },
+  });
+}
+
+function ThermalDoc({ d, kind }: { d: InvoicePdfData; kind: "THERMAL_80" | "THERMAL_58" }) {
+  const t = thermalStyles(kind);
+  const { width } = ROLL[kind];
+
+  return (
+    <Document title={`Invoice ${d.invoiceNo} — Renzo`} author="Renzo Salon">
+      {/* Height grows with the content: a roll has no page break. */}
+      <Page size={{ width, height: 400 + d.items.length * 14 }} style={t.page}>
+        <Text style={t.brand}>RENZO</Text>
+        <Text style={t.tagline}>Hair &amp; Beauty Salon</Text>
+        {d.branch ? <Text style={t.meta}>{d.branch}</Text> : null}
+
+        <View style={t.hr} />
+
+        <View style={t.row}>
+          <Text>Invoice</Text>
+          <Text style={t.bold}>{d.invoiceNo}</Text>
+        </View>
+        <View style={t.row}>
+          <Text>Date</Text>
+          <Text>{d.date}</Text>
+        </View>
+        <View style={t.row}>
+          <Text>Customer</Text>
+          <Text>{d.customerName}</Text>
+        </View>
+        {d.customerPhone ? (
+          <View style={t.row}>
+            <Text>Phone</Text>
+            <Text>{d.customerPhone}</Text>
+          </View>
+        ) : null}
+
+        <View style={t.hr} />
+
+        {d.items.map((item, i) => (
+          <View key={`${item.label}-${i}`} style={t.row}>
+            <Text style={t.itemName}>{item.label}</Text>
+            <Text style={t.amount}>{inr(item.amount)}</Text>
+          </View>
+        ))}
+
+        <View style={t.hr} />
+
+        <View style={t.row}>
+          <Text>Subtotal</Text>
+          <Text style={t.amount}>{inr(d.subtotal)}</Text>
+        </View>
+        {d.discount > 0 ? (
+          <View style={t.row}>
+            <Text>Discount</Text>
+            <Text style={t.amount}>- {inr(d.discount)}</Text>
+          </View>
+        ) : null}
+        {d.tax > 0 ? (
+          <View style={t.row}>
+            <Text>Tax</Text>
+            <Text style={t.amount}>{inr(d.tax)}</Text>
+          </View>
+        ) : null}
+
+        <View style={t.hr} />
+
+        <View style={t.row}>
+          <Text style={t.total}>TOTAL</Text>
+          <Text style={[t.total, t.amount]}>{inr(d.total)}</Text>
+        </View>
+
+        {d.paid > 0 ? (
+          <View style={t.row}>
+            <Text>Paid{d.method ? ` (${d.method})` : ""}</Text>
+            <Text style={t.amount}>{inr(d.paid)}</Text>
+          </View>
+        ) : null}
+        {d.balance > 0 ? (
+          <View style={t.row}>
+            <Text style={t.bold}>Balance Due</Text>
+            <Text style={[t.bold, t.amount]}>{inr(d.balance)}</Text>
+          </View>
+        ) : null}
+
+        <View style={t.hr} />
+        <Text style={t.footer}>Thank you for visiting!</Text>
+        <Text style={t.footer}>renzosalon.com</Text>
+      </Page>
+    </Document>
+  );
+}
+
+/**
+ * Render the invoice.
+ *
+ * `format` defaults to A4 so every existing caller keeps its current output
+ * without change; the branch's own `BranchSetting.printFormat` drives the till.
+ */
+export async function generateInvoicePdf(
+  data: InvoicePdfData,
+  format: PrintFormat = "A4"
+): Promise<Buffer> {
+  if (format === "THERMAL_80" || format === "THERMAL_58") {
+    return renderToBuffer(<ThermalDoc d={data} kind={format} />);
+  }
   return renderToBuffer(<InvoiceDoc d={data} />);
 }

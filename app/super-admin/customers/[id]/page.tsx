@@ -1,7 +1,7 @@
 import prisma from "@/lib/db";
 import { getServerUser } from "@/lib/server-session";
 import { redirect, notFound } from "next/navigation";
-import { Badge, Card, CardHeader, CardTitle, CardBody, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 
 // OWNER: Hemant | MODULE: Super Admin — Customer Detail
 

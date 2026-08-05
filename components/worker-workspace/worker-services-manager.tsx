@@ -45,8 +45,12 @@ export function WorkerServicesManager({
   const initialIds = React.useMemo(() => new Set(assigned.map((a) => a.id)), [assigned]);
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set(assigned.map((a) => a.id)));
 
+  // "No branch" is DERIVED as not-loading below rather than cleared here:
+  // synchronously calling setState in an effect body triggers a second render
+  // pass with the stale spinner still painted, which is what
+  // react-hooks/set-state-in-effect catches.
   React.useEffect(() => {
-    if (!branch) { setLoading(false); return; }
+    if (!branch) return;
     let cancelled = false;
     fetch(`${API.public.services}?branchId=${branch.id}&limit=200`)
       .then((r) => r.json())
@@ -54,6 +58,9 @@ export function WorkerServicesManager({
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [branch]);
+
+  // Nothing is being fetched when the worker has no branch, so nothing is loading.
+  const isLoading = branch ? loading : false;
 
   React.useEffect(() => {
     if (!toast) return;
@@ -64,7 +71,7 @@ export function WorkerServicesManager({
   const branchServiceIds = React.useMemo(() => new Set(branchServices.map((s) => s.id)), [branchServices]);
   // Services the worker already has that this branch does NOT offer — surfaced
   // separately so saving never silently drops a valid assignment from elsewhere.
-  const assignedOutside = assigned.filter((a) => !branchServiceIds.has(a.id) && !loading);
+  const assignedOutside = assigned.filter((a) => !branchServiceIds.has(a.id) && !isLoading);
 
   const dirty =
     selected.size !== initialIds.size ||
@@ -135,7 +142,7 @@ export function WorkerServicesManager({
         </button>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="size-5 animate-spin text-gray-400" /></div>
       ) : branchServices.length === 0 ? (
         <p className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-6 text-center text-sm text-gray-400">

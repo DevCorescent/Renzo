@@ -13,7 +13,7 @@ import {
   LayoutTemplate,
   PanelsTopLeft, Menu, X, LogOut, ChevronRight, ChevronDown,
   Truck, Tag, Percent, Gift, ArrowLeftRight, ShoppingCart, ClipboardCheck,
-  CalendarPlus, UserPlus, Wallet, Crown, Sparkles, Store,
+  CalendarPlus, UserPlus,  Sparkles, Store, Zap,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import { DashThemeInit } from "@/components/dashboard/dash-theme-init";
@@ -43,9 +43,13 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
     brand: "Renzo", label: "Reception",
     items: [
       { label: "Dashboard",   href: "/reception/dashboard",     icon: LayoutDashboard },
+      { label: "Operations",  href: "/reception/operations",    icon: Sparkles },
+      { label: "Walk-in",     href: "/reception/walk-in",       icon: Zap },
       { label: "New Booking", href: "/reception/booking/new",   icon: PlusCircle },
       { label: "Calendar",    href: "/reception/calendar",      icon: CalendarDays },
       { label: "Check-in",   href: "/reception/checkin",       icon: UserCheck },
+      { label: "Customers",   href: "/reception/customers",     icon: UserPlus },
+      { label: "Attendance",  href: "/reception/attendance",    icon: Clock },
       { label: "Queue",       href: "/reception/queue",         icon: Users },
       { label: "Billing",     href: "/reception/billing",       icon: Receipt },
     ],
@@ -54,8 +58,13 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
     brand: "Renzo", label: "Branch Admin",
     items: [
       { label: "Dashboard",    href: "/branch-admin/dashboard",    icon: LayoutDashboard },
+      { label: "Operations",   href: "/branch-admin/operations",   icon: Sparkles },
+      { label: "Walk-in",      href: "/branch-admin/walk-in",      icon: Zap },
+      { label: "Health",       href: "/branch-admin/health",       icon: ClipboardCheck },
       { label: "Appointments", href: "/branch-admin/appointments", icon: CalendarDays },
       { label: "Workers",      href: "/branch-admin/workers",      icon: Users },
+      { label: "Customers",    href: "/branch-admin/customers",    icon: UserPlus },
+      { label: "Attendance",   href: "/branch-admin/attendance",   icon: UserCheck },
       { label: "Leaves",       href: "/branch-admin/leaves",       icon: CalendarOff },
       { label: "Portfolio",    href: "/branch-admin/portfolio-requests", icon: ClipboardCheck },
       { label: "Services",     href: "/branch-admin/services",     icon: Scissors },
@@ -69,8 +78,12 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
     brand: "Renzo", label: "Super Admin",
     items: [
       { label: "Dashboard",  href: "/super-admin/dashboard",   icon: LayoutDashboard },
+      { label: "Operations", href: "/super-admin/operations",  icon: Sparkles },
+      { label: "Health",     href: "/super-admin/health",      icon: ClipboardCheck },
       { label: "Branches",   href: "/super-admin/branches",    icon: Building2 },
       { label: "Workers",    href: "/super-admin/workers",     icon: Users },
+      { label: "Attendance", href: "/super-admin/attendance",  icon: Clock },
+      { label: "Shifts",     href: "/super-admin/shifts",      icon: ClipboardCheck },
       { label: "Bookings",   href: "/super-admin/bookings",    icon: CalendarDays },
       { label: "Leave Management",href: "/super-admin/leaves", icon: CalendarOff },
       { label: "Services",   href: "/super-admin/services",    icon: Scissors },
@@ -132,7 +145,8 @@ const QUICK_ACTIONS: Partial<Record<Role, QuickAction[]>> = {
   ],
   reception: [
     { label: "New booking", href: "/reception/booking/new", icon: CalendarPlus, description: "Create an appointment" },
-    { label: "Check-in",    href: "/reception/checkin",     icon: UserPlus,     description: "Walk-in / arrival" },
+    { label: "New customer",href: "/reception/customers",   icon: UserPlus,     description: "Add a walk-in in seconds" },
+    { label: "Check-in",    href: "/reception/checkin",     icon: UserCheck,    description: "Walk-in / arrival" },
     { label: "Queue",       href: "/reception/queue",       icon: Users,        description: "Live waiting list" },
     { label: "Billing",     href: "/reception/billing",     icon: Receipt,      description: "Invoices & payments" },
   ],
@@ -298,9 +312,10 @@ export function AppShell({
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-gray-200 bg-white px-4 dark:border-[var(--sa-border)] dark:bg-[var(--sa-surface-2)]">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-gray-200 bg-white px-4 dark:border-[var(--sa-border)] dark:bg-(--sa-surface-2)">
           <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open menu">
             <Menu className="size-5 text-gray-500 dark:text-[var(--sa-text-2)]" />
+
           </button>
 
           <div className="flex-1" />

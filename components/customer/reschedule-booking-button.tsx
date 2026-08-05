@@ -9,12 +9,9 @@ const RESCHEDULABLE = new Set(["PENDING", "CONFIRMED", "RESCHEDULED"]);
 export function CustomerRescheduleButton({
   appointmentId,
   status,
-  currentDate,
 }: {
   appointmentId: string;
   status: string;
-  /** ISO date string (YYYY-MM-DD) of the current appointment — used as min date */
-  currentDate: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const [newDate, setNewDate] = React.useState("");

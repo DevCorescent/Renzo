@@ -19,6 +19,7 @@ import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { loadOneWorkerReadiness } from "@/lib/health-service";
 import type { AuthUser } from "@/types/api";
 
 const GENDERS = ["MALE", "FEMALE", "UNISEX"] as const;
@@ -395,6 +396,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (Object.keys(data).length === 0) {
       return err("No valid fields to update", 422);
+    }
+
+    // ── Validate before enabling for bookings ─────────────────────────────
+    // Publishing a stylist who is qualified for nothing, posted to no branch or
+    // deactivated does not fail here — it fails at the counter, mid-booking,
+    // with a customer waiting. Refused with the specific reasons and where to
+    // fix them, so the problem is solved by the person who created it.
+    //
+    // Only `isPublic` is gated, never `isActive`: a worker must be activatable
+    // BEFORE they have services, or there is no way to ever assign any.
+    if (data.isPublic === true) {
+      const readiness = await loadOneWorkerReadiness(id);
+      if (!readiness) return err("Worker not found", 404);
+
+      const blockers = readiness.issues.filter((i) => i.severity === "BLOCKER");
+      if (blockers.length) {
+        return err("Validation failed", 422, {
+          isPublic: blockers.map((b) => `${b.label} — ${b.detail}`),
+        });
+      }
     }
 
     const worker = await prisma.workerProfile.update({ where: { id }, data });

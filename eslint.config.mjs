@@ -13,6 +13,24 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      // Honour the universal `_` convention for a deliberately unused binding.
+      // Some signatures are fixed by the framework — a Next route handler that
+      // ignores its request, a `.map((item, _i) => …)` — and deleting the
+      // parameter is worse than naming it as intentionally unused. Anything NOT
+      // prefixed stays an error, so genuine dead code is still caught.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;
