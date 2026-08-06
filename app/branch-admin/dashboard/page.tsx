@@ -4,7 +4,7 @@ import {
   ShieldCheck, Server, IndianRupee, CalendarPlus, UserPlus, Scissors, ArrowUpRight,
 } from "lucide-react";
 import Link from "next/link";
-import { getServerUser } from "@/lib/server-session";
+import { getServerUser, requireModule } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
@@ -58,6 +58,7 @@ const STATUS_ORDER = Object.keys(STATUS_META);
 export default async function BranchAdminDashboardPage() {
   const authUser = await getServerUser();
   if (!authUser?.branchId) redirect("/login");
+  await requireModule("dashboard");
   const branchId = authUser.branchId;
 
   const now = new Date();

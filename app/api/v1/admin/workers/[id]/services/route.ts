@@ -199,6 +199,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const { error: accessError } = await authorizeWorkerAccess(user, id);
     if (accessError) return accessError;
 
+    // Branch-scoped roles may only grant services their branch actually offers.
+    if (serviceIds.length && (user.userType === "BRANCH_ADMIN" || user.userType === "OWNER") && user.branchId) {
+      const offered = await prisma.serviceBranchPricing.count({
+        where: { branchId: user.branchId, isActive: true, serviceId: { in: serviceIds } },
+      });
+      if (offered !== new Set(serviceIds).size) {
+        return err("One or more services are not enabled at your branch", 422);
+      }
+    }
+
     // An empty array is a legitimate instruction — it clears every assignment —
     // so the catalogue lookup is skipped rather than the request refused.
     if (serviceIds.length) {

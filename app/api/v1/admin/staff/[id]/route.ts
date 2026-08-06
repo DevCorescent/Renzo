@@ -111,6 +111,18 @@ export async function PATCH(
       profileData.branchId = body.branchId ?? null;
     }
 
+    // Module access is Super Admin's call alone — a branch admin must not be
+    // able to widen their own (or a colleague's) permissions.
+    if (user.userType === "SUPER_ADMIN" && "permissions" in body) {
+      if (
+        !Array.isArray(body.permissions) ||
+        body.permissions.some((p: unknown) => typeof p !== "string" || !p)
+      ) {
+        return err("permissions must be an array of module keys", 422);
+      }
+      profileData.permissions = body.permissions;
+    }
+
     const userAllowed = ["isActive"];
     const userData: Record<string, unknown> = Object.fromEntries(
       Object.entries(body).filter(([k]) => userAllowed.includes(k))

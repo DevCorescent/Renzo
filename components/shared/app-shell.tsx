@@ -26,6 +26,11 @@ type Role = "worker" | "reception" | "branch-admin" | "super-admin" | "inventory
 type Icon = React.ComponentType<{ className?: string }>;
 type NavItem = { label: string; href: string; icon: Icon };
 
+// A nav item's module key is its last path segment — "/branch-admin/workers"
+// → "workers". Used by the Super Admin permission panel and by the sidebar
+// filter below, so a new module only has to be added to NAV.
+const moduleKey = (href: string) => href.split("/").filter(Boolean).pop() ?? "";
+
 const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
   worker: {
     brand: "Renzo", label: "Worker",
@@ -131,6 +136,14 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
   },
 };
 
+// The modules a Super Admin can grant to a Branch Admin — derived from the
+// nav above, so adding a Branch Admin page to NAV is all that is needed for it
+// to show up in the permission panel.
+export const BRANCH_ADMIN_MODULES = NAV["branch-admin"].items.map((i) => ({
+  key: moduleKey(i.href),
+  label: i.label,
+}));
+
 const QUICK_ACTIONS: Partial<Record<Role, QuickAction[]>> = {
   "branch-admin": [
     { label: "New appointment", href: "/branch-admin/appointments", icon: CalendarPlus, description: "Book for a customer" },
@@ -223,16 +236,24 @@ export function AppShell({
   role,
   children,
   userName,
+  allowed,
 }: {
   role: Role;
   children: React.ReactNode;
   userName?: string;
+  /** Module keys this user may see. Omitted (or empty) → show every item. */
+  allowed?: string[];
 }) {
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
   const cfg = NAV[role];
   const quickActions = QUICK_ACTIONS[role] ?? [];
   const displayName = userName ?? "Admin";
+
+  const navItems =
+    allowed && allowed.length > 0
+      ? cfg.items.filter((i) => allowed.includes(moduleKey(i.href)))
+      : cfg.items;
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -265,7 +286,7 @@ export function AppShell({
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-1">
-          {cfg.items.map((item) => {
+          {navItems.map((item) => {
             const active = isActive(item.href);
             return (
               <Link

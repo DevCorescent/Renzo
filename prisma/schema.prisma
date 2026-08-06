@@ -2131,6 +2131,10 @@ model StaffProfile {
   email        String?
   profilePhoto String?
   isActive     Boolean  @default(true)
+  // Module keys this staff member may access (see BRANCH_ADMIN_MODULES in
+  // components/shared/app-shell.tsx). Empty = not configured = all modules,
+  // so existing rows keep their current access untouched.
+  permissions  String[] @default([])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

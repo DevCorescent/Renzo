@@ -1,4 +1,4 @@
-import { getServerUser } from "@/lib/server-session";
+import { getServerUser, requireModule } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
@@ -27,6 +27,7 @@ export default async function BranchAdminAppointmentsPage({
 }) {
   const authUser = await getServerUser();
   if (!authUser?.branchId) redirect("/login");
+  await requireModule("appointments");
   const branchId = authUser.branchId;
   const sp = await searchParams;
 

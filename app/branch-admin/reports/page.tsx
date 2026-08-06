@@ -1,4 +1,4 @@
-import { getServerUser } from "@/lib/server-session";
+import { getServerUser, requireModule } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { StatCard } from "@/components/shared/ui";
@@ -9,6 +9,7 @@ import { IndianRupee, CalendarDays, Users, TrendingUp } from "lucide-react";
 export default async function BranchAdminReportsPage() {
   const authUser = await getServerUser();
   if (!authUser?.branchId) redirect("/login");
+  await requireModule("reports");
   const branchId = authUser.branchId;
 
   const now = new Date();

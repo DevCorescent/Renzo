@@ -197,6 +197,9 @@ export async function GET(req: NextRequest) {
               branch: { select: { id: true, name: true, code: true } },
             },
           },
+          // Lets the service-allocation screen show what each worker already
+          // does without a follow-up request per worker.
+          services: { select: { serviceId: true } },
         },
       }),
       prisma.workerProfile.count({ where }),

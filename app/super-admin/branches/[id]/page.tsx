@@ -7,6 +7,7 @@ import { BranchCoverUpload } from "./branch-cover-upload";
 import { BranchStatusToggle } from "./branch-status-toggle";
 import { DeleteBranchButton } from "./delete-branch-button";
 import { BranchStaffList } from "./branch-staff-list";
+import { StaffPermissions } from "./staff-permissions";
 
 // OWNER: Hemant | MODULE: Super Admin — Branch Detail
 
@@ -107,6 +108,20 @@ export default async function SuperAdminBranchDetailPage({ params }: { params: P
               isActive: s.user.isActive && s.isActive,
             }))}
           />
+          {/* Branch Admin module permissions — shown inline under each BRANCH_ADMIN / OWNER staff */}
+          <div className="divide-y divide-gray-50 border-t border-gray-100">
+            {branch.staffProfiles
+              .filter((s) => s.user.userType === "BRANCH_ADMIN" || s.user.userType === "OWNER")
+              .map((s) => (
+                <div key={`perm-${s.id}`} className="px-4 py-2">
+                  <StaffPermissions
+                    staffId={s.id}
+                    staffName={`${s.firstName} ${s.lastName}`.trim()}
+                    current={s.permissions}
+                  />
+                </div>
+              ))}
+          </div>
         </Card>
       </div>
 

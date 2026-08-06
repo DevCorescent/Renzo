@@ -12,12 +12,16 @@ export default async function BranchAdminLayout({ children }: { children: React.
   let userName = "Admin";
   const staff = await prisma.staffProfile.findFirst({
     where: { userId: authUser.userId },
-    select: { firstName: true, lastName: true },
+    select: { firstName: true, lastName: true, permissions: true },
   });
   if (staff) userName = `${staff.firstName} ${staff.lastName}`.trim();
 
   return (
-    <AppShell role="branch-admin" userName={userName}>
+    <AppShell
+      role="branch-admin"
+      userName={userName}
+      allowed={staff?.permissions ?? []}
+    >
       {children}
     </AppShell>
   );

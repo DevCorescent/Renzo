@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { jwtVerify } from "jose";
+import prisma from "@/lib/db";
 import type { AuthUser } from "@/types/api";
 
 const SECRET = new TextEncoder().encode(
@@ -16,4 +18,24 @@ export async function getServerUser(): Promise<AuthUser | null> {
   } catch {
     return null;
   }
+}
+
+// Page-level guard for Branch Admin modules. Call at the top of a page:
+//   await requireModule("workers");
+// An empty StaffProfile.permissions means "not configured", which keeps the
+// pre-existing behaviour of granting every module.
+export async function requireModule(moduleKey: string): Promise<AuthUser> {
+  const authUser = await getServerUser();
+  if (!authUser) redirect("/login");
+
+  const staff = await prisma.staffProfile.findUnique({
+    where: { userId: authUser.userId },
+    select: { permissions: true },
+  });
+
+  const permissions = staff?.permissions ?? [];
+  if (permissions.length > 0 && !permissions.includes(moduleKey)) {
+    redirect("/unauthorized");
+  }
+  return authUser;
 }
