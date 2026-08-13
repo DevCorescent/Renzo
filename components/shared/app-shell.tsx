@@ -75,6 +75,7 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
       { label: "Portfolio",    href: "/branch-admin/portfolio-requests", icon: ClipboardCheck },
       { label: "Services",     href: "/branch-admin/services",     icon: Scissors },
       { label: "Schedule",     href: "/branch-admin/schedule",     icon: Clock },
+      { label: "Operating Hours", href: "/branch-admin/timings",  icon: Clock },
       { label: "Inventory",    href: "/branch-admin/inventory",    icon: Boxes },
       { label: "Expenses",     href: "/branch-admin/expenses",     icon: DollarSign },
       { label: "Loyalty",      href: "/branch-admin/loyalty",      icon: Heart },

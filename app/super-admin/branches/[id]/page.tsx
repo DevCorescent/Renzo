@@ -8,6 +8,7 @@ import { BranchStatusToggle } from "./branch-status-toggle";
 import { DeleteBranchButton } from "./delete-branch-button";
 import { BranchStaffList } from "./branch-staff-list";
 import { StaffPermissions } from "./staff-permissions";
+import { BranchTimingsEditor } from "@/components/shared/branch-timings-editor";
 
 // OWNER: Hemant | MODULE: Super Admin — Branch Detail
 
@@ -35,8 +36,6 @@ export default async function SuperAdminBranchDetailPage({ params }: { params: P
   });
 
   if (!branch) return notFound();
-
-  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
     <div className="space-y-6">
@@ -77,19 +76,16 @@ export default async function SuperAdminBranchDetailPage({ params }: { params: P
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader><CardTitle>Operating Hours</CardTitle></CardHeader>
-          <div className="divide-y divide-gray-50">
-            {branch.timings.map((t) => (
-              <div key={t.id} className="flex items-center justify-between px-4 py-2.5">
-                <span className="w-8 text-sm font-medium text-gray-700">{DAYS[t.dayOfWeek]}</span>
-                {t.isOpen ? (
-                  <span className="font-mono text-xs text-gray-600">{t.openTime} – {t.closeTime}</span>
-                ) : (
-                  <Badge tone="neutral">Closed</Badge>
-                )}
-              </div>
-            ))}
-            {branch.timings.length === 0 && <p className="px-4 py-4 text-sm text-gray-400">No timings set.</p>}
-          </div>
+          <BranchTimingsEditor
+            branchId={id}
+            initial={branch.timings.map((t) => ({
+              dayOfWeek: t.dayOfWeek,
+              openTime: t.openTime,
+              closeTime: t.closeTime,
+              isOpen: t.isOpen,
+              slotDuration: t.slotDuration,
+            }))}
+          />
         </Card>
 
         <Card>
