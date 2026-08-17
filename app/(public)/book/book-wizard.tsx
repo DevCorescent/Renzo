@@ -24,6 +24,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { BookingSuggestTips } from "@/components/ai/booking-suggest-tips";
+import { resolveOpenState, type DayTiming } from "@/lib/branch-hours";
 import {
   GoogleLoginButton,
   GOOGLE_ENABLED,
@@ -53,6 +54,11 @@ export type PreloadedBranch = {
   city: string;
   address: string;
   coverImage: string | null;
+  // Present on branches fetched from /public/branches — drives the open/closed
+  // badge. Optional because the server-preloaded branch (page.tsx) never renders
+  // a card, so it does not pay for the join.
+  timings?: DayTiming[];
+  holidays?: { date: string }[];
 };
 export type PreloadedService = {
   id: string;
@@ -344,12 +350,21 @@ function StepBar({ current }: { current: Step }) {
 function BranchStep({ onSelect }: { onSelect: (b: ApiBranch) => void }) {
   const [branches, setBranches] = React.useState<ApiBranch[]>([]);
   const [loading, setLoading] = React.useState(true);
+  // Clock for the open/closed badges, ticking once a minute. Safe as a lazy
+  // initial value: on the server this step renders the loading spinner, so no
+  // badge is ever part of the SSR output for hydration to disagree with.
+  const [now, setNow] = React.useState(() => new Date());
 
   React.useEffect(() => {
     fetch(`${API.public.branches}?limit=50`)
       .then((r) => r.json())
       .then((j) => setBranches(j.data?.items ?? j.data ?? []))
       .finally(() => setLoading(false));
+  }, []);
+
+  React.useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
   }, []);
 
   return (
@@ -370,7 +385,11 @@ function BranchStep({ onSelect }: { onSelect: (b: ApiBranch) => void }) {
         <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
           {branches.map((b, index) => {
             const distance = `${(2.4 + index * 0.3).toFixed(1)} km away`;
-            const isOpen = index % 2 === 0;
+            // Real state from the branch's saved hours (salon-local time, today's
+            // holiday included), recomputed every minute by the tick above so a
+            // parked tab flips at opening/closing time instead of going stale.
+            const hours = resolveOpenState(b.timings, (b.holidays?.length ?? 0) > 0, now);
+            const isOpen = hours.status === "OPEN";
             return (
               <button
                 key={b.id}
@@ -414,7 +433,10 @@ function BranchStep({ onSelect }: { onSelect: (b: ApiBranch) => void }) {
                       <span
                         className={`h-2.5 w-2.5 rounded-full ${isOpen ? "bg-emerald-400" : "bg-stone-500"}`}
                       />
-                      {isOpen ? "Open now" : "Closed"}
+                      {hours.label}
+                      {hours.detail && (
+                        <span className="font-normal text-stone-400">· {hours.detail}</span>
+                      )}
                     </span>
                   </div>
                   <ChevronRight className="size-4 text-stone-500 transition group-hover:text-stone-200" />
@@ -1817,7 +1839,11 @@ export function BookWizard({
 
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100">
-      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      {/* The site header is `fixed` (site-header.tsx: pt-6 + an h-16 pill = 5.5rem
+          tall), so it sits outside the document flow and every page must reserve
+          that space itself or its first rows render underneath the glass. 8rem =
+          5.5rem of clearance + the 2.5rem of breathing room this page always had. */}
+      <div className="mx-auto max-w-5xl px-4 pb-10 pt-32 sm:px-6">
         <StepBar current={step} />
 
         <BookingBar

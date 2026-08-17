@@ -20,11 +20,16 @@ export function QuickActions({ actions, label = "Quick actions" }: { actions: Qu
 
   return (
     <div className="relative" ref={ref}>
+      {/* No `dark:` overrides on purpose: globals.css inverts the neutral ramp in
+          dark mode, so bg-gray-900 / text-white already flip to a light pill with
+          dark ink. The old `dark:bg-zinc-100 dark:text-zinc-900` pair rendered
+          invisible — --color-zinc-100 is remapped to #1f1f23 (dark) while zinc-900
+          is not remapped at all, so it was dark text on a dark pill. */}
       <button
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-gray-900 px-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/20 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white dark:focus-visible:ring-white/25"
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-gray-900 px-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/20"
       >
         <Plus className="size-4" />
         <span className="hidden sm:inline">{label}</span>
