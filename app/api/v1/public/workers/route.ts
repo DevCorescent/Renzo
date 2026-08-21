@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { err, paginated, parsePagination } from "@/lib/response";
 import prisma from "@/lib/db";
 import type { Prisma } from "@prisma/client";
-import { DATE_RE, getWorkerSlots } from "@/lib/slots";
+import { DATE_RE, getWorkerSlots, parseRequestedServiceIds } from "@/lib/slots";
 
 // OWNER: Aman | MODULE: Public Workers
 // GET /api/v1/public/workers — List public worker profiles (no auth)
@@ -17,19 +17,6 @@ import { DATE_RE, getWorkerSlots } from "@/lib/slots";
 //
 // `serviceId` remains for existing single-service callers. `serviceIds` may
 // be repeated (`serviceIds=a&serviceIds=b`) or comma-separated.
-
-function parseRequestedServiceIds(url: URL): string[] {
-  const collected: string[] = [];
-  const single = url.searchParams.get("serviceId")?.trim();
-  if (single) collected.push(single);
-  for (const raw of url.searchParams.getAll("serviceIds")) {
-    for (const part of raw.split(",")) {
-      const id = part.trim();
-      if (id) collected.push(id);
-    }
-  }
-  return [...new Set(collected)];
-}
 
 export async function GET(req: NextRequest) {
   try {

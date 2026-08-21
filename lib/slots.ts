@@ -1,5 +1,6 @@
 import prisma from "@/lib/db";
 import { resolveShift, WORKER_SHIFT_SELECT } from "@/lib/scheduling";
+import { salonNow } from "@/lib/branch-hours";
 
 // OWNER: Aman | MODULE: Scheduling — worker-specific slot generation
 // Single source of truth for "which slots is a worker free for?". Both
@@ -176,10 +177,13 @@ export async function getWorkerSlots(params: {
   const dayOfWeek = appointmentDate.getUTCDay();
 
   // Don't offer slots that have already passed today.
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const now = new Date();
-  const nowMinutes =
-    date === todayStr ? now.getUTCHours() * 60 + now.getUTCMinutes() : -1;
+  //
+  // Slot times are salon wall-clock ("14:30"), so "now" has to be read in the
+  // salon's zone too. Comparing against getUTCHours() left the cut-off trailing
+  // real time by the UTC offset — in IST that meant times up to 5.5 hours in
+  // the past were still offered as bookable.
+  const { minutes: salonMinutes, dateKey: salonToday } = salonNow();
+  const nowMinutes = date === salonToday ? salonMinutes : -1;
 
   const byWorker = new Map<string, string[]>();
   const gridByWorker = new Map<string, SlotEntry[]>();
@@ -249,20 +253,65 @@ export async function getWorkerSlots(params: {
 // Workers who can actually take this booking: active, at this branch, and
 // qualified for this service. This is the gate behind BOTH the worker picker
 // and the slot API — a worker who cannot perform the service is never offered.
+/**
+ * Service ids from a request, accepting either `serviceId=a` or a repeated /
+ * comma-separated `serviceIds=a,b`. Shared with /api/v1/public/workers so the
+ * stylist list and the slot list can never disagree about what was asked for.
+ */
+export function parseRequestedServiceIds(url: URL): string[] {
+  const collected: string[] = [];
+  const single = url.searchParams.get("serviceId")?.trim();
+  if (single) collected.push(single);
+  for (const raw of url.searchParams.getAll("serviceIds")) {
+    for (const part of raw.split(",")) {
+      const id = part.trim();
+      if (id) collected.push(id);
+    }
+  }
+  return [...new Set(collected)];
+}
+
+/**
+ * Workers at `branchId` who can perform EVERY requested service.
+ *
+ * With several services this must be an intersection, not a union: a booking
+ * for "Oil Massage + Pedicure" is one appointment handled by one stylist, so a
+ * stylist who only does one of them cannot take it.
+ */
 export async function eligibleWorkerIds(params: {
   branchId: string;
-  serviceId: string;
+  serviceId?: string;
+  serviceIds?: string[];
 }): Promise<string[]> {
+  const ids = [
+    ...new Set(
+      [...(params.serviceIds ?? []), ...(params.serviceId ? [params.serviceId] : [])].filter(
+        Boolean,
+      ),
+    ),
+  ];
+  if (ids.length === 0) return [];
+
   const rows = await prisma.workerService.findMany({
     where: {
-      serviceId: params.serviceId,
+      serviceId: { in: ids },
       isActive: true,
       worker: {
         isActive: true,
         branches: { some: { branchId: params.branchId, isActive: true } },
       },
     },
-    select: { workerId: true },
+    select: { workerId: true, serviceId: true },
   });
-  return rows.map((r) => r.workerId);
+
+  const offered = new Map<string, Set<string>>();
+  for (const r of rows) {
+    const set = offered.get(r.workerId) ?? new Set<string>();
+    set.add(r.serviceId);
+    offered.set(r.workerId, set);
+  }
+
+  return [...offered.entries()]
+    .filter(([, set]) => ids.every((id) => set.has(id)))
+    .map(([workerId]) => workerId);
 }

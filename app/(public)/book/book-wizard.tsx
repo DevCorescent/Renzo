@@ -26,6 +26,8 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { BookingSuggestTips } from "@/components/ai/booking-suggest-tips";
+import { BookingDatePicker } from "./date-picker";
+import { fmtDate, fmtDateShort, today } from "./date-utils";
 import { resolveOpenState, type DayTiming } from "@/lib/branch-hours";
 import {
   GoogleLoginButton,
@@ -130,26 +132,13 @@ function workerName(w: {
 
 /* ── helpers ────────────────────────────────────────────────────────────────── */
 
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
-function addDays(base: string, n: number) {
-  const d = new Date(base);
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
+// `today`, `addDays`, `fmtDate` and friends now live in ./date-utils, which
+// works in local calendar days instead of UTC instants — see the note there.
+
 function endTime(start: string, mins: number) {
   const [h, m] = start.split(":").map(Number);
   const t = h * 60 + m + mins;
   return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
-}
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-IN", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 }
 
 const SERVICE_CATEGORY_PLACEHOLDER: Record<string, string> = {
@@ -161,9 +150,19 @@ const SERVICE_CATEGORY_PLACEHOLDER: Record<string, string> = {
     "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=900&q=80",
 };
 
-function getServiceCardImage(category: string) {
+/**
+ * The image to show on a service card.
+ *
+ * The service's own uploaded image wins. This used to key off the category name
+ * alone and always returned a stock photo, so images uploaded through the admin
+ * never appeared here even though they were stored and served correctly — the
+ * category placeholder is only the fallback for services with no image yet.
+ */
+function getServiceCardImage(service: { image: string | null; category: { name: string } }) {
+  const own = service.image?.trim();
+  if (own) return own;
   return (
-    SERVICE_CATEGORY_PLACEHOLDER[category.toLowerCase()] ??
+    SERVICE_CATEGORY_PLACEHOLDER[service.category.name.toLowerCase()] ??
     SERVICE_CATEGORY_PLACEHOLDER.hair
   );
 }
@@ -198,7 +197,8 @@ function serviceMatchesQuery(service: ApiService, query: string) {
   return haystack.includes(needle);
 }
 
-const DATE_COUNT = 14;
+/** How far ahead the salon accepts bookings, in days from today. */
+const MAX_ADVANCE_DAYS = 90;
 
 /* ── top booking bar: shows selections made so far ──────────────────────────── */
 
@@ -229,57 +229,50 @@ function BookingBar({
 }) {
   const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
   if (!branch && services.length === 0) return null;
+
+  // Chips truncate instead of growing: a long branch name used to set the
+  // intrinsic width of the whole column and push the layout past the viewport.
+  const chipCls =
+    "group flex min-w-0 max-w-full items-center gap-2 rounded-xl bg-stone-800 px-2.5 py-2 text-left transition hover:bg-stone-700 sm:px-3";
+  const labelCls = "min-w-0 truncate text-xs font-medium text-stone-200";
+
   return (
-    <div className={`flex flex-wrap items-center gap-2 rounded-2xl border border-white/8 bg-stone-900/80 p-3 ${className ?? "mb-6"}`}>
+    <div className={`flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-white/8 bg-stone-900/80 p-2.5 sm:p-3 ${className ?? "mb-6"}`}>
       {branch && (
-        <button
-          onClick={onChangeBranch}
-          className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
-        >
+        <button onClick={onChangeBranch} className={chipCls} title={branch.name}>
           <MapPin className="size-3.5 shrink-0 text-stone-400" />
-          <span className="text-xs font-medium text-stone-200">
-            {branch.name}
-          </span>
-          <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
+          <span className={labelCls}>{branch.name}</span>
+          <X className="size-3 shrink-0 text-stone-600 group-hover:text-red-400 transition" />
         </button>
       )}
       {services.length > 0 && (
-        <button
-          onClick={onChangeService}
-          className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
-        >
+        <button onClick={onChangeService} className={chipCls}>
           <Scissors className="size-3.5 shrink-0 text-stone-400" />
-          <span className="text-xs font-medium text-stone-200">
+          <span className={labelCls}>
             {services.length === 1 ? services[0].name : `${services.length} services`}
           </span>
-          <span className="text-xs font-semibold text-stone-100">
+          <span className="shrink-0 text-xs font-semibold text-stone-100">
             ₹{totalPrice.toLocaleString("en-IN")}
           </span>
-          <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
+          <X className="size-3 shrink-0 text-stone-600 group-hover:text-red-400 transition" />
         </button>
       )}
       {workerChosen && (
-        <button
-          onClick={onChangeWorker}
-          className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
-        >
+        <button onClick={onChangeWorker} className={chipCls}>
           <User className="size-3.5 shrink-0 text-stone-400" />
-          <span className="text-xs font-medium text-stone-200">
+          <span className={labelCls}>
             {worker ? workerName(worker) : "Any worker"}
           </span>
-          <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
+          <X className="size-3 shrink-0 text-stone-600 group-hover:text-red-400 transition" />
         </button>
       )}
       {slot && (
-        <button
-          onClick={onChangeSlot}
-          className="group flex items-center gap-2 rounded-xl bg-stone-800 px-3 py-2 text-left transition hover:bg-stone-700"
-        >
+        <button onClick={onChangeSlot} className={chipCls}>
           <Clock className="size-3.5 shrink-0 text-stone-400" />
-          <span className="text-xs font-medium text-stone-200">
-            {fmtDate(date).split(",")[0]}, {slot}
+          <span className={labelCls}>
+            {fmtDateShort(date)}, {slot}
           </span>
-          <X className="size-3 text-stone-600 group-hover:text-red-400 transition" />
+          <X className="size-3 shrink-0 text-stone-600 group-hover:text-red-400 transition" />
         </button>
       )}
     </div>
@@ -324,15 +317,19 @@ const STEPS: { key: Step; label: string }[] = [
 function StepBar({ current, className }: { current: Step; className?: string }) {
   const idx = STEPS.findIndex((s) => s.key === current);
   return (
-    <div className={`flex items-center gap-1 ${className ?? "mb-8"}`}>
+    <div
+      className={`flex min-w-0 items-center gap-1 ${className ?? "mb-6 sm:mb-8"}`}
+      role="group"
+      aria-label={`Step ${idx + 1} of ${STEPS.length}: ${STEPS[idx]?.label ?? ""}`}
+    >
       {STEPS.map((s, i) => (
         <React.Fragment key={s.key}>
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
             {/* Completed → green check. Current → filled (white on this dark
                 shell, the dark-mode reading of the spec's "black filled"). Upcoming
                 → outlined gray. */}
             <span
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-bold transition duration-200 ease-out ${
+              className={`inline-flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition duration-200 ease-out sm:size-8 ${
                 i < idx
                   ? "bg-stone-100 text-stone-950 border-stone-200 shadow-sm"
                   : i === idx
@@ -343,7 +340,7 @@ function StepBar({ current, className }: { current: Step; className?: string }) 
               {i < idx ? <Check className="size-3.5" /> : i + 1}
             </span>
             <span
-              className={`hidden text-xs font-medium sm:inline transition duration-200 ${
+              className={`hidden whitespace-nowrap text-xs font-medium sm:inline transition duration-200 ${
                 i === idx
                   ? "text-stone-100"
                   : i < idx
@@ -493,7 +490,7 @@ function BranchStep({ onSelect }: { onSelect: (b: ApiBranch) => void }) {
           No branches available yet.
         </p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           {branches.map((b, index) => {
             const distance = `${(2.4 + index * 0.3).toFixed(1)} km away`;
             // Real state from the branch's saved hours (salon-local time, today's
@@ -505,18 +502,18 @@ function BranchStep({ onSelect }: { onSelect: (b: ApiBranch) => void }) {
               <button
                 key={b.id}
                 onClick={() => onSelect(b)}
-                className="group flex flex-col gap-4 overflow-hidden rounded-3xl border border-white/10 bg-stone-900/95 p-5 text-left shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_18px_50px_-36px_rgba(255,255,255,0.22)] hover:border-stone-300/50 hover:bg-stone-800"
+                className="group flex flex-col gap-3 overflow-hidden rounded-3xl border border-white/10 bg-stone-900/95 p-4 text-left shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_18px_50px_-36px_rgba(255,255,255,0.22)] hover:border-stone-300/50 hover:bg-stone-800 sm:gap-4 sm:p-5"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                <div className="flex items-start gap-4">
-                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-3xl bg-stone-800 ring-1 ring-white/10">
+                <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                  <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl bg-stone-800 ring-1 ring-white/10 sm:size-20 sm:rounded-3xl">
                     {b.coverImage ? (
                       <Image
                         src={b.coverImage}
                         alt={b.name}
                         fill
                         className="object-cover opacity-90 transition group-hover:opacity-100"
-                        sizes="80px"
+                        sizes="(max-width: 640px) 64px, 80px"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-stone-600 text-xl font-bold opacity-40">
@@ -525,32 +522,34 @@ function BranchStep({ onSelect }: { onSelect: (b: ApiBranch) => void }) {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-base font-semibold text-stone-100 transition group-hover:text-stone-50">
+                    <p className="text-sm font-semibold break-words text-stone-100 transition group-hover:text-stone-50 sm:text-base">
                       {b.name}
                     </p>
-                    <p className="mt-1 text-sm text-stone-400">
+                    <p className="mt-1 text-xs break-words text-stone-400 sm:text-sm">
                       {b.city} · {b.address}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex flex-wrap gap-2 text-[11px] text-stone-300">
-                    <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-stone-800/80 px-3 py-1 font-medium">
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap gap-1.5 text-[11px] text-stone-300 sm:gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-stone-800/80 px-2.5 py-1 font-medium sm:px-3">
                       {distance}
                     </span>
                     <span
-                      className={`inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1 font-medium ${isOpen ? "bg-emerald-500/10 text-emerald-200" : "bg-stone-800 text-stone-400"}`}
+                      className={`inline-flex min-w-0 items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 font-medium sm:gap-2 sm:px-3 ${isOpen ? "bg-emerald-500/10 text-emerald-200" : "bg-stone-800 text-stone-400"}`}
                     >
                       <span
-                        className={`h-2.5 w-2.5 rounded-full ${isOpen ? "bg-emerald-400" : "bg-stone-500"}`}
+                        className={`size-2 shrink-0 rounded-full sm:size-2.5 ${isOpen ? "bg-emerald-400" : "bg-stone-500"}`}
                       />
                       {hours.label}
                       {hours.detail && (
-                        <span className="font-normal text-stone-400">· {hours.detail}</span>
+                        <span className="min-w-0 truncate font-normal text-stone-400">
+                          · {hours.detail}
+                        </span>
                       )}
                     </span>
                   </div>
-                  <ChevronRight className="size-4 text-stone-500 transition group-hover:text-stone-200" />
+                  <ChevronRight className="size-4 shrink-0 text-stone-500 transition group-hover:text-stone-200" />
                 </div>
               </button>
             );
@@ -621,49 +620,65 @@ function ServiceStep({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/* Heading on its own line, then one full-width search row with the CTA
+          beside it. The search box used to be squeezed into the middle of a
+          three-way justify-between, so it was both narrow and visually adrift
+          from the results it filters. */}
       <div className="sticky top-24 z-20 shrink-0 bg-stone-950 pb-4 lg:static lg:top-auto">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
-          <div className="min-w-0 shrink-0">
-            <h2 className="mb-1 text-lg font-semibold">Select services</h2>
-            <p className="text-sm text-stone-400">
-              Pick one or more services for your visit
-            </p>
-          </div>
-          <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start lg:max-w-2xl lg:flex-1 lg:justify-end">
-            <label className="relative min-w-0 flex-1">
-              <span className="sr-only">Search services</span>
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-stone-500"
-              />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search services, categories, locations..."
-                className="w-full rounded-2xl border border-white/10 bg-stone-900 py-2.5 pl-10 pr-3 text-sm text-stone-100 placeholder:text-stone-500 outline-none transition focus:border-stone-400/40"
-              />
-            </label>
-            {selected.length > 0 && (
-              <div className="hidden shrink-0 sm:w-auto lg:block">
-                <button
-                  type="button"
-                  onClick={onContinue}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-stone-950 transition hover:bg-stone-200 active:scale-[0.98] sm:w-auto"
-                >
-                  <CalendarDays className="size-4" />
-                  Book Selected ({selected.length})
-                </button>
-                <p className="mt-1.5 text-xs leading-snug text-stone-500 sm:max-w-[13.5rem]">
-                  Review your selection and choose date, time & branch
-                </p>
-              </div>
-            )}
-          </div>
+        <div className="mb-3 min-w-0">
+          <h2 className="mb-1 text-lg font-semibold">Select services</h2>
+          <p className="text-sm text-stone-400">
+            Pick one or more services for your visit
+          </p>
         </div>
+
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <label className="relative min-w-0 flex-1">
+            <span className="sr-only">Search services</span>
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-stone-500"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search services or categories…"
+              className="h-11 w-full rounded-2xl border border-white/10 bg-stone-900 pl-10 pr-9 text-base text-stone-100 placeholder:text-stone-500 outline-none transition focus:border-stone-400/40 sm:text-sm"
+            />
+            {hasQuery && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-stone-500 transition hover:bg-white/10 hover:text-stone-200"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </label>
+
+          {selected.length > 0 && (
+            <button
+              type="button"
+              onClick={onContinue}
+              className="hidden h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-bold text-stone-950 transition hover:bg-stone-200 active:scale-[0.98] lg:inline-flex"
+            >
+              <CalendarDays className="size-4 shrink-0" />
+              Book Selected ({selected.length})
+            </button>
+          )}
+        </div>
+
         {selected.length > 0 && (
-          <p className="mt-3 text-xs leading-snug text-stone-500 lg:hidden">
-            Review your selection and choose date, time & branch
+          <p className="mt-2 text-xs leading-snug text-stone-500">
+            Review your selection and choose date, time &amp; branch
+          </p>
+        )}
+        {hasQuery && !loading && (
+          <p className="mt-2 text-xs text-stone-500">
+            {filteredServices.length} result
+            {filteredServices.length === 1 ? "" : "s"} for &ldquo;{query.trim()}&rdquo;
           </p>
         )}
       </div>
@@ -710,13 +725,12 @@ function ServiceStep({
                         </span>
                       )}
                       <div className="relative aspect-video overflow-hidden bg-stone-800">
-                        <div
-                          className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-105"
-                          style={{
-                            backgroundImage: `url(${getServiceCardImage(
-                              s.category.name,
-                            )})`,
-                          }}
+                        <Image
+                          src={getServiceCardImage(s)}
+                          alt=""
+                          fill
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
+                          className="object-cover transition duration-500 group-hover:scale-105"
                         />
                         <div className="absolute inset-0 bg-linear-to-t from-stone-950/85 via-stone-950/20 to-transparent" />
                       </div>
@@ -1030,14 +1044,14 @@ function WorkerStep({
           {error}
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
           {/* Any-stylist option keeps the original "book without picking" path. */}
           <button
             onClick={() => onSelect(null)}
-            className="group flex h-full flex-col justify-between rounded-3xl border border-white/10 bg-stone-950/80 p-6 text-left shadow-sm transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_60px_-36px_rgba(255,255,255,0.18)] hover:bg-stone-900"
+            className="group flex h-full min-w-0 flex-col justify-between rounded-3xl border border-white/10 bg-stone-950/80 p-4 text-left shadow-sm transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_60px_-36px_rgba(255,255,255,0.18)] hover:bg-stone-900 sm:p-6"
           >
-            <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-800 text-2xl text-stone-400">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-stone-800 text-2xl text-stone-400 sm:size-14">
                 <Users />
               </div>
               <div className="min-w-0">
@@ -1049,14 +1063,14 @@ function WorkerStep({
                 </p>
               </div>
             </div>
-            <div className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-stone-900 px-3 py-2 text-xs font-semibold text-stone-200">
-              <Clock className="size-4 text-stone-400" />
+            <div className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-stone-900 px-3 py-2 text-xs font-semibold text-stone-200 sm:mt-6">
+              <Clock className="size-4 shrink-0 text-stone-400" />
               Available today · next 10:00
             </div>
           </button>
 
           {workers.length === 0 ? (
-            <p className="rounded-2xl border border-white/8 bg-stone-900 py-10 text-center text-sm text-stone-500">
+            <p className="rounded-2xl border border-white/8 bg-stone-900 px-4 py-10 text-center text-sm text-stone-500 sm:col-span-1 xl:col-span-2">
               No stylists are available for the selected services.
             </p>
           ) : (
@@ -1070,18 +1084,18 @@ function WorkerStep({
               return (
                 <div
                   key={w.id}
-                  className="overflow-hidden rounded-3xl border border-white/10 bg-stone-900 shadow-sm transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_60px_-36px_rgba(255,255,255,0.16)] hover:border-stone-300/50"
+                  className="min-w-0 overflow-hidden rounded-3xl border border-white/10 bg-stone-900 shadow-sm transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_60px_-36px_rgba(255,255,255,0.16)] hover:border-stone-300/50"
                 >
                   <div className="p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="relative size-16 shrink-0 overflow-hidden rounded-full bg-stone-800 ring-1 ring-white/10">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-stone-800 ring-1 ring-white/10 sm:size-16">
                         {w.profilePhoto ? (
                           <Image
                             src={w.profilePhoto}
                             alt={workerName(w)}
                             fill
                             className="object-cover"
-                            sizes="64px"
+                            sizes="(max-width: 640px) 56px, 64px"
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-stone-500">
@@ -1091,13 +1105,13 @@ function WorkerStep({
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate font-semibold text-stone-100">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <p className="min-w-0 max-w-full truncate font-semibold text-stone-100">
                             {workerName(w)}
                           </p>
                           {w.reviewCount > 0 ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-stone-800 px-2 py-0.5 text-[11px] font-medium text-stone-200">
-                              <Star className="size-3 fill-stone-100 text-stone-100" />
+                            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-stone-800 px-2 py-0.5 text-[11px] font-medium text-stone-200">
+                              <Star className="size-3 shrink-0 fill-stone-100 text-stone-100" />
                               {w.averageRating.toFixed(1)}
                               <span className="text-stone-500">
                                 ({w.reviewCount})
@@ -1148,17 +1162,17 @@ function WorkerStep({
                       </div>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <div className="mt-4 flex items-center gap-2 sm:gap-3">
                       <button
                         onClick={() => setExpanded(isOpen ? null : w.id)}
                         aria-expanded={isOpen}
-                        className="inline-flex items-center justify-center rounded-full border border-white/12 bg-stone-950 px-4 py-2 text-xs font-semibold text-stone-200 transition hover:border-white/25 hover:bg-white/5"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-white/12 bg-stone-950 px-3 py-2 text-xs font-semibold text-stone-200 transition hover:border-white/25 hover:bg-white/5 sm:flex-none sm:px-4"
                       >
                         {isOpen ? "Hide portfolio" : "Portfolio"}
                       </button>
                       <button
                         onClick={() => onSelect(w)}
-                        className="inline-flex items-center justify-center rounded-full bg-white px-4 py-2 text-xs font-bold text-stone-950 transition hover:bg-stone-200 active:scale-[0.98]"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full bg-white px-3 py-2 text-xs font-bold text-stone-950 transition hover:bg-stone-200 active:scale-[0.98] sm:flex-none sm:px-6"
                       >
                         Select
                       </button>
@@ -1189,14 +1203,10 @@ function SlotStep({
   worker: ApiWorker | null;
   onSelect: (date: string, slot: string) => void;
 }) {
-  const primaryService = services[0];
   const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
   const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
-  const dates = React.useMemo(
-    () => Array.from({ length: DATE_COUNT }, (_, i) => addDays(today(), i)),
-    [],
-  );
-  const [selectedDate, setSelectedDate] = React.useState(dates[0]);
+  const serviceIdKey = services.map((s) => s.id).join(",");
+  const [selectedDate, setSelectedDate] = React.useState(() => today());
   const [result, setResult] = React.useState<{
     key: string;
     slots: string[];
@@ -1204,20 +1214,24 @@ function SlotStep({
     msg: string | null;
   } | null>(null);
 
-  const key = `${branch.id}|${primaryService.id}|${worker?.id ?? ""}|${selectedDate}`;
+  const key = `${branch.id}|${serviceIdKey}|${worker?.id ?? ""}|${selectedDate}`;
 
   React.useEffect(() => {
     let cancelled = false;
 
+    // ALL selected services go to the API. It sizes each slot by their summed
+    // duration — asking for only the first one offered slots too short to hold
+    // the booking, which POST /appointments would then reject.
+    //
     // With a workerId the API returns ONLY that stylist's free slots, so one
     // stylist's bookings never remove slots from another's schedule.
     const q = new URLSearchParams({
       branchId: branch.id,
-      serviceId: primaryService.id,
+      serviceIds: serviceIdKey,
       date: selectedDate,
     });
     if (worker) q.set("workerId", worker.id);
-    const reqKey = `${branch.id}|${primaryService.id}|${worker?.id ?? ""}|${selectedDate}`;
+    const reqKey = `${branch.id}|${serviceIdKey}|${worker?.id ?? ""}|${selectedDate}`;
 
     fetch(`${API.public.slots}?${q.toString()}`)
       .then((r) => r.json())
@@ -1226,10 +1240,13 @@ function SlotStep({
         const list: string[] = j.data?.slots ?? [];
         const grid: Array<{ time: string; status: "AVAILABLE" | "BOOKED" | "PAST" }> =
           j.data?.slotGrid ?? list.map((time: string) => ({ time, status: "AVAILABLE" as const }));
+        // An empty grid always has a specific reason — closed that day, no
+        // qualified stylist, everyone on leave. Show the API's message rather
+        // than flattening all of them to "no slots".
         const msg = !j.success
           ? (j.message ?? "Could not load slots")
           : grid.length === 0
-            ? "No slots available — try another date"
+            ? (j.message ?? "No slots available — try another date")
             : null;
         setResult({ key: reqKey, slots: list, slotGrid: grid, msg });
       })
@@ -1241,15 +1258,17 @@ function SlotStep({
     return () => {
       cancelled = true;
     };
-  }, [branch, primaryService, worker, selectedDate]);
+  }, [branch, serviceIdKey, worker, selectedDate]);
 
   const fresh = result?.key === key ? result : null;
   const loading = fresh === null;
   const slotGrid = fresh?.slotGrid ?? [];
   const msg = fresh?.msg ?? null;
 
-  // Hide past slots; keep BOOKED visible so customers see the chair is taken.
-  const visible = slotGrid.filter((s) => s.status !== "PAST");
+  // Everything stays on screen: BOOKED so the customer sees the chair is taken,
+  // PAST so today's earlier times read as "already gone" rather than silently
+  // vanishing. Both are rendered disabled — only AVAILABLE is clickable.
+  const visible = slotGrid;
   const sections = [
     {
       label: "Morning",
@@ -1269,52 +1288,34 @@ function SlotStep({
   ].filter((s) => s.items.length > 0);
 
   const availableCount = visible.filter((s) => s.status === "AVAILABLE").length;
+  const pastCount = visible.filter((s) => s.status === "PAST").length;
+  const bookedCount = visible.filter((s) => s.status === "BOOKED").length;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div>
-        <h2 className="mb-1 text-lg font-semibold">Pick a date & time</h2>
-        <p className="mb-5 text-sm text-stone-400">
+      {/* min-w-0 stops the date strip's intrinsic width from sizing this column
+          — without it the grid track grew to the full 14-chip width, the parent
+          layout's overflow-x-hidden clipped the excess, and the strip could
+          never scroll because it was never actually overflowing. */}
+      <div className="min-w-0">
+        <h2 className="mb-1 text-lg font-semibold">Pick a date &amp; time</h2>
+        <p className="mb-4 text-sm text-stone-400 sm:mb-5">
           {worker
             ? "Showing only your stylist's free slots"
             : "Choose when you'd like to come in"}
         </p>
 
-        {/* Horizontal date scroller */}
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
-          {dates.map((d) => {
-            const dt = new Date(d);
-            const isToday = d === today();
-            return (
-              <button
-                key={d}
-                onClick={() => setSelectedDate(d)}
-                className={`flex shrink-0 flex-col items-center rounded-xl border px-3.5 py-2.5 text-center transform transition duration-200 ease-out ${
-                  selectedDate === d
-                    ? "border-stone-200 bg-white/10 text-stone-100 shadow-[0_10px_30px_-24px_rgba(255,255,255,0.25)]"
-                    : "border-white/10 bg-stone-900 text-stone-400 hover:border-stone-300/50 hover:text-stone-100 hover:-translate-y-0.5"
-                }`}
-              >
-                <span className="text-[10px] font-medium uppercase tracking-wide">
-                  {isToday
-                    ? "Today"
-                    : dt.toLocaleDateString("en-IN", { weekday: "short" })}
-                </span>
-                <span className="mt-0.5 text-xl font-bold leading-tight">
-                  {dt.getDate()}
-                </span>
-                <span className="text-[10px] text-stone-500">
-                  {dt.toLocaleDateString("en-IN", { month: "short" })}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <BookingDatePicker
+          value={selectedDate}
+          onChange={setSelectedDate}
+          maxAdvanceDays={MAX_ADVANCE_DAYS}
+          className="mb-5 sm:mb-6"
+        />
 
         {/* Slots grid */}
-        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-stone-500">
-          <CalendarDays className="mr-1 inline size-3.5" />
-          {fmtDate(selectedDate)}
+        <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-stone-500">
+          <CalendarDays className="size-3.5 shrink-0" />
+          <span className="min-w-0 truncate">{fmtDate(selectedDate)}</span>
         </p>
 
         {loading ? (
@@ -1331,7 +1332,9 @@ function SlotStep({
           <div className="space-y-6">
             {availableCount === 0 && (
               <p className="rounded-xl border border-white/10 bg-stone-950/40 px-3 py-2 text-xs text-stone-400">
-                All remaining times are booked. Pick another date or stylist.
+                {pastCount > 0 && bookedCount === 0
+                  ? "Today's slots have all passed. Pick another date."
+                  : "All remaining times are booked. Pick another date or stylist."}
               </p>
             )}
             {sections.map(({ label, items }) => (
@@ -1344,27 +1347,36 @@ function SlotStep({
                     {items.filter((i) => i.status === "AVAILABLE").length} open
                   </p>
                 </div>
-                <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                <div className="grid grid-cols-3 gap-2 min-[26rem]:grid-cols-4 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4">
                   {items.map((entry) => {
-                    const booked = entry.status === "BOOKED";
+                    const open = entry.status === "AVAILABLE";
                     return (
                       <button
                         key={entry.time}
                         type="button"
-                        disabled={booked}
+                        disabled={!open}
+                        title={
+                          entry.status === "PAST"
+                            ? "This time has already passed"
+                            : entry.status === "BOOKED"
+                              ? "Already booked"
+                              : undefined
+                        }
                         onClick={() => {
-                          if (!booked) onSelect(selectedDate, entry.time);
+                          if (open) onSelect(selectedDate, entry.time);
                         }}
-                        className={`rounded-2xl border px-4 py-4 text-sm font-medium transition duration-200 ease-out ${
-                          booked
-                            ? "cursor-not-allowed border-white/5 bg-stone-950/60 text-stone-600"
-                            : "border-white/10 bg-stone-900 text-stone-300 hover:-translate-y-0.5 hover:border-stone-300/50 hover:bg-stone-800 hover:text-stone-100 hover:shadow-[0_18px_50px_-36px_rgba(255,255,255,0.18)]"
+                        className={`rounded-2xl border px-2 py-3 text-sm font-medium tabular-nums transition duration-200 ease-out sm:px-4 sm:py-4 ${
+                          open
+                            ? "border-white/10 bg-stone-900 text-stone-300 hover:border-stone-300/50 hover:bg-stone-800 hover:text-stone-100 hover:shadow-[0_18px_50px_-36px_rgba(255,255,255,0.18)]"
+                            : "cursor-not-allowed border-white/5 bg-stone-950/60 text-stone-600"
                         }`}
                       >
-                        <span className="block">{entry.time}</span>
-                        {booked && (
+                        <span className={`block ${entry.status === "PAST" ? "line-through" : ""}`}>
+                          {entry.time}
+                        </span>
+                        {!open && (
                           <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-stone-500">
-                            Booked
+                            {entry.status === "PAST" ? "Past" : "Booked"}
                           </span>
                         )}
                       </button>
@@ -1377,31 +1389,35 @@ function SlotStep({
         )}
       </div>
 
-      <aside className="rounded-3xl border border-white/10 bg-stone-900 p-5 text-sm text-stone-300 lg:sticky lg:top-24">
+      <aside className="min-w-0 rounded-3xl border border-white/10 bg-stone-900 p-4 text-sm text-stone-300 sm:p-5 lg:sticky lg:top-24 lg:self-start">
         <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-stone-500">
           Booking summary
         </p>
         <div className="space-y-4">
-          <div>
+          <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-widest text-stone-500">
               Branch
             </p>
-            <p className="mt-2 font-semibold text-stone-100">{branch.name}</p>
+            <p className="mt-2 font-semibold break-words text-stone-100">
+              {branch.name}
+            </p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-widest text-stone-500">
               {services.length === 1 ? "Service" : "Services"}
             </p>
             {services.map((s) => (
-              <p key={s.id} className="mt-1 font-semibold text-stone-100">{s.name}</p>
+              <p key={s.id} className="mt-1 font-semibold break-words text-stone-100">
+                {s.name}
+              </p>
             ))}
             <p className="text-xs text-stone-500">{totalDuration} min total</p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-widest text-stone-500">
               Stylist
             </p>
-            <p className="mt-2 font-semibold text-stone-100">
+            <p className="mt-2 font-semibold break-words text-stone-100">
               {worker ? workerName(worker) : "Any available stylist"}
             </p>
           </div>
@@ -1432,6 +1448,7 @@ function ConfirmStep({
   onConfirm,
   loading,
   error,
+  inlinePanel,
 }: {
   branch: PreloadedBranch;
   services: PreloadedService[];
@@ -1443,6 +1460,10 @@ function ConfirmStep({
   onConfirm: () => void;
   loading: boolean;
   error: string | null;
+  /** Rendered above the confirm button on narrow screens, where the sidebar
+      collapses below the fold and the customer would otherwise meet the
+      "Confirm" button before the form it depends on. */
+  inlinePanel?: React.ReactNode;
 }) {
   const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
   const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
@@ -1458,13 +1479,13 @@ function ConfirmStep({
     : null;
 
   return (
-    <div>
+    <div className="min-w-0">
       {/* Heading */}
-      <div className="mb-5 flex items-center gap-3">
+      <div className="mb-5 flex min-w-0 items-center gap-3">
         <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/25">
           <Sparkles className="size-4" />
         </span>
-        <div>
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold leading-tight">
             Confirm booking
           </h2>
@@ -1477,7 +1498,7 @@ function ConfirmStep({
       {/* Ticket-style summary card */}
       <div className="mb-5 overflow-hidden rounded-3xl border border-white/10 bg-stone-900 shadow-[0_40px_90px_-70px_rgba(255,255,255,0.5)]">
         {/* Branch banner */}
-        <div className="relative h-32 w-full overflow-hidden bg-stone-800">
+        <div className="relative h-28 w-full overflow-hidden bg-stone-800 sm:h-32">
           {branch.coverImage && (
             <Image
               src={branch.coverImage}
@@ -1488,11 +1509,11 @@ function ConfirmStep({
             />
           )}
           <div className="absolute inset-0 bg-linear-to-t from-stone-900 via-stone-900/40 to-transparent" />
-          <div className="absolute bottom-4 left-5 right-5">
+          <div className="absolute bottom-3 left-4 right-4 sm:bottom-4 sm:left-5 sm:right-5">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-stone-100 backdrop-blur-sm">
-              <MapPin className="size-3" /> Your appointment
+              <MapPin className="size-3 shrink-0" /> Your appointment
             </span>
-            <p className="mt-2 text-xl font-bold leading-tight text-white">
+            <p className="mt-2 text-base font-bold leading-tight break-words text-white sm:text-xl">
               {branch.name}
             </p>
             <p className="text-xs text-stone-300">{branch.city}</p>
@@ -1517,8 +1538,8 @@ function ConfirmStep({
           </DetailCell>
           <DetailCell icon={User} label="Stylist">
             {worker ? (
-              <span className="inline-flex items-center gap-2">
-                <span className="inline-flex size-6 items-center justify-center rounded-full bg-stone-700 text-[10px] font-bold text-stone-100">
+              <span className="inline-flex flex-wrap items-center gap-2">
+                <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-stone-700 text-[10px] font-bold text-stone-100">
                   {initials}
                 </span>
                 <span>{workerName(worker)}</span>
@@ -1550,14 +1571,14 @@ function ConfirmStep({
         </div>
 
         {/* Total */}
-        <div className="flex items-end justify-between px-5 pb-5 pt-2">
-          <div>
+        <div className="flex items-end justify-between gap-3 px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
+          <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-widest text-stone-500">
               Total payable
             </p>
             <p className="mt-0.5 text-xs text-stone-500">Pay at the salon</p>
           </div>
-          <p className="text-3xl font-bold tracking-tight text-stone-50">
+          <p className="shrink-0 text-2xl font-bold tracking-tight text-stone-50 sm:text-3xl">
             {priceStr}
           </p>
         </div>
@@ -1595,6 +1616,9 @@ function ConfirmStep({
           className="w-full resize-none rounded-2xl border border-white/8 bg-stone-900 px-4 py-3 text-sm text-stone-200 placeholder:text-stone-600 focus:border-stone-300/40 focus:outline-none"
         />
       </label>
+
+      {/* On lg+ this same panel lives in the sticky sidebar instead. */}
+      {inlinePanel && <div className="mb-5 lg:hidden">{inlinePanel}</div>}
 
       {error && (
         <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
@@ -1635,12 +1659,12 @@ function DetailCell({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="bg-stone-900 px-5 py-4">
+    <div className="min-w-0 bg-stone-900 px-4 py-3.5 sm:px-5 sm:py-4">
       <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-stone-500">
-        <Icon className="size-3.5" />
+        <Icon className="size-3.5 shrink-0" />
         {label}
       </div>
-      <div className="mt-1.5 text-sm font-semibold text-stone-100">
+      <div className="mt-1.5 text-sm font-semibold break-words text-stone-100">
         {children ?? value}
         {sub && (
           <span className="ml-1.5 text-xs font-normal text-stone-500">
@@ -1648,6 +1672,101 @@ function DetailCell({
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ── guest details ────────────────────────────────────────────────────────────
+   Rendered twice — once in the lg sidebar, once inline above the confirm button
+   on narrow screens — so `idPrefix` keeps the label/input `id` pairs unique. */
+function GuestDetailsPanel({
+  idPrefix,
+  name,
+  onName,
+  phone,
+  onPhone,
+  email,
+  onEmail,
+  showErrors,
+  className,
+}: {
+  idPrefix: string;
+  name: string;
+  onName: (v: string) => void;
+  phone: string;
+  onPhone: (v: string) => void;
+  email: string;
+  onEmail: (v: string) => void;
+  showErrors: boolean;
+  className?: string;
+}) {
+  const inputCls =
+    "mt-1 h-11 w-full rounded-xl border border-white/10 bg-stone-950 px-3 text-base text-white outline-none transition focus:border-white/30 sm:text-sm";
+
+  return (
+    <div
+      className={`rounded-3xl border border-white/10 bg-stone-900 p-4 sm:p-5 ${className ?? ""}`}
+    >
+      <h3 className="text-sm font-medium text-white">Your details</h3>
+      <p className="mt-1 text-xs text-white/50">
+        No account needed — we only use this to confirm your appointment.
+      </p>
+
+      <label className="mt-4 block text-xs text-white/60" htmlFor={`${idPrefix}-name`}>
+        Full name
+      </label>
+      <input
+        id={`${idPrefix}-name`}
+        value={name}
+        onChange={(e) => onName(e.target.value)}
+        placeholder="Priya Sharma"
+        autoComplete="name"
+        className={inputCls}
+      />
+
+      <label className="mt-3 block text-xs text-white/60" htmlFor={`${idPrefix}-phone`}>
+        Mobile number
+      </label>
+      <input
+        id={`${idPrefix}-phone`}
+        type="tel"
+        inputMode="tel"
+        value={phone}
+        onChange={(e) => onPhone(e.target.value)}
+        placeholder="9876543210"
+        autoComplete="tel"
+        className={inputCls}
+      />
+
+      <label className="mt-3 block text-xs text-white/60" htmlFor={`${idPrefix}-email`}>
+        Email <span className="text-white/30">(optional)</span>
+      </label>
+      <input
+        id={`${idPrefix}-email`}
+        type="email"
+        value={email}
+        onChange={(e) => onEmail(e.target.value)}
+        placeholder="you@example.com"
+        autoComplete="email"
+        className={inputCls}
+      />
+
+      {showErrors && !name.trim() && (
+        <p className="mt-2 text-xs text-rose-300">Please enter your name.</p>
+      )}
+      {showErrors && !phone.trim() && (
+        <p className="mt-1 text-xs text-rose-300">
+          Please enter your mobile number.
+        </p>
+      )}
+
+      <p className="mt-4 border-t border-white/10 pt-3 text-xs text-white/40">
+        Already have an account?{" "}
+        <Link href="/login" className="text-white/70 underline">
+          Sign in
+        </Link>{" "}
+        to see all your bookings — entirely optional.
+      </p>
     </div>
   );
 }
@@ -2049,6 +2168,22 @@ export function BookWizard({
     }
   }
 
+  // Same panel, two mount points (inline under lg, sidebar at lg+). State lives
+  // here, so both render identically — `idPrefix` keeps the ids unique.
+  const guestDetails = (idPrefix: string, className?: string) => (
+    <GuestDetailsPanel
+      idPrefix={`guest-${idPrefix}`}
+      name={custName}
+      onName={setCustName}
+      phone={phone}
+      onPhone={setPhone}
+      email={custEmail}
+      onEmail={setCustEmail}
+      showErrors={needsDetails}
+      className={className}
+    />
+  );
+
   const bookingBar = (
     <BookingBar
       branch={branch}
@@ -2096,7 +2231,7 @@ export function BookWizard({
           that space itself or its first rows render underneath the glass. 8rem =
           5.5rem of clearance + the 2.5rem of breathing room this page always had. */}
       <div
-        className={`mx-auto max-w-7xl px-4 pt-32 sm:px-6 ${
+        className={`mx-auto w-full max-w-7xl min-w-0 px-4 pt-28 sm:px-6 sm:pt-32 ${
           step === "service" ? "flex min-h-0 flex-col pb-6 lg:h-full lg:pb-4" : "pb-10"
         }`}
       >
@@ -2224,7 +2359,7 @@ export function BookWizard({
         {/* ── Success. Rendered in place: sending a guest to /customer/* would
             bounce them to the very login screen this flow removes. ── */}
         {booked && (
-          <div className="mx-auto max-w-xl rounded-3xl border border-white/10 bg-stone-900 p-6 text-center">
+          <div className="mx-auto max-w-xl rounded-3xl border border-white/10 bg-stone-900 p-4 text-center sm:p-6">
             <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
               <Check className="size-6" aria-hidden="true" />
             </div>
@@ -2236,8 +2371,8 @@ export function BookWizard({
 
             <dl className="mt-6 space-y-2 text-left text-sm">
               <div className="flex justify-between gap-4">
-                <dt className="text-white/50">When</dt>
-                <dd className="text-white">
+                <dt className="shrink-0 text-white/50">When</dt>
+                <dd className="min-w-0 text-right text-white">
                   {new Date(booked.appointmentDate).toLocaleDateString("en-IN", {
                     weekday: "short",
                     day: "2-digit",
@@ -2249,26 +2384,26 @@ export function BookWizard({
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-white/50">Where</dt>
-                <dd className="text-right text-white">{booked.branch?.name ?? "—"}</dd>
+                <dt className="shrink-0 text-white/50">Where</dt>
+                <dd className="min-w-0 text-right break-words text-white">{booked.branch?.name ?? "—"}</dd>
               </div>
               {booked.worker && (
                 <div className="flex justify-between gap-4">
-                  <dt className="text-white/50">Stylist</dt>
-                  <dd className="text-white">
+                  <dt className="shrink-0 text-white/50">Stylist</dt>
+                  <dd className="min-w-0 text-right break-words text-white">
                     {booked.worker.firstName} {booked.worker.lastName ?? ""}
                   </dd>
                 </div>
               )}
               <div className="flex justify-between gap-4">
-                <dt className="text-white/50">Services</dt>
-                <dd className="text-right text-white">
+                <dt className="shrink-0 text-white/50">Services</dt>
+                <dd className="min-w-0 text-right break-words text-white">
                   {booked.services.map((s) => s.name).join(", ")}
                 </dd>
               </div>
               <div className="flex justify-between gap-4 border-t border-white/10 pt-2">
-                <dt className="text-white/50">Estimated total</dt>
-                <dd className="font-medium text-white">
+                <dt className="shrink-0 text-white/50">Estimated total</dt>
+                <dd className="shrink-0 font-medium text-white">
                   ₹{Number(booked.totalAmount).toLocaleString("en-IN")}
                 </dd>
               </div>
@@ -2308,7 +2443,7 @@ export function BookWizard({
             >
               <ChevronLeft className="size-4" /> Change time
             </button>
-            <div className="grid gap-6 lg:grid-cols-[1.3fr_420px]">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,420px)]">
               <ConfirmStep
                 branch={branch}
                 services={services}
@@ -2320,74 +2455,22 @@ export function BookWizard({
                 onConfirm={handleConfirm}
                 loading={confirmLoading}
                 error={confirmError}
+                // Below lg the sidebar stacks underneath, which would put the
+                // confirm button above the form it needs — so it renders inline.
+                inlinePanel={!needsAuth ? guestDetails("m") : null}
               />
               {/* Guest details — the normal path. No account required. */}
               {!needsAuth && (
-                <div className="sticky top-24 self-start rounded-3xl border border-white/10 bg-stone-900 p-5">
-                  <h3 className="text-sm font-medium text-white">Your details</h3>
-                  <p className="mt-1 text-xs text-white/50">
-                    No account needed — we only use this to confirm your appointment.
-                  </p>
-
-                  <label className="mt-4 block text-xs text-white/60" htmlFor="guest-name">
-                    Full name
-                  </label>
-                  <input
-                    id="guest-name"
-                    value={custName}
-                    onChange={(e) => setCustName(e.target.value)}
-                    placeholder="Priya Sharma"
-                    autoComplete="name"
-                    className="mt-1 h-11 w-full rounded-xl border border-white/10 bg-stone-950 px-3 text-sm text-white outline-none transition focus:border-white/30"
-                  />
-
-                  <label className="mt-3 block text-xs text-white/60" htmlFor="guest-phone">
-                    Mobile number
-                  </label>
-                  <input
-                    id="guest-phone"
-                    type="tel"
-                    inputMode="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="9876543210"
-                    autoComplete="tel"
-                    className="mt-1 h-11 w-full rounded-xl border border-white/10 bg-stone-950 px-3 text-sm text-white outline-none transition focus:border-white/30"
-                  />
-
-                  <label className="mt-3 block text-xs text-white/60" htmlFor="guest-email">
-                    Email <span className="text-white/30">(optional)</span>
-                  </label>
-                  <input
-                    id="guest-email"
-                    type="email"
-                    value={custEmail}
-                    onChange={(e) => setCustEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    autoComplete="email"
-                    className="mt-1 h-11 w-full rounded-xl border border-white/10 bg-stone-950 px-3 text-sm text-white outline-none transition focus:border-white/30"
-                  />
-
-                  {needsDetails && !custName.trim() && (
-                    <p className="mt-2 text-xs text-rose-300">Please enter your name.</p>
-                  )}
-                  {needsDetails && !phone.trim() && (
-                    <p className="mt-1 text-xs text-rose-300">Please enter your mobile number.</p>
-                  )}
-
-                  <p className="mt-4 border-t border-white/10 pt-3 text-xs text-white/40">
-                    Already have an account?{" "}
-                    <Link href="/login" className="text-white/70 underline">
-                      Sign in
-                    </Link>{" "}
-                    to see all your bookings — entirely optional.
-                  </p>
+                <div className="hidden min-w-0 lg:block">
+                  {guestDetails("d", "lg:sticky lg:top-24")}
                 </div>
               )}
-
               {/* Only reachable when the branch explicitly requires an account. */}
+              {/* order-first: this only appears after a confirm attempt was
+                  rejected, so on a stacked mobile layout it belongs at the top
+                  rather than below the button that triggered it. */}
               {needsAuth && (
-                <div className="sticky top-24 self-start rounded-3xl border border-white/10 bg-stone-900 p-5">
+                <div className="order-first min-w-0 rounded-3xl border border-white/10 bg-stone-900 p-4 sm:p-5 lg:order-none lg:sticky lg:top-24 lg:self-start">
                   <InlineAuth
                     phase={authPhase}
                     name={custName}

@@ -1,7 +1,13 @@
 import { NextRequest } from "next/server";
 import { err, ok } from "@/lib/response";
 import prisma from "@/lib/db";
-import { DATE_RE, eligibleWorkerIds, getWorkerSlots } from "@/lib/slots";
+import {
+  DATE_RE,
+  eligibleWorkerIds,
+  getWorkerSlots,
+  parseRequestedServiceIds,
+} from "@/lib/slots";
+import { salonNow } from "@/lib/branch-hours";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -26,7 +32,11 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const branchId = url.searchParams.get("branchId")?.trim();
-    const serviceId = url.searchParams.get("serviceId")?.trim();
+    // A booking is ONE appointment covering every selected service, so slot
+    // width must be the summed duration. Accepting only `serviceId` meant a
+    // two-service booking was checked against the first service's length and
+    // could be offered a slot too short to actually hold it.
+    const serviceIds = parseRequestedServiceIds(url);
     const workerId = url.searchParams.get("workerId")?.trim();
     const date = url.searchParams.get("date")?.trim();
 
@@ -35,7 +45,7 @@ export async function GET(req: NextRequest) {
     // ------------------------------------------------------------------------
 
     if (!branchId) return err("Branch ID is required");
-    if (!serviceId) return err("Service ID is required");
+    if (serviceIds.length === 0) return err("Service ID is required");
     if (!date) return err("Date is required");
 
     if (!DATE_RE.test(date)) {
@@ -47,8 +57,9 @@ export async function GET(req: NextRequest) {
       return err("Invalid date format. Use YYYY-MM-DD");
     }
 
-    const todayStr = new Date().toISOString().slice(0, 10);
-    if (date < todayStr) {
+    // Salon-local today, not UTC today: before 05:30 IST the UTC date is still
+    // yesterday, which let a genuinely past date through this guard.
+    if (date < salonNow().dateKey) {
       return err("Cannot fetch slots for a past date");
     }
 
@@ -62,11 +73,25 @@ export async function GET(req: NextRequest) {
     });
     if (!branch || !branch.isActive) return err("Branch not found", 404);
 
-    const service = await prisma.service.findUnique({
-      where: { id: serviceId },
-      select: { id: true, name: true, duration: true, isActive: true },
+    const serviceRows = await prisma.service.findMany({
+      where: { id: { in: serviceIds }, isActive: true },
+      select: { id: true, name: true, duration: true },
     });
-    if (!service || !service.isActive) return err("Service not found", 404);
+    if (serviceRows.length !== serviceIds.length) {
+      return err("Service not found", 404);
+    }
+
+    const totalDuration = serviceRows.reduce((sum, s) => sum + s.duration, 0);
+    // Shape kept for existing callers that read `data.service`.
+    const service =
+      serviceRows.length === 1
+        ? { ...serviceRows[0], isActive: true }
+        : {
+            id: serviceRows.map((s) => s.id).join(","),
+            name: serviceRows.map((s) => s.name).join(" + "),
+            duration: totalDuration,
+            isActive: true,
+          };
 
     // ------------------------------------------------------------------------
     // Worker (optional). A named worker must be able to perform this service
@@ -88,9 +113,14 @@ export async function GET(req: NextRequest) {
       });
       if (!worker || !worker.isActive) return err("Worker not found", 404);
 
-      const eligible = await eligibleWorkerIds({ branchId, serviceId });
+      const eligible = await eligibleWorkerIds({ branchId, serviceIds });
       if (!eligible.includes(worker.id)) {
-        return err("This stylist does not offer the selected service at this branch", 422);
+        return err(
+          serviceIds.length === 1
+            ? "This stylist does not offer the selected service at this branch"
+            : "This stylist does not offer all of the selected services at this branch",
+          422,
+        );
       }
     }
 
@@ -100,19 +130,21 @@ export async function GET(req: NextRequest) {
 
     const candidateIds = worker
       ? [worker.id]
-      : await eligibleWorkerIds({ branchId, serviceId });
+      : await eligibleWorkerIds({ branchId, serviceIds });
 
     if (candidateIds.length === 0) {
       return ok(
         { branch, service, worker, date, slots: [], slotGrid: [] },
-        "No workers available for this service"
+        serviceIds.length === 1
+          ? "No stylists at this branch offer this service"
+          : "No stylist at this branch offers all of the selected services"
       );
     }
 
     const { closed, byWorker, gridByWorker } = await getWorkerSlots({
       branchId,
       date,
-      durationMinutes: service.duration,
+      durationMinutes: totalDuration,
       workerIds: candidateIds,
     });
 
@@ -156,6 +188,18 @@ export async function GET(req: NextRequest) {
     const slotGrid = Array.from(merged.entries())
       .map(([time, status]) => ({ time, status }))
       .sort((a, b) => a.time.localeCompare(b.time));
+
+    // An empty grid here means the branch is open but nobody can work it —
+    // on leave, off-roster, or the window is too short for the total duration.
+    // Say so, rather than letting the UI guess.
+    if (slotGrid.length === 0) {
+      return ok(
+        { branch, service, worker, date, slots, slotGrid },
+        worker
+          ? "This stylist isn't working on the selected date"
+          : "No stylist is working on the selected date"
+      );
+    }
 
     return ok(
       { branch, service, worker, date, slots, slotGrid },
