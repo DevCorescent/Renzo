@@ -13,6 +13,8 @@
 import * as React from "react";
 import { Loader2, AlertTriangle, RefreshCw, CalendarClock } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardBody, Badge } from "@/components/shared/ui";
+import { API } from "@/lib/endpoints";
+import { WorkerHoursEditor } from "@/components/workers/worker-hours-editor";
 
 type ShiftInfo = {
   name: string;
@@ -74,16 +76,22 @@ export function ScheduleTab({ workerId }: { workerId: string }) {
   }
 
   const shift = phase.data.shift;
+  const editor = <WorkerHoursEditor endpoint={API.admin.workerHours(workerId)} />;
+
   if (!shift) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-14 text-center dark:border-(--sa-border) dark:bg-(--sa-surface)">
-        <span className="flex size-11 items-center justify-center rounded-full bg-gray-50 text-gray-300 ring-1 ring-gray-200 dark:bg-white/5 dark:text-(--sa-muted) dark:ring-(--sa-border)"><CalendarClock className="size-5" /></span>
-        <p className="mt-3 text-sm font-medium text-gray-700 dark:text-(--sa-text-2)">No shift assigned</p>
+      <div className="space-y-4">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-14 text-center dark:border-(--sa-border) dark:bg-(--sa-surface)">
+          <span className="flex size-11 items-center justify-center rounded-full bg-gray-50 text-gray-300 ring-1 ring-gray-200 dark:bg-white/5 dark:text-(--sa-muted) dark:ring-(--sa-border)"><CalendarClock className="size-5" /></span>
+          <p className="mt-3 text-sm font-medium text-gray-700 dark:text-(--sa-text-2)">No shift assigned</p>
+        </div>
+        {editor}
       </div>
     );
   }
 
   return (
+    <div className="space-y-4">
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><CalendarClock className="size-4 text-gray-400 dark:text-(--sa-muted)" />{shift.name}</CardTitle>
@@ -111,6 +119,8 @@ export function ScheduleTab({ workerId }: { workerId: string }) {
         </div>
       </CardBody>
     </Card>
+    {editor}
+    </div>
   );
 }
 

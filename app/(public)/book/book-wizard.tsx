@@ -10,9 +10,11 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  ArrowRight,
   Check,
   Loader2,
   CalendarDays,
+  Search,
   X,
   Star,
   User,
@@ -76,6 +78,7 @@ type ApiService = {
   id: string;
   name: string;
   image: string | null;
+  description?: string | null;
   duration: number;
   gender: string;
   basePrice: number;
@@ -180,6 +183,21 @@ function getServiceDescription(service: ApiService) {
   }
 }
 
+function serviceMatchesQuery(service: ApiService, query: string) {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  const haystack = [
+    service.name,
+    service.description,
+    service.category.name,
+    getServiceDescription(service),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(needle);
+}
+
 const DATE_COUNT = 14;
 
 /* ── top booking bar: shows selections made so far ──────────────────────────── */
@@ -195,6 +213,7 @@ function BookingBar({
   onChangeService,
   onChangeWorker,
   onChangeSlot,
+  className,
 }: {
   branch: PreloadedBranch | null;
   services: PreloadedService[];
@@ -206,11 +225,12 @@ function BookingBar({
   onChangeService: () => void;
   onChangeWorker: () => void;
   onChangeSlot: () => void;
+  className?: string;
 }) {
   const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
   if (!branch && services.length === 0) return null;
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-white/8 bg-stone-900/80 p-3">
+    <div className={`flex flex-wrap items-center gap-2 rounded-2xl border border-white/8 bg-stone-900/80 p-3 ${className ?? "mb-6"}`}>
       {branch && (
         <button
           onClick={onChangeBranch}
@@ -301,10 +321,10 @@ const STEPS: { key: Step; label: string }[] = [
   { key: "confirm", label: "Confirm" },
 ];
 
-function StepBar({ current }: { current: Step }) {
+function StepBar({ current, className }: { current: Step; className?: string }) {
   const idx = STEPS.findIndex((s) => s.key === current);
   return (
-    <div className="mb-8 flex items-center gap-1">
+    <div className={`flex items-center gap-1 ${className ?? "mb-8"}`}>
       {STEPS.map((s, i) => (
         <React.Fragment key={s.key}>
           <div className="flex items-center gap-1.5">
@@ -342,6 +362,97 @@ function StepBar({ current }: { current: Step }) {
         </React.Fragment>
       ))}
     </div>
+  );
+}
+
+const STEP_HINTS: Record<Step, string> = {
+  branch: "Choose a branch",
+  service: "Pick one or more services",
+  worker: "Choose your preferred stylist",
+  slot: "Pick a convenient slot",
+  confirm: "Review & confirm booking",
+};
+
+function BookingProgressPanel({
+  current,
+  branch,
+  services,
+}: {
+  current: Step;
+  branch: PreloadedBranch | null;
+  services: PreloadedService[];
+}) {
+  const idx = STEPS.findIndex((s) => s.key === current);
+  const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
+  const details: Record<Step, string> = {
+    branch: branch?.name ?? STEP_HINTS.branch,
+    service:
+      services.length === 0
+        ? STEP_HINTS.service
+        : services.length === 1
+          ? `${services[0].name} ₹${services[0].price.toLocaleString("en-IN")}`
+          : `${services.length} services ₹${totalPrice.toLocaleString("en-IN")}`,
+    worker: STEP_HINTS.worker,
+    slot: STEP_HINTS.slot,
+    confirm: STEP_HINTS.confirm,
+  };
+
+  return (
+    <aside className="flex h-full flex-col rounded-3xl border border-white/10 bg-stone-900/85 p-5">
+      <h3 className="mb-5 text-sm font-semibold text-stone-100">
+        Your booking progress
+      </h3>
+      <ol className="min-h-0 flex-1">
+        {STEPS.map((s, i) => {
+          const done = i < idx;
+          const active = i === idx;
+          return (
+            <li key={s.key} className="relative flex gap-3 pb-5 last:pb-0">
+              {i < STEPS.length - 1 && (
+                <span
+                  aria-hidden
+                  className={`absolute left-[0.9375rem] top-8 h-[calc(100%-0.5rem)] w-px ${
+                    done ? "bg-stone-500" : "bg-white/10"
+                  }`}
+                />
+              )}
+              <span
+                className={`relative z-10 inline-flex size-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+                  done
+                    ? "border-stone-200 bg-stone-100 text-stone-950"
+                    : active
+                      ? "border-white bg-white text-stone-950 ring-2 ring-stone-300/40"
+                      : "border-stone-700/70 bg-transparent text-stone-500"
+                }`}
+              >
+                {done ? <Check className="size-3.5" /> : i + 1}
+              </span>
+              <div className="min-w-0 pt-0.5">
+                <p
+                  className={`text-sm ${
+                    active
+                      ? "font-semibold text-stone-100"
+                      : done
+                        ? "font-medium text-stone-200"
+                        : "text-stone-500"
+                  }`}
+                >
+                  {s.label}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-stone-500">{details[s.key]}</p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      <div className="mt-auto flex items-start gap-2 rounded-2xl border border-white/10 bg-stone-950/60 px-3 py-3">
+        <ShieldCheck className="mt-0.5 size-4 shrink-0 text-stone-400" aria-hidden />
+        <div>
+          <p className="text-xs font-medium text-stone-200">Secured booking</p>
+          <p className="text-[11px] text-stone-500">No charge until you visit</p>
+        </div>
+      </div>
+    </aside>
   );
 }
 
@@ -470,6 +581,7 @@ function ServiceStep({
     key: string;
     items: ApiService[];
   } | null>(null);
+  const [query, setQuery] = React.useState("");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -488,21 +600,74 @@ function ServiceStep({
   }, [branchId]);
 
   const loading = result?.key !== branchId;
-  const services = result?.key === branchId ? result.items : [];
+  const services = React.useMemo(
+    () => (result?.key === branchId ? result.items : []),
+    [result, branchId],
+  );
+  const filteredServices = React.useMemo(
+    () => services.filter((s) => serviceMatchesQuery(s, query)),
+    [services, query],
+  );
 
   // Group by category
   const groupMap = new Map<string, { name: string; items: ApiService[] }>();
-  for (const s of services) {
+  for (const s of filteredServices) {
     if (!groupMap.has(s.category.name))
       groupMap.set(s.category.name, { name: s.category.name, items: [] });
     groupMap.get(s.category.name)!.items.push(s);
   }
   const grouped = Array.from(groupMap.values());
+  const hasQuery = query.trim().length > 0;
 
   return (
-    <div>
-      <h2 className="mb-1 text-lg font-semibold">Select services</h2>
-      <p className="mb-5 text-sm text-stone-400">Pick one or more services for your visit</p>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="sticky top-24 z-20 shrink-0 bg-stone-950 pb-4 lg:static lg:top-auto">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+          <div className="min-w-0 shrink-0">
+            <h2 className="mb-1 text-lg font-semibold">Select services</h2>
+            <p className="text-sm text-stone-400">
+              Pick one or more services for your visit
+            </p>
+          </div>
+          <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-start lg:max-w-2xl lg:flex-1 lg:justify-end">
+            <label className="relative min-w-0 flex-1">
+              <span className="sr-only">Search services</span>
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-stone-500"
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search services, categories, locations..."
+                className="w-full rounded-2xl border border-white/10 bg-stone-900 py-2.5 pl-10 pr-3 text-sm text-stone-100 placeholder:text-stone-500 outline-none transition focus:border-stone-400/40"
+              />
+            </label>
+            {selected.length > 0 && (
+              <div className="hidden shrink-0 sm:w-auto lg:block">
+                <button
+                  type="button"
+                  onClick={onContinue}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-sm font-bold text-stone-950 transition hover:bg-stone-200 active:scale-[0.98] sm:w-auto"
+                >
+                  <CalendarDays className="size-4" />
+                  Book Selected ({selected.length})
+                </button>
+                <p className="mt-1.5 text-xs leading-snug text-stone-500 sm:max-w-[13.5rem]">
+                  Review your selection and choose date, time & branch
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+        {selected.length > 0 && (
+          <p className="mt-3 text-xs leading-snug text-stone-500 lg:hidden">
+            Review your selection and choose date, time & branch
+          </p>
+        )}
+      </div>
+      <div className="@container min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
       {loading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="size-6 animate-spin text-stone-600" />
@@ -511,33 +676,40 @@ function ServiceStep({
         <p className="py-16 text-center text-stone-500">
           No services listed at this branch yet.
         </p>
+      ) : grouped.length === 0 ? (
+        <p className="py-16 text-center text-stone-500">
+          {hasQuery
+            ? "No services found"
+            : "No services listed at this branch yet."}
+        </p>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-5 pb-32 lg:pb-2">
           {grouped.map(({ name: cat, items }) => (
             <div key={cat}>
-              <p className="mb-4 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-stone-500">
                 {cat}
               </p>
-              <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 @[22rem]:grid-cols-2 @[40rem]:grid-cols-3 @[58rem]:grid-cols-4">
                 {items.map((s) => {
                   const price = s.branchPricings?.[0]?.price ?? s.basePrice;
                   const isSelected = selectedIds.has(s.id);
                   return (
                     <button
                       key={s.id}
+                      type="button"
                       onClick={() => onToggle({ ...s, price })}
-                      className={`group relative overflow-hidden rounded-3xl border shadow-sm transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_60px_-36px_rgba(255,255,255,0.2)] ${
+                      className={`group relative flex h-full flex-col overflow-hidden rounded-3xl border text-left shadow-sm transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_60px_-36px_rgba(255,255,255,0.2)] ${
                         isSelected
                           ? "border-stone-200/60 bg-stone-800 ring-1 ring-stone-300/30"
                           : "border-white/10 bg-stone-900 hover:border-stone-300/50"
                       }`}
                     >
                       {isSelected && (
-                        <span className="absolute right-3 top-3 z-10 inline-flex size-6 items-center justify-center rounded-full bg-white text-stone-950 shadow">
+                        <span className="absolute right-2.5 top-2.5 z-10 inline-flex size-6 items-center justify-center rounded-full bg-white text-stone-950 shadow">
                           <Check className="size-3.5" />
                         </span>
                       )}
-                      <div className="relative aspect-4/3 overflow-hidden bg-stone-800">
+                      <div className="relative aspect-video overflow-hidden bg-stone-800">
                         <div
                           className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-105"
                           style={{
@@ -548,25 +720,25 @@ function ServiceStep({
                         />
                         <div className="absolute inset-0 bg-linear-to-t from-stone-950/85 via-stone-950/20 to-transparent" />
                       </div>
-                      <div className="space-y-3 px-5 py-5 text-left">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-lg font-semibold text-stone-100">
-                              {s.name}
-                            </p>
-                            <p className="mt-2 text-sm text-stone-400">
-                              {getServiceDescription(s)}
-                            </p>
-                          </div>
-                          <span className="text-sm font-semibold text-stone-100">
+                      <div className="flex flex-1 flex-col gap-2 px-3.5 py-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 truncate text-sm font-semibold text-stone-100">
+                            {s.name}
+                          </p>
+                          <span className="shrink-0 text-sm font-semibold text-stone-100">
                             ₹{price.toLocaleString("en-IN")}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-stone-500">
-                          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1">
+                        <p className="line-clamp-2 text-xs leading-5 text-stone-400">
+                          {getServiceDescription(s)}
+                        </p>
+                        <div className="mt-auto flex flex-wrap items-center gap-1.5 text-[10px] uppercase tracking-wide text-stone-500">
+                          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
                             {s.duration} min
                           </span>
-                          <span className="text-stone-400">{cat}</span>
+                          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-stone-400">
+                            {cat}
+                          </span>
                         </div>
                       </div>
                     </button>
@@ -577,28 +749,19 @@ function ServiceStep({
           ))}
         </div>
       )}
-
+      </div>
       {selected.length > 0 && (
-        <div className="sticky bottom-0 mt-6 rounded-2xl border border-white/10 bg-stone-950/95 p-4 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-stone-100">
-                {selected.length} service{selected.length !== 1 ? "s" : ""} selected
-              </p>
-              <p className="text-xs text-stone-400">
-                ₹{selected.reduce((sum, s) => sum + s.price, 0).toLocaleString("en-IN")} ·{" "}
-                {selected.reduce((sum, s) => sum + s.duration, 0)} min total
-              </p>
-            </div>
-            <button
-              onClick={onContinue}
-              className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-stone-950 transition hover:bg-stone-200 active:scale-[0.98]"
-            >
-              Continue
-              <ChevronRight className="size-4" />
-            </button>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={onContinue}
+          aria-label={`Book selected (${selected.length})`}
+          className="fixed right-5 z-50 flex size-12 items-center justify-center rounded-full bg-white text-black shadow-lg shadow-black/40 transition hover:bg-gray-100 active:scale-[0.98] lg:hidden bottom-[calc(5rem+env(safe-area-inset-bottom,0px))]"
+        >
+          <ArrowRight className="size-5" />
+          <span className="absolute -right-0.5 -top-0.5 inline-flex min-w-5 items-center justify-center rounded-full bg-stone-950 px-1 text-[10px] font-bold leading-5 text-white ring-2 ring-white">
+            {selected.length}
+          </span>
+        </button>
       )}
     </div>
   );
@@ -787,12 +950,12 @@ function WorkerDetailPanel({ workerId }: { workerId: string }) {
 
 function WorkerStep({
   branchId,
-  serviceId,
+  serviceIds,
   serviceName,
   onSelect,
 }: {
   branchId: string;
-  serviceId: string;
+  serviceIds: string[];
   serviceName: string;
   onSelect: (worker: ApiWorker | null) => void;
 }) {
@@ -803,21 +966,29 @@ function WorkerStep({
     error: string | null;
   } | null>(null);
 
-  const key = `${branchId}|${serviceId}`;
+  const serviceKey = serviceIds.join(",");
+  const key = `${branchId}|${serviceKey}`;
 
   React.useEffect(() => {
     let cancelled = false;
+    const ids = serviceKey.split(",").filter(Boolean);
 
-    // Only stylists at this branch who are qualified for this service.
-    fetch(
-      `${API.public.workers}?branchId=${branchId}&serviceId=${serviceId}&date=${today()}&limit=50`,
-    )
+    // Server filters via WorkerService: only stylists at this branch who
+    // offer EVERY selected service are returned.
+    const params = new URLSearchParams({
+      branchId,
+      date: today(),
+      limit: "50",
+    });
+    for (const id of ids) params.append("serviceIds", id);
+
+    fetch(`${API.public.workers}?${params.toString()}`)
       .then((r) => r.json())
       .then((j) => {
         if (cancelled) return;
         if (!j.success) throw new Error(j.message ?? "Could not load stylists");
         setResult({
-          key: `${branchId}|${serviceId}`,
+          key: `${branchId}|${serviceKey}`,
           items: j.data?.items ?? [],
           error: null,
         });
@@ -825,7 +996,7 @@ function WorkerStep({
       .catch((e: unknown) => {
         if (cancelled) return;
         setResult({
-          key: `${branchId}|${serviceId}`,
+          key: `${branchId}|${serviceKey}`,
           items: [],
           error: e instanceof Error ? e.message : "Could not load stylists",
         });
@@ -834,7 +1005,7 @@ function WorkerStep({
     return () => {
       cancelled = true;
     };
-  }, [branchId, serviceId]);
+  }, [branchId, serviceKey]);
 
   const fresh = result?.key === key ? result : null;
   const loading = fresh === null;
@@ -845,7 +1016,7 @@ function WorkerStep({
     <div>
       <h2 className="mb-1 text-lg font-semibold">Choose your stylist</h2>
       <p className="mb-5 text-sm text-stone-400">
-        Only workers who perform this service at this branch are shown
+        Only workers who perform all selected services at this branch are shown
       </p>
 
       <BookingSuggestTips serviceName={serviceName} branchId={branchId} />
@@ -886,8 +1057,7 @@ function WorkerStep({
 
           {workers.length === 0 ? (
             <p className="rounded-2xl border border-white/8 bg-stone-900 py-10 text-center text-sm text-stone-500">
-              No worker at this branch offers this service yet — pick “Any
-              available worker”, or choose a different service.
+              No stylists are available for the selected services.
             </p>
           ) : (
             workers.map((w) => {
@@ -1675,10 +1845,52 @@ export function BookWizard({
   const [authError, setAuthError] = React.useState<string | null>(null);
   const [googleLoading, setGoogleLoading] = React.useState(false);
 
-  function resetWorker() {
+  const resetWorker = React.useCallback(() => {
     setWorker(null);
     setWorkerChosen(false);
-  }
+  }, []);
+
+  const selectedServiceKey = services.map((s) => s.id).join(",");
+
+  // If the customer changes services after picking a stylist, drop that
+  // stylist when WorkerService says they no longer offer the full set.
+  React.useEffect(() => {
+    const branchId = branch?.id;
+    const workerId = worker?.id;
+    const ids = selectedServiceKey.split(",").filter(Boolean);
+
+    if (!branchId || ids.length === 0 || !workerChosen || !workerId) return;
+
+    let cancelled = false;
+    const params = new URLSearchParams({
+      branchId,
+      date: today(),
+      limit: "50",
+    });
+    for (const id of ids) params.append("serviceIds", id);
+
+    fetch(`${API.public.workers}?${params.toString()}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        const items: Array<{ id: string }> = j.data?.items ?? [];
+        if (items.some((w) => w.id === workerId)) return;
+        resetWorker();
+        setDate("");
+        setSlot("");
+        setStep((prev) =>
+          prev === "slot" || prev === "confirm" ? "worker" : prev,
+        );
+      })
+      .catch(() => {
+        // Network failure must not fake compatibility. Keep the current
+        // worker; POST /appointments still rejects an invalid pair.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [branch?.id, selectedServiceKey, worker?.id, workerChosen, resetWorker]);
 
   /**
    * Book as a GUEST.
@@ -1837,49 +2049,63 @@ export function BookWizard({
     }
   }
 
+  const bookingBar = (
+    <BookingBar
+      branch={branch}
+      services={services}
+      worker={worker}
+      workerChosen={workerChosen}
+      date={date}
+      slot={slot}
+      className={step === "service" ? "mb-3" : undefined}
+      onChangeBranch={() => {
+        setBranch(null);
+        setServices([]);
+        resetWorker();
+        setDate("");
+        setSlot("");
+        setStep("branch");
+      }}
+      onChangeService={() => {
+        setDate("");
+        setSlot("");
+        setStep("service");
+      }}
+      onChangeWorker={() => {
+        resetWorker();
+        setDate("");
+        setSlot("");
+        setStep("worker");
+      }}
+      onChangeSlot={() => {
+        setDate("");
+        setSlot("");
+        setStep("slot");
+      }}
+    />
+  );
+
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100">
+    <div
+      className={`bg-stone-950 text-stone-100 ${
+        step === "service" ? "min-h-screen lg:h-dvh lg:overflow-hidden" : "min-h-screen"
+      }`}
+    >
       {/* The site header is `fixed` (site-header.tsx: pt-6 + an h-16 pill = 5.5rem
           tall), so it sits outside the document flow and every page must reserve
           that space itself or its first rows render underneath the glass. 8rem =
           5.5rem of clearance + the 2.5rem of breathing room this page always had. */}
-      <div className="mx-auto max-w-5xl px-4 pb-10 pt-32 sm:px-6">
-        <StepBar current={step} />
-
-        <BookingBar
-          branch={branch}
-          services={services}
-          worker={worker}
-          workerChosen={workerChosen}
-          date={date}
-          slot={slot}
-          onChangeBranch={() => {
-            setBranch(null);
-            setServices([]);
-            resetWorker();
-            setDate("");
-            setSlot("");
-            setStep("branch");
-          }}
-          onChangeService={() => {
-            setServices([]);
-            resetWorker();
-            setDate("");
-            setSlot("");
-            setStep("service");
-          }}
-          onChangeWorker={() => {
-            resetWorker();
-            setDate("");
-            setSlot("");
-            setStep("worker");
-          }}
-          onChangeSlot={() => {
-            setDate("");
-            setSlot("");
-            setStep("slot");
-          }}
-        />
+      <div
+        className={`mx-auto max-w-7xl px-4 pt-32 sm:px-6 ${
+          step === "service" ? "flex min-h-0 flex-col pb-6 lg:h-full lg:pb-4" : "pb-10"
+        }`}
+      >
+        {step !== "service" && (
+          <>
+            <StepBar current={step} />
+            {bookingBar}
+          </>
+        )}
 
         {step === "branch" && (
           <BranchStep
@@ -1895,43 +2121,59 @@ export function BookWizard({
         )}
 
         {step === "service" && branch && (
-          <>
-            <button
-              onClick={() => {
-                setBranch(null);
-                setStep("branch");
-              }}
-              className="mb-4 flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-300 transition"
-            >
-              <ChevronLeft className="size-4" /> Change branch
-            </button>
-            <ServiceStep
-              branchId={branch.id}
-              selected={services}
-              onToggle={(s) => {
-                setServices((prev) =>
-                  prev.some((p) => p.id === s.id)
-                    ? prev.filter((p) => p.id !== s.id)
-                    : [...prev, s],
-                );
-              }}
-              onContinue={() => {
-                if (services.length === 0) return;
-                resetWorker();
-                setDate("");
-                setSlot("");
-                setStep("worker");
-              }}
-            />
-          </>
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-6">
+            <div className="flex min-h-0 min-w-0 flex-col">
+              <div className="shrink-0 lg:hidden">
+                <StepBar current={step} className="mb-4" />
+              </div>
+              <div className="shrink-0 pt-1 lg:pt-0">
+                {bookingBar}
+                <button
+                  onClick={() => {
+                    setBranch(null);
+                    setStep("branch");
+                  }}
+                  className="mb-3 flex items-center gap-1.5 text-sm text-stone-500 transition hover:text-stone-300"
+                >
+                  <ChevronLeft className="size-4" /> Change branch
+                </button>
+              </div>
+              <ServiceStep
+                branchId={branch.id}
+                selected={services}
+                onToggle={(s) => {
+                  const next = services.some((p) => p.id === s.id)
+                    ? services.filter((p) => p.id !== s.id)
+                    : [...services, s];
+                  setServices(next);
+                  if (next.length === 0) {
+                    resetWorker();
+                    setDate("");
+                    setSlot("");
+                  }
+                }}
+                onContinue={() => {
+                  if (services.length === 0) return;
+                  setDate("");
+                  setSlot("");
+                  setStep("worker");
+                }}
+              />
+            </div>
+            <div className="hidden min-h-0 lg:block">
+              <BookingProgressPanel
+                current={step}
+                branch={branch}
+                services={services}
+              />
+            </div>
+          </div>
         )}
 
         {step === "worker" && branch && services.length > 0 && (
           <>
             <button
               onClick={() => {
-                setServices([]);
-                resetWorker();
                 setStep("service");
               }}
               className="mb-4 flex items-center gap-1.5 text-sm text-stone-500 hover:text-stone-300 transition"
@@ -1940,7 +2182,7 @@ export function BookWizard({
             </button>
             <WorkerStep
               branchId={branch.id}
-              serviceId={services[0].id}
+              serviceIds={services.map((s) => s.id)}
               serviceName={services.length === 1 ? services[0].name : services.map((s) => s.name).join(" + ")}
               onSelect={(w) => {
                 setWorker(w);

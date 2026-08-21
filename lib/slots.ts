@@ -1,4 +1,5 @@
 import prisma from "@/lib/db";
+import { resolveShift, WORKER_SHIFT_SELECT } from "@/lib/scheduling";
 
 // OWNER: Aman | MODULE: Scheduling — worker-specific slot generation
 // Single source of truth for "which slots is a worker free for?". Both
@@ -7,9 +8,15 @@ import prisma from "@/lib/db";
 // slots they can actually book can never drift apart.
 //
 // Availability for a worker on a date = branch open hours
+//   INTERSECT their WorkerShift / Shift window (when a roster exists)
 //   MINUS their existing appointments (any status except CANCELLED / NO_SHOW)
 //   MINUS their WorkerAvailability blocks (null fromTime/toTime = whole day)
+//   MINUS approved Leave (whole day)
+//   MINUS shift breaks
 //   MINUS slots already in the past (when the date is today).
+//
+// Workers with no shift assignment keep the previous public behaviour: the
+// full branch window. A rostered worker who is off that weekday yields no slots.
 
 export const SLOT_INTERVAL_MINUTES = 30;
 
@@ -17,6 +24,28 @@ export const SLOT_INTERVAL_MINUTES = 30;
 export const NON_BLOCKING_STATUSES = ["CANCELLED", "NO_SHOW"] as const;
 
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Bookable window = branch hours ∩ worker hours.
+ * `worker === null` means no roster at this branch → keep branch hours (existing
+ * public behaviour). `notRostered` means they hold a shift but not on this weekday.
+ */
+export function effectiveBookableWindow(opts: {
+  branchOpen: number;
+  branchClose: number;
+  worker: { start: number; end: number } | null;
+  notRostered: boolean;
+}): { start: number; end: number } | null {
+  if (!(opts.branchClose > opts.branchOpen)) return null;
+  if (opts.notRostered) return null;
+  if (!opts.worker) {
+    return { start: opts.branchOpen, end: opts.branchClose };
+  }
+  const start = Math.max(opts.branchOpen, opts.worker.start);
+  const end = Math.min(opts.branchClose, opts.worker.end);
+  if (!(end > start)) return null;
+  return { start, end };
+}
 
 export function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
@@ -87,7 +116,7 @@ export async function getWorkerSlots(params: {
   const openMinutes = timeToMinutes(timing.openTime);
   const closeMinutes = timeToMinutes(timing.closeTime);
 
-  const [appointments, blocks] = await Promise.all([
+  const [appointments, blocks, shiftRows, leaves] = await Promise.all([
     prisma.appointment.findMany({
       where: {
         branchId,
@@ -100,6 +129,26 @@ export async function getWorkerSlots(params: {
     prisma.workerAvailability.findMany({
       where: { workerId: { in: workerIds }, date: appointmentDate },
       select: { workerId: true, fromTime: true, toTime: true },
+    }),
+    prisma.workerShift.findMany({
+      where: {
+        workerId: { in: workerIds },
+        branchId,
+        isActive: true,
+        startDate: { lte: appointmentDate },
+        OR: [{ endDate: null }, { endDate: { gte: appointmentDate } }],
+      },
+      orderBy: [{ startDate: "desc" }, { id: "asc" }],
+      select: { workerId: true, ...WORKER_SHIFT_SELECT },
+    }),
+    prisma.leave.findMany({
+      where: {
+        workerId: { in: workerIds },
+        status: "APPROVED",
+        startDate: { lte: appointmentDate },
+        endDate: { gte: appointmentDate },
+      },
+      select: { workerId: true },
     }),
   ]);
 
@@ -117,6 +166,15 @@ export async function getWorkerSlots(params: {
     busy.get(b.workerId)?.push([from, to]);
   }
 
+  const shiftsByWorker = new Map<string, typeof shiftRows>();
+  for (const row of shiftRows) {
+    const list = shiftsByWorker.get(row.workerId) ?? [];
+    list.push(row);
+    shiftsByWorker.set(row.workerId, list);
+  }
+  const onLeave = new Set(leaves.map((l) => l.workerId));
+  const dayOfWeek = appointmentDate.getUTCDay();
+
   // Don't offer slots that have already passed today.
   const todayStr = new Date().toISOString().slice(0, 10);
   const now = new Date();
@@ -127,13 +185,43 @@ export async function getWorkerSlots(params: {
   const gridByWorker = new Map<string, SlotEntry[]>();
 
   for (const workerId of workerIds) {
-    const ranges = busy.get(workerId) ?? [];
+    const ranges = [...(busy.get(workerId) ?? [])];
     const free: string[] = [];
     const grid: SlotEntry[] = [];
 
+    if (onLeave.has(workerId)) {
+      byWorker.set(workerId, free);
+      gridByWorker.set(workerId, grid);
+      continue;
+    }
+
+    const roster = shiftsByWorker.get(workerId) ?? [];
+    const resolved = roster.length > 0 ? resolveShift(roster, dayOfWeek) : null;
+    const notRostered = roster.length > 0 && (!resolved || !resolved.isRosteredToday || !resolved.window);
+    const workerWindow =
+      resolved?.window && resolved.isRosteredToday
+        ? { start: resolved.window.start, end: resolved.window.end }
+        : null;
+    const window = effectiveBookableWindow({
+      branchOpen: openMinutes,
+      branchClose: closeMinutes,
+      worker: workerWindow,
+      notRostered,
+    });
+
+    if (resolved?.breakWindow) {
+      ranges.push([resolved.breakWindow.start, resolved.breakWindow.end]);
+    }
+
+    if (!window) {
+      byWorker.set(workerId, free);
+      gridByWorker.set(workerId, grid);
+      continue;
+    }
+
     for (
-      let start = openMinutes;
-      start + durationMinutes <= closeMinutes;
+      let start = window.start;
+      start + durationMinutes <= window.end;
       start += SLOT_INTERVAL_MINUTES
     ) {
       const time = minutesToTime(start);

@@ -21,6 +21,7 @@ import {
 import { Badge } from "@/components/shared/ui";
 import { WorkerAvatar } from "@/components/workers/worker-ui";
 import { formatDate } from "@/components/worker-profile/profile-ui";
+import { WorkerHoursEditor } from "@/components/workers/worker-hours-editor";
 import {
   AddPortfolioWorkButton,
   WorkerPhotoButton,
@@ -55,7 +56,13 @@ function fullName(w: WorkerWorkspaceData["worker"]) {
   return w.displayName?.trim() || `${w.firstName} ${w.lastName}`.trim();
 }
 
-export function WorkerProfileView({ data }: { data: WorkerWorkspaceData }) {
+export function WorkerProfileView({
+  data,
+  hoursEndpoint,
+}: {
+  data: WorkerWorkspaceData;
+  hoursEndpoint?: string;
+}) {
   const { worker, primaryBranch, header, performance, attendance, portfolio, recentAppointments, availability } = data;
   const p = performance;
   const completedPct = p.totalAppointments > 0 ? ((p.completedBookings / p.totalAppointments) * 100).toFixed(1) : "0";
@@ -296,8 +303,9 @@ export function WorkerProfileView({ data }: { data: WorkerWorkspaceData }) {
         </div>
 
         {/* Availability */}
+        <div className="space-y-3">
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-(--sa-border) dark:bg-(--sa-surface) dark:shadow-none">
-          <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-(--sa-text)"><Clock className="size-4 text-gray-400 dark:text-(--sa-muted)" aria-hidden="true" /> Availability</p>
+          <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-(--sa-text)"><Clock className="size-4 text-gray-400 dark:text-(--sa-muted)" aria-hidden="true" /> Branch hours</p>
           {availability.length === 0 ? (
             <p className="text-sm text-gray-400 dark:text-(--sa-muted)">No hours configured.</p>
           ) : (
@@ -317,6 +325,8 @@ export function WorkerProfileView({ data }: { data: WorkerWorkspaceData }) {
             </dl>
           )}
           <p className="mt-3 text-[11px] text-gray-400 dark:text-(--sa-muted)">Branch operating hours.</p>
+        </div>
+        {hoursEndpoint && <WorkerHoursEditor endpoint={hoursEndpoint} />}
         </div>
       </aside>
     </div>

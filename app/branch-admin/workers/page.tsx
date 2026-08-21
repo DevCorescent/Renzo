@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getServerUser, requireModule } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
@@ -69,7 +70,12 @@ export default async function BranchAdminWorkersPage() {
               workerBranches.map((wb) => (
                 <TR key={wb.id}>
                   <TD className="font-medium text-gray-900">
-                    {wb.worker.firstName} {wb.worker.lastName}
+                    <Link
+                      href={`/branch-admin/workers/${wb.worker.id}`}
+                      className="hover:underline focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                    >
+                      {wb.worker.firstName} {wb.worker.lastName}
+                    </Link>
                     {wb.worker.phone && (
                       <p className="text-[11px] font-normal text-gray-400">{wb.worker.phone}</p>
                     )}

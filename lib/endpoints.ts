@@ -70,6 +70,7 @@ export const API = {
     leaves:       `${BASE}/worker/leaves`,
     leave:        (id: string) => `${BASE}/worker/leaves/${id}`,
     shifts:       `${BASE}/worker/shifts`,
+    hours:        `${BASE}/worker/hours`,
 
     // Portfolio — professional identity (Gauransh)
     portfolio:            `${BASE}/worker/portfolio`,
@@ -119,6 +120,7 @@ export const API = {
     workerServices:   (id: string) => `${BASE}/admin/workers/${id}/services`,
     workerPortfolio:  (id: string) => `${BASE}/admin/workers/${id}/portfolio`,
     workerAvailability:(id: string)=> `${BASE}/admin/workers/${id}/availability`,
+    workerHours:      (id: string) => `${BASE}/admin/workers/${id}/hours`,
     departments:      `${BASE}/admin/departments`,
     designations:     `${BASE}/admin/designations`,
 
