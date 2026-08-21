@@ -7,18 +7,36 @@ import { DATE_RE, getWorkerSlots } from "@/lib/slots";
 // OWNER: Aman | MODULE: Public Workers
 // GET /api/v1/public/workers — List public worker profiles (no auth)
 //
-// Query: ?branchId= &serviceId= &date= &search= &page= &limit=
+// Query: ?branchId= &serviceId= &serviceIds= &date= &search= &page= &limit=
 //
-// Passing `branchId` + `serviceId` turns this into the booking flow's stylist
-// picker: only stylists who work at that branch AND are qualified for that
-// service come back, each with their rating and next free slot for `date`
-// (default today). Stylists who cannot perform the service are never listed.
+// Passing `branchId` + one or more service IDs turns this into the booking
+// flow's stylist picker: only stylists who work at that branch AND are
+// qualified for EVERY requested service (WorkerService, isActive) come back,
+// each with their rating and next free slot for `date` (default today).
+// Stylists who cannot perform all selected services are never listed.
+//
+// `serviceId` remains for existing single-service callers. `serviceIds` may
+// be repeated (`serviceIds=a&serviceIds=b`) or comma-separated.
+
+function parseRequestedServiceIds(url: URL): string[] {
+  const collected: string[] = [];
+  const single = url.searchParams.get("serviceId")?.trim();
+  if (single) collected.push(single);
+  for (const raw of url.searchParams.getAll("serviceIds")) {
+    for (const part of raw.split(",")) {
+      const id = part.trim();
+      if (id) collected.push(id);
+    }
+  }
+  return [...new Set(collected)];
+}
+
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const { page, limit, skip, search } = parsePagination(url);
     const branchId = url.searchParams.get("branchId")?.trim() || undefined;
-    const serviceId = url.searchParams.get("serviceId")?.trim() || undefined;
+    const serviceIds = parseRequestedServiceIds(url);
     const dateParam = url.searchParams.get("date")?.trim();
 
     const date =
@@ -32,9 +50,20 @@ export async function GET(req: NextRequest) {
       ...(branchId
         ? { branches: { some: { branchId, isActive: true } } }
         : {}),
-      // Only stylists qualified for the requested service.
-      ...(serviceId
-        ? { services: { some: { serviceId, isActive: true } } }
+      // AND across WorkerService rows: the stylist must offer every selected
+      // service. `some` per id is the Prisma equivalent of "has all of these".
+      ...(serviceIds.length
+        ? {
+            AND: serviceIds.map((serviceId) => ({
+              services: {
+                some: {
+                  serviceId,
+                  isActive: true,
+                  service: { isActive: true },
+                },
+              },
+            })),
+          }
         : {}),
       ...(search
         ? {
@@ -80,17 +109,21 @@ export async function GET(req: NextRequest) {
       nextSlot: null as string | null,
     }));
 
-    if (branchId && serviceId && items.length > 0) {
-      const service = await prisma.service.findUnique({
-        where: { id: serviceId },
-        select: { duration: true, isActive: true },
+    if (branchId && serviceIds.length > 0 && items.length > 0) {
+      const dbServices = await prisma.service.findMany({
+        where: { id: { in: serviceIds }, isActive: true },
+        select: { duration: true },
       });
 
-      if (service?.isActive) {
+      if (dbServices.length === serviceIds.length) {
+        const durationMinutes = dbServices.reduce(
+          (sum, s) => sum + s.duration,
+          0,
+        );
         const { byWorker } = await getWorkerSlots({
           branchId,
           date,
-          durationMinutes: service.duration,
+          durationMinutes,
           workerIds: items.map((w) => w.id),
         });
 

@@ -5,6 +5,7 @@ import { redirect, notFound } from "next/navigation";
 import { getWorkerWorkspace } from "@/lib/worker-workspace";
 import { WorkerProfileView } from "@/components/worker-workspace/worker-profile-view";
 import { Workspace } from "@/components/worker-workspace/workspace";
+import { API } from "@/lib/endpoints";
 
 // OWNER: Hemant | MODULE: Super Admin — Worker Detail
 //
@@ -37,7 +38,7 @@ export default async function SuperAdminWorkerDetailPage({ params }: { params: P
         Back to workers
       </Link>
 
-      <WorkerProfileView data={data} />
+      <WorkerProfileView data={data} hoursEndpoint={API.admin.workerHours(id)} />
 
       <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="mb-1">
