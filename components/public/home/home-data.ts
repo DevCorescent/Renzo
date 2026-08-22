@@ -227,7 +227,7 @@ export const CONTACT_IMAGE =
 
 export const CONTACT_INFO = {
   tagline: "Together, we craft confidence — honouring your look and celebrating new beginnings.",
-  address: "12 Rosewood Avenue, Bandra West, Mumbai 400050",
-  phone: "+91 98765 43210",
+  address: "No. 950, Chikka Bommasandra, 4th Phase, Yelahanka New Town, Bengaluru, Karnataka 560064",
+  phone: "+91 9591969838",
   email: "hello@renzo.salon",
 };

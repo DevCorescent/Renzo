@@ -33,7 +33,7 @@ const BASE = (content: string) => `<!DOCTYPE html>
           <tr>
             <td style="background:#111;padding:20px 36px;border-top:1px solid #2a2a2a;text-align:center;">
               <p style="margin:0;font-size:11px;color:#555;">© ${new Date().getFullYear()} Renzo Salon. All rights reserved.</p>
-              <p style="margin:6px 0 0;font-size:11px;color:#555;">12 Rosewood Avenue, Bandra West, Mumbai 400050 · hello@renzo.salon</p>
+              <p style="margin:6px 0 0;font-size:11px;color:#555;">No. 950, Chikka Bommasandra, 4th Phase, Yelahanka New Town, Bengaluru, Karnataka 560064 · hello@renzo.salon</p>
             </td>
           </tr>
 
@@ -139,7 +139,7 @@ export function bookingConfirmationEmail(data: BookingEmailData): { subject: str
       <ul style="margin:0;padding-left:20px;">${serviceList}</ul>
     </div>
 
-    <p style="margin:0;font-size:12px;color:#666;text-align:center;">Need to reschedule? Log in to your account or call us at +91 98765 43210.</p>
+    <p style="margin:0;font-size:12px;color:#666;text-align:center;">Need to reschedule? Log in to your account or call us at +91 9591969838.</p>
   `);
 
   return {
@@ -156,14 +156,14 @@ export function bookingCancellationEmail(data: { name: string; appointmentNo: st
     <h2 style="margin:0 0 8px;font-size:22px;color:#fff;font-weight:600;">Booking Cancelled</h2>
     <p style="margin:0 0 24px;font-size:14px;color:#999;line-height:1.6;">Hi ${data.name}, your appointment <strong style="color:#FFFFFF;">${data.appointmentNo}</strong> on <strong style="color:#fff;">${data.date}</strong> at ${data.branch} has been cancelled.</p>
 
-    <p style="margin:0 0 8px;font-size:14px;color:#ccc;line-height:1.6;">If this was a mistake or you'd like to rebook, please visit your account or call us at <strong style="color:#FFFFFF;">+91 98765 43210</strong>.</p>
+    <p style="margin:0 0 8px;font-size:14px;color:#ccc;line-height:1.6;">If this was a mistake or you'd like to rebook, please visit your account or call us at <strong style="color:#FFFFFF;">+91 9591969838</strong>.</p>
     <p style="margin:0;font-size:12px;color:#666;">Any payments will be refunded within 5–7 business days.</p>
   `);
 
   return {
     subject: `Booking Cancelled — ${data.appointmentNo} | Renzo Salon`,
     html,
-    text: `Hi ${data.name},\n\nYour booking ${data.appointmentNo} on ${data.date} at ${data.branch} has been cancelled.\n\nTo rebook, visit our website or call +91 98765 43210.`,
+    text: `Hi ${data.name},\n\nYour booking ${data.appointmentNo} on ${data.date} at ${data.branch} has been cancelled.\n\nTo rebook, visit our website or call +91 9591969838.`,
   };
 }
 
@@ -207,13 +207,13 @@ export function appointmentRescheduleEmail(data: {
       </table>
     </div>
 
-    <p style="margin:0;font-size:12px;color:#666;text-align:center;">If you have any questions, log in to your account or call us at <strong style="color:#FFFFFF;">+91 98765 43210</strong>.</p>
+    <p style="margin:0;font-size:12px;color:#666;text-align:center;">If you have any questions, log in to your account or call us at <strong style="color:#FFFFFF;">+91 9591969838</strong>.</p>
   `);
 
   return {
     subject: `Appointment Rescheduled — ${data.appointmentNo} | Renzo Salon`,
     html,
-    text: `Hi ${data.name},\n\nYour appointment ${data.appointmentNo} has been rescheduled.\n\nNew Date: ${data.date}\nNew Time: ${data.time}\nBranch: ${data.branch}\n\nIf you have questions, call +91 98765 43210.`,
+    text: `Hi ${data.name},\n\nYour appointment ${data.appointmentNo} has been rescheduled.\n\nNew Date: ${data.date}\nNew Time: ${data.time}\nBranch: ${data.branch}\n\nIf you have questions, call +91 9591969838.`,
   };
 }
 
