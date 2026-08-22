@@ -276,3 +276,13 @@
    everywhere. `.sa-dash` remains only as a harmless layout marker on dashboard
    roots (their full-bleed `bg-slate-50` now inverts to `--sa-bg` in dark on its
    own via the neutral ramp), and DashThemeInit is retired to a no-op. */
+/* ── Utilities ───────────────────────────────────────────────────────────────
+   Horizontal scrollers (the booking date strip, chip rows) need to scroll on
+   touch without a scrollbar eating a row of pixels on desktop. */
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

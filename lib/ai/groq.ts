@@ -3,9 +3,15 @@
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+// Groq retired the Llama 3.x chat models; `llama-3.3-70b-versatile` and
+// `llama-3.1-8b-instant` now answer 404 "model does not exist or you do not
+// have access to it", which is what surfaced as the AI stylist tips error.
+// Verify against `GET https://api.groq.com/openai/v1/models` before changing
+// these — both below are confirmed to support `response_format: json_object`,
+// which every caller here relies on.
 export const GROQ_MODELS = {
-  default: "llama-3.3-70b-versatile",
-  fast: "llama-3.1-8b-instant",
+  default: "openai/gpt-oss-120b",
+  fast: "openai/gpt-oss-20b",
 } as const;
 
 export type ChatRole = "system" | "user" | "assistant";
