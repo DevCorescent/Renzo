@@ -197,6 +197,14 @@ function serviceMatchesQuery(service: ApiService, query: string) {
   return haystack.includes(needle);
 }
 
+/** Audience filter on the service step. UNISEX stays visible for both Men and Women. */
+type GenderFilter = "ALL" | "MALE" | "FEMALE";
+
+function serviceMatchesGender(service: ApiService, filter: GenderFilter) {
+  if (filter === "ALL") return true;
+  return service.gender === filter || service.gender === "UNISEX";
+}
+
 /** How far ahead the salon accepts bookings, in days from today. */
 const MAX_ADVANCE_DAYS = 90;
 
@@ -581,6 +589,7 @@ function ServiceStep({
     items: ApiService[];
   } | null>(null);
   const [query, setQuery] = React.useState("");
+  const [genderFilter, setGenderFilter] = React.useState<GenderFilter>("ALL");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -604,8 +613,11 @@ function ServiceStep({
     [result, branchId],
   );
   const filteredServices = React.useMemo(
-    () => services.filter((s) => serviceMatchesQuery(s, query)),
-    [services, query],
+    () =>
+      services.filter(
+        (s) => serviceMatchesQuery(s, query) && serviceMatchesGender(s, genderFilter),
+      ),
+    [services, query, genderFilter],
   );
 
   // Group by category
@@ -630,6 +642,37 @@ function ServiceStep({
           <p className="text-sm text-stone-400">
             Pick one or more services for your visit
           </p>
+        </div>
+
+        <div
+          className="mb-3 flex flex-wrap gap-2"
+          role="group"
+          aria-label="Filter services by audience"
+        >
+          {(
+            [
+              { value: "ALL", label: "All" },
+              { value: "MALE", label: "Men" },
+              { value: "FEMALE", label: "Women" },
+            ] as const
+          ).map((opt) => {
+            const active = genderFilter === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setGenderFilter(opt.value)}
+                aria-pressed={active}
+                className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+                  active
+                    ? "bg-stone-700 text-white"
+                    : "border border-stone-700/80 bg-transparent text-stone-400 hover:border-stone-500 hover:text-stone-200"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -675,10 +718,16 @@ function ServiceStep({
             Review your selection and choose date, time &amp; branch
           </p>
         )}
-        {hasQuery && !loading && (
+        {(hasQuery || genderFilter !== "ALL") && !loading && (
           <p className="mt-2 text-xs text-stone-500">
             {filteredServices.length} result
-            {filteredServices.length === 1 ? "" : "s"} for &ldquo;{query.trim()}&rdquo;
+            {filteredServices.length === 1 ? "" : "s"}
+            {hasQuery ? <> for &ldquo;{query.trim()}&rdquo;</> : null}
+            {genderFilter === "MALE"
+              ? " for men"
+              : genderFilter === "FEMALE"
+                ? " for women"
+                : null}
           </p>
         )}
       </div>
@@ -695,7 +744,11 @@ function ServiceStep({
         <p className="py-16 text-center text-stone-500">
           {hasQuery
             ? "No services found"
-            : "No services listed at this branch yet."}
+            : genderFilter === "MALE"
+              ? "No men's services listed at this branch yet."
+              : genderFilter === "FEMALE"
+                ? "No women's services listed at this branch yet."
+                : "No services listed at this branch yet."}
         </p>
       ) : (
         <div className="space-y-5 pb-32 lg:pb-2">
@@ -2266,6 +2319,10 @@ export function BookWizard({
                 <button
                   onClick={() => {
                     setBranch(null);
+                    setServices([]);
+                    resetWorker();
+                    setDate("");
+                    setSlot("");
                     setStep("branch");
                   }}
                   className="mb-3 flex items-center gap-1.5 text-sm text-stone-500 transition hover:text-stone-300"

@@ -13,10 +13,15 @@ import type { Branding } from "@/lib/cms/schema";
 
 export const PUBLIC_NAV_LINKS = [
   { label: "Home", href: "/" },
-  { label: "Services", href: "/services" },
-  { label: "Branches", href: "/branches" },
+  { label: "Book", href: "/book" },
   { label: "Gallery", href: "/gallery" },
   { label: "Pricing", href: "/packages" },
+  // Standalone catalogue pages are still in the repo and still routable
+  // (`app/(public)/services`, `app/(public)/branches`). Booking now starts
+  // at the unified /book wizard — restore these links to put them back
+  // in the header.
+  // { label: "Services", href: "/services" },
+  // { label: "Branches", href: "/branches" },
 ];
 
 function isActiveLink(pathname: string, href: string): boolean {

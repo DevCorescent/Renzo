@@ -1,3 +1,6 @@
+// Standalone public Branches catalogue — kept intact for restoration.
+// Primary booking entry is now the unified /book wizard (nav no longer
+// links here). Direct /branches URLs and this page's implementation stay.
 import prisma from "@/lib/db";
 import Link from "next/link";
 import { BranchCard } from "./branch-card";

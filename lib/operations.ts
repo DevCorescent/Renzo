@@ -263,7 +263,7 @@ export const OPERATIONS: OperationDef[] = [
     description: "Raise an invoice: services, products, discount, tax and tips.",
     group: "Money",
     requires: "canBill",
-    absoluteHref: "/reception/billing",
+    href: "billing",
   },
   {
     key: "productSale",
@@ -280,7 +280,7 @@ export const OPERATIONS: OperationDef[] = [
     description: "Cash, card, UPI, wallet, gift card — full, partial or split.",
     group: "Money",
     requires: "canTakePayment",
-    absoluteHref: "/reception/billing",
+    href: "billing",
   },
   {
     key: "membership",

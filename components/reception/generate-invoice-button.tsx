@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { FileText, Loader2 } from "lucide-react";
 import { API } from "@/lib/endpoints";
 
-export function GenerateInvoiceButton({ appointmentId }: { appointmentId: string }) {
+export function GenerateInvoiceButton({
+  appointmentId,
+  basePath = "/reception/billing",
+}: {
+  appointmentId: string;
+  /** Role-owned billing prefix, e.g. /super-admin/billing. */
+  basePath?: string;
+}) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -26,7 +33,7 @@ export function GenerateInvoiceButton({ appointmentId }: { appointmentId: string
       }
       const invoiceId = j?.data?.id as string | undefined;
       if (invoiceId) {
-        router.push(`/reception/billing/${invoiceId}`);
+        router.push(`${basePath}/${invoiceId}`);
         return;
       }
       router.refresh();

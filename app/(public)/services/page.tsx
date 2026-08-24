@@ -1,3 +1,6 @@
+// Standalone public Services catalogue — kept intact for restoration.
+// Primary booking entry is now the unified /book wizard (nav no longer
+// links here). Direct /services URLs and this page's implementation stay.
 import prisma from "@/lib/db";
 import Image from "next/image";
 import Link from "next/link";

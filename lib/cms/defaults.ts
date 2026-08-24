@@ -344,7 +344,7 @@ export const DEFAULT_HOME_CONTENT: HomeContent = {
       },
     ],
     contactTitle: "Visit Us",
-    address: "No. 950, Chikka Bommasandra, 4th Phase, Yelahanka New Town, Bengaluru, Karnataka 560064",
+    address: CONTACT_INFO.address,
     phone: "+91 9591969838",
     email: "hello@renzo.salon",
     socials: [
@@ -364,6 +364,28 @@ export const DEFAULT_HOME_CONTENT: HomeContent = {
 /** A deep copy, so a caller can mutate a draft without touching the shared default. */
 export function cloneDefaultContent(): HomeContent {
   return structuredClone(DEFAULT_HOME_CONTENT);
+}
+
+/**
+ * Company/contact address only — never branch street addresses.
+ * Published CMS rows can still hold a retired Mumbai or Chikka Bommasandra
+ * string; those are rewritten to CONTACT_INFO.address on read.
+ */
+const STALE_COMPANY_ADDRESS = /rosewood|bandra west|mumbai\s*400050|chikka bommasandra/i;
+
+export function normalizeCompanyAddress(content: HomeContent): HomeContent {
+  const next = structuredClone(content);
+  if (STALE_COMPANY_ADDRESS.test(next.footer.address)) {
+    next.footer.address = CONTACT_INFO.address;
+  }
+  for (const section of next.sections) {
+    if (section.type !== "CONTACT") continue;
+    const address = (section.data as { address?: string }).address;
+    if (typeof address === "string" && STALE_COMPANY_ADDRESS.test(address)) {
+      (section.data as { address: string }).address = CONTACT_INFO.address;
+    }
+  }
+  return next;
 }
 
 /**

@@ -24,6 +24,7 @@ import { MembershipSale, LoyaltyAdjust, type PlanOption } from "@/components/ope
 import { operationsCapabilitiesFor, type OperationsCapability } from "@/lib/operations";
 import { billingCapabilitiesFor } from "@/lib/billing-service";
 import { loadHealthReport, loadWorkerReadiness } from "@/lib/health-service";
+import { BillingWorkspace } from "@/components/operations/billing-workspace";
 import type { AuthUser, UserType } from "@/types/api";
 
 /** Shared guard: role allowed, capability held, branch scope resolved. */
@@ -381,5 +382,101 @@ export async function QualificationPage({ allowedRoles }: { allowedRoles: readon
       />
       <QualificationManager rows={rows} services={services} />
     </div>
+  );
+}
+
+// ============================================================================
+// MANUAL BILLING — appointment invoices (the hub "Manual Billing" card)
+// ============================================================================
+
+export async function BillingPage({
+  allowedRoles,
+  basePath,
+}: {
+  allowedRoles: readonly UserType[];
+  /** e.g. "/super-admin/billing" — invoice links stay inside this role's shell. */
+  basePath: string;
+}) {
+  const { branchId, isGlobal } = await guard(allowedRoles, "canBill");
+
+  const [invoices, unbilled] = await Promise.all([
+    prisma.invoice.findMany({
+      where: branchId ? { branchId } : {},
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        appointment: {
+          select: {
+            customer: { select: { firstName: true, lastName: true, phone: true } },
+          },
+        },
+      },
+    }),
+    prisma.appointment.findMany({
+      where: {
+        ...(branchId ? { branchId } : {}),
+        status: "COMPLETED",
+        invoice: { is: null },
+      },
+      orderBy: { completedAt: "desc" },
+      take: 30,
+      include: {
+        customer: { select: { firstName: true, lastName: true, phone: true } },
+        services: { include: { service: { select: { name: true } } } },
+      },
+    }),
+  ]);
+
+  // Invoice has customerId / branchId columns but no Prisma relations — look
+  // those up only for rows that need them (counter sales, global branch label).
+  const orphanCustomerIds = [
+    ...new Set(invoices.filter((i) => !i.appointment).map((i) => i.customerId)),
+  ];
+  const branchIds = isGlobal ? [...new Set(invoices.map((i) => i.branchId))] : [];
+  const [customers, branches] = await Promise.all([
+    orphanCustomerIds.length
+      ? prisma.customer.findMany({
+          where: { id: { in: orphanCustomerIds } },
+          select: { id: true, firstName: true, lastName: true, phone: true },
+        })
+      : Promise.resolve([]),
+    branchIds.length
+      ? prisma.branch.findMany({
+          where: { id: { in: branchIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+  ]);
+  const customerById = new Map(customers.map((c) => [c.id, c]));
+  const branchById = new Map(branches.map((b) => [b.id, b.name]));
+
+  return (
+    <BillingWorkspace
+      basePath={basePath}
+      showBranch={isGlobal}
+      invoices={invoices.map((inv) => {
+        const c = inv.appointment?.customer ?? customerById.get(inv.customerId);
+        return {
+          id: inv.id,
+          invoiceNo: inv.invoiceNo,
+          createdAt: inv.createdAt.toISOString(),
+          totalAmount: Number(inv.totalAmount),
+          paidAmount: Number(inv.paidAmount),
+          balanceDue: Number(inv.balanceDue),
+          status: inv.status,
+          customerName: c ? `${c.firstName} ${c.lastName ?? ""}`.trim() : "",
+          customerPhone: c?.phone ?? null,
+          branchName: branchById.get(inv.branchId) ?? null,
+        };
+      })}
+      unbilled={unbilled.map((a) => ({
+        id: a.id,
+        appointmentNo: a.appointmentNo,
+        customerName: `${a.customer.firstName} ${a.customer.lastName ?? ""}`.trim(),
+        customerPhone: a.customer.phone,
+        services: a.services.map((s) => s.service.name).join(", "),
+        totalAmount: Number(a.totalAmount),
+      }))}
+    />
   );
 }

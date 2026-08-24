@@ -95,7 +95,8 @@ function ArcCardBody({ service }: { service: Service }) {
           {service.desc}
         </p>
         <Link
-          href="/services"
+          // Catalogue page is preserved at /services; booking entry is /book.
+          href="/book"
           aria-label={`Book ${service.name}`}
           className={cn(
             buttonVariants({ size: "sm" }),

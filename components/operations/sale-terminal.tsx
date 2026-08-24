@@ -76,6 +76,7 @@ export function SaleTerminal({
   const [payAmount, setPayAmount] = React.useState("");
   const [payReference, setPayReference] = React.useState("");
   const [notes, setNotes] = React.useState("");
+  const [catalogueQuery, setCatalogueQuery] = React.useState("");
 
   const [busy, setBusy] = React.useState(false);
   const [banner, setBanner] = React.useState<string | null>(null);
@@ -233,8 +234,17 @@ export function SaleTerminal({
     }
   }
 
-  const products = catalogue.filter((c) => c.kind === "PRODUCT");
-  const services = catalogue.filter((c) => c.kind === "SERVICE");
+  const catalogueNeedle = catalogueQuery.trim().toLowerCase();
+  const products = catalogue.filter(
+    (c) =>
+      c.kind === "PRODUCT" &&
+      (!catalogueNeedle || c.name.toLowerCase().includes(catalogueNeedle)),
+  );
+  const services = catalogue.filter(
+    (c) =>
+      c.kind === "SERVICE" &&
+      (!catalogueNeedle || c.name.toLowerCase().includes(catalogueNeedle)),
+  );
 
   return (
     <form onSubmit={submit} className="grid gap-4 lg:grid-cols-3">
@@ -271,6 +281,23 @@ export function SaleTerminal({
         <Card>
           <CardHeader><CardTitle>Items</CardTitle></CardHeader>
           <CardBody className="space-y-3">
+            <label className="block">
+              <span className={labelCls}>Search catalogue</span>
+              <input
+                type="search"
+                value={catalogueQuery}
+                onChange={(e) => setCatalogueQuery(e.target.value)}
+                placeholder="Filter products and services…"
+                className={inputCls}
+              />
+              {catalogueNeedle && (
+                <p className="mt-1 text-[11px] text-gray-400 dark:text-(--sa-muted)">
+                  {products.length + services.length} match
+                  {products.length + services.length === 1 ? "" : "es"}
+                  {products.length + services.length === 0 ? " — try another term" : ""}
+                </p>
+              )}
+            </label>
             <div className="grid gap-2 sm:grid-cols-2">
               <div>
                 <label className={labelCls} htmlFor="add-product">Add product</label>
