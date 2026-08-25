@@ -368,22 +368,18 @@ export function cloneDefaultContent(): HomeContent {
 
 /**
  * Company/contact address only — never branch street addresses.
- * Published CMS rows can still hold a retired Mumbai or Chikka Bommasandra
- * string; those are rewritten to CONTACT_INFO.address on read.
+ *
+ * Footer "Visit Us" and the homepage CONTACT section are the global company
+ * address. They always resolve to CONTACT_INFO.address so published CMS rows
+ * cannot reintroduce a typo ("Yelahanka new Town" without a comma) or a retired
+ * Mumbai / Chikka Bommasandra string. Branch records are not in this document.
  */
-const STALE_COMPANY_ADDRESS = /rosewood|bandra west|mumbai\s*400050|chikka bommasandra/i;
-
 export function normalizeCompanyAddress(content: HomeContent): HomeContent {
   const next = structuredClone(content);
-  if (STALE_COMPANY_ADDRESS.test(next.footer.address)) {
-    next.footer.address = CONTACT_INFO.address;
-  }
+  next.footer.address = CONTACT_INFO.address;
   for (const section of next.sections) {
     if (section.type !== "CONTACT") continue;
-    const address = (section.data as { address?: string }).address;
-    if (typeof address === "string" && STALE_COMPANY_ADDRESS.test(address)) {
-      (section.data as { address: string }).address = CONTACT_INFO.address;
-    }
+    (section.data as { address: string }).address = CONTACT_INFO.address;
   }
   return next;
 }

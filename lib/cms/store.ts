@@ -115,7 +115,8 @@ export async function discardDraft(actorName: string): Promise<DraftEnvelope> {
 /** The published document, or null when nothing has ever been published. */
 export async function getLive(): Promise<PublishedEnvelope | null> {
   const parsed = PublishedEnvelopeSchema.safeParse(parseJson(await readRow(SLUG_LIVE)));
-  return parsed.success ? parsed.data : null;
+  if (!parsed.success) return null;
+  return { ...parsed.data, content: normalizeCompanyAddress(parsed.data.content) };
 }
 
 /**
@@ -182,7 +183,8 @@ export async function listVersions(): Promise<VersionSummary[]> {
 
 export async function getVersion(version: number): Promise<PublishedEnvelope | null> {
   const parsed = PublishedEnvelopeSchema.safeParse(parseJson(await readRow(versionSlug(version))));
-  return parsed.success ? parsed.data : null;
+  if (!parsed.success) return null;
+  return { ...parsed.data, content: normalizeCompanyAddress(parsed.data.content) };
 }
 
 /* ─── Publish ──────────────────────────────────────────────────────────────── */
