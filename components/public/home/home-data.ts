@@ -229,5 +229,5 @@ export const CONTACT_INFO = {
   tagline: "Together, we craft confidence — honouring your look and celebrating new beginnings.",
   address: "723 Yelahanka New Town, Bengaluru 560064",
   phone: "+91 9591969838",
-  email: "hello@renzo.salon",
+  email: "renzosalons@gmail.com",
 };

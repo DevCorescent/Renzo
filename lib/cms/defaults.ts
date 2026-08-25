@@ -345,8 +345,8 @@ export const DEFAULT_HOME_CONTENT: HomeContent = {
     ],
     contactTitle: "Visit Us",
     address: CONTACT_INFO.address,
-    phone: "+91 9591969838",
-    email: "hello@renzo.salon",
+    phone: CONTACT_INFO.phone,
+    email: CONTACT_INFO.email,
     socials: [
       { id: "social-ig", icon: "Instagram", label: "Instagram", href: "#" },
       { id: "social-wa", icon: "WhatsApp", label: "WhatsApp", href: "#" },
@@ -367,23 +367,39 @@ export function cloneDefaultContent(): HomeContent {
 }
 
 /**
- * Company/contact address only — never branch street addresses.
- * Published CMS rows can still hold a retired Mumbai or Chikka Bommasandra
- * string; those are rewritten to CONTACT_INFO.address on read.
+ * Retired GLOBAL company contact values — never branch, staff or customer ones.
+ * These patterns are only ever tested against the two places that hold the
+ * company's own contact details (the footer's "Visit Us" block and a CONTACT
+ * section), so a branch that legitimately sits in Bandra keeps its own address.
+ *
+ * Published and draft CMS rows written before the move to Yelahanka still carry
+ * the old Mumbai address, the old +91 98765 43210 number and the old
+ * hello@renzo.salon mailbox; each is rewritten to its CONTACT_INFO counterpart
+ * on read, so a stale row can never resurface on the public site or be saved
+ * back out of the editor.
  */
-const STALE_COMPANY_ADDRESS = /rosewood|bandra west|mumbai\s*400050|chikka bommasandra/i;
+const STALE_COMPANY = {
+  address: /rosewood|bandra west|mumbai\s*400050|chikka bommasandra/i,
+  phone: /9\s*8\s*7\s*6\s*5\s*4\s*3\s*2\s*1\s*0/,
+  email: /@renzo\.salon$/i,
+} as const;
 
-export function normalizeCompanyAddress(content: HomeContent): HomeContent {
-  const next = structuredClone(content);
-  if (STALE_COMPANY_ADDRESS.test(next.footer.address)) {
-    next.footer.address = CONTACT_INFO.address;
+/** The company's canonical address, phone and email — one field at a time. */
+function freshenContact(target: Record<string, unknown>): void {
+  for (const field of ["address", "phone", "email"] as const) {
+    const value = target[field];
+    if (typeof value === "string" && STALE_COMPANY[field].test(value)) {
+      target[field] = CONTACT_INFO[field];
+    }
   }
+}
+
+export function normalizeCompanyContact(content: HomeContent): HomeContent {
+  const next = structuredClone(content);
+  freshenContact(next.footer as unknown as Record<string, unknown>);
   for (const section of next.sections) {
     if (section.type !== "CONTACT") continue;
-    const address = (section.data as { address?: string }).address;
-    if (typeof address === "string" && STALE_COMPANY_ADDRESS.test(address)) {
-      (section.data as { address: string }).address = CONTACT_INFO.address;
-    }
+    freshenContact(section.data as unknown as Record<string, unknown>);
   }
   return next;
 }

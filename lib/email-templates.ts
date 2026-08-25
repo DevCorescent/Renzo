@@ -33,7 +33,7 @@ const BASE = (content: string) => `<!DOCTYPE html>
           <tr>
             <td style="background:#111;padding:20px 36px;border-top:1px solid #2a2a2a;text-align:center;">
               <p style="margin:0;font-size:11px;color:#555;">© ${new Date().getFullYear()} Renzo Salon. All rights reserved.</p>
-              <p style="margin:6px 0 0;font-size:11px;color:#555;">723 Yelahanka New Town, Bengaluru 560064 · hello@renzo.salon</p>
+              <p style="margin:6px 0 0;font-size:11px;color:#555;">723 Yelahanka New Town, Bengaluru 560064 · renzosalons@gmail.com</p>
             </td>
           </tr>
 
@@ -276,7 +276,7 @@ const INVOICE_SHELL = (body: string) => `<!DOCTYPE html>
         <tr>
           <td style="background:#FAFAFA;padding:20px 40px;border-top:1px solid #F0F0F0;text-align:center;">
             <p style="margin:0;font-size:11px;color:#A1A1AA;">© ${new Date().getFullYear()} Renzo Salon · All rights reserved</p>
-            <p style="margin:5px 0 0;font-size:11px;color:#A1A1AA;">hello@renzo.salon</p>
+            <p style="margin:5px 0 0;font-size:11px;color:#A1A1AA;">renzosalons@gmail.com</p>
           </td>
         </tr>
 

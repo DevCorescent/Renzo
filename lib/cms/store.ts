@@ -37,7 +37,7 @@ import {
   type MediaItem,
   type MediaLibrary,
 } from "./schema";
-import { DEFAULT_HOME_CONTENT, cloneDefaultContent, normalizeCompanyAddress } from "./defaults";
+import { DEFAULT_HOME_CONTENT, cloneDefaultContent, normalizeCompanyContact } from "./defaults";
 
 const SLUG_DRAFT = "system/homepage-draft";
 const SLUG_LIVE = "system/homepage-live";
@@ -83,12 +83,12 @@ function parseJson(raw: string | null): unknown {
 export async function getDraft(): Promise<DraftEnvelope> {
   const parsed = DraftEnvelopeSchema.safeParse(parseJson(await readRow(SLUG_DRAFT)));
   if (parsed.success) {
-    return { ...parsed.data, content: normalizeCompanyAddress(parsed.data.content) };
+    return { ...parsed.data, content: normalizeCompanyContact(parsed.data.content) };
   }
 
   const live = await getLive();
   return {
-    content: live ? normalizeCompanyAddress(live.content) : cloneDefaultContent(),
+    content: live ? normalizeCompanyContact(live.content) : cloneDefaultContent(),
     updatedAt: new Date().toISOString(),
     updatedBy: "",
   };
@@ -96,7 +96,7 @@ export async function getDraft(): Promise<DraftEnvelope> {
 
 export async function saveDraft(content: HomeContent, actorName: string): Promise<DraftEnvelope> {
   const envelope: DraftEnvelope = {
-    content: normalizeCompanyAddress(content),
+    content: normalizeCompanyContact(content),
     updatedAt: new Date().toISOString(),
     updatedBy: actorName,
   };
@@ -135,7 +135,7 @@ export async function getLive(): Promise<PublishedEnvelope | null> {
 export const getPublishedHomeContent = cache(async (): Promise<HomeContent> => {
   try {
     const live = await getLive();
-    return normalizeCompanyAddress(live?.content ?? DEFAULT_HOME_CONTENT);
+    return normalizeCompanyContact(live?.content ?? DEFAULT_HOME_CONTENT);
   } catch {
     return DEFAULT_HOME_CONTENT;
   }
