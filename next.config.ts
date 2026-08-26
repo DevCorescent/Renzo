@@ -13,24 +13,7 @@ const r2Host = (() => {
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@react-pdf/renderer"],
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "images.unsplash.com",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: r2Host,
-        pathname: "/**",
-      },
-      {
-        // Dev fallback for placeholder / third-party HTTPS images
-        protocol: "https",
-        hostname: "**",
-        pathname: "/**",
-      },
-    ],
+    unoptimized: true,
   },
 };
 
