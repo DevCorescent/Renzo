@@ -38,9 +38,11 @@ const DateKey = z
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD");
 
-const ExpenseSchema = z.object({
+const ExpenseSchema = z
+  .object({
   branchId: z.string().trim().min(1).optional(),
   category: z.enum(EXPENSE_CATEGORIES),
+  customCategory: z.string().trim().max(60).nullable().optional(),
   amount: z
     .number()
     .positive("Amount must be greater than zero")
@@ -51,7 +53,13 @@ const ExpenseSchema = z.object({
   vendor: z.string().trim().max(120).nullable().optional(),
   referenceNo: z.string().trim().max(60).nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
-});
+  })
+  // A typed label is required when the category is OTHERS, and meaningless
+  // otherwise.
+  .refine((v) => v.category !== "OTHERS" || !!v.customCategory?.trim(), {
+    path: ["customCategory"],
+    message: "Type the category name",
+  });
 
 export async function GET(req: NextRequest) {
   const { user, error } = await requireAuth(req, ...ROLES);
@@ -151,6 +159,7 @@ export async function POST(req: NextRequest) {
       data: {
         branchId,
         category: input.category,
+        customCategory: input.category === "OTHERS" ? input.customCategory!.trim() : null,
         amount: input.amount,
         expenseDate: new Date(`${dateKey}T00:00:00.000Z`),
         description: input.description,

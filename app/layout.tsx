@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono, Noto_Sans, Poppins } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -44,9 +45,13 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {/* Applies the saved / OS theme to <html> BEFORE first paint — no flash of
-            the wrong theme on load, refresh, deep-link or navigation. Must be the
-            first thing in <body> so it runs before any content is painted. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+            the wrong theme on load, refresh, deep-link or navigation. `beforeInteractive`
+            makes Next inject it into the initial HTML ahead of hydration, so it runs
+            before any content is painted while still executing on the client (a raw
+            <script> element does not — React 19 warns and skips it on re-render). */}
+        <Script id="theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
         {children}
       </body>
     </html>

@@ -135,6 +135,7 @@ export function WalkInConsole({
 
   // ── Booking ───────────────────────────────────────────────────────────────
   const [picked, setPicked] = React.useState<string[]>([]);
+  const [serviceQuery, setServiceQuery] = React.useState("");
   const [workerId, setWorkerId] = React.useState("");
   const [assistantId, setAssistantId] = React.useState("");
   const [chair, setChair] = React.useState("");
@@ -182,6 +183,12 @@ export function WalkInConsole({
   const visibleHits = term.trim().length >= 2 ? hits : [];
 
   const chosen = services.filter((s) => picked.includes(s.id));
+  // Filter the service chips by the search box, but never hide something already
+  // picked — otherwise a selection silently disappears when the query changes.
+  const serviceNeedle = serviceQuery.trim().toLowerCase();
+  const visibleServices = serviceNeedle
+    ? services.filter((s) => picked.includes(s.id) || s.name.toLowerCase().includes(serviceNeedle))
+    : services;
   const subtotal = chosen.reduce((sum, s) => sum + s.price, 0);
   const duration = chosen.reduce((sum, s) => sum + s.duration, 0);
   const discountValue = Math.min(Number(discount) || 0, subtotal);
@@ -421,9 +428,27 @@ export function WalkInConsole({
               <CardHeader><CardTitle>2 · Services &amp; assignment</CardTitle></CardHeader>
               <CardBody className="space-y-3">
                 <div>
-                  <label className={labelCls}>Services</label>
+                  <label className={labelCls}>
+                    Services{picked.length > 0 ? ` · ${picked.length} selected` : ""}
+                  </label>
+                  <div className="relative mb-2">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="search"
+                      value={serviceQuery}
+                      onChange={(e) => setServiceQuery(e.target.value)}
+                      disabled={Boolean(appointment)}
+                      placeholder="Search services…"
+                      className={cn(inputCls, "pl-8")}
+                    />
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {services.map((s) => {
+                    {visibleServices.length === 0 && (
+                      <span className="text-xs text-gray-400 dark:text-(--sa-muted)">
+                        No services match “{serviceQuery.trim()}”.
+                      </span>
+                    )}
+                    {visibleServices.map((s) => {
                       const on = picked.includes(s.id);
                       return (
                         <button

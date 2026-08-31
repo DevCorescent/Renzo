@@ -387,9 +387,23 @@ export const EXPENSE_CATEGORIES = [
   "SUPPLIES",
   "TRANSPORT",
   "MISCELLANEOUS",
+  "OTHERS",
 ] as const;
 
 export type ExpenseCategoryValue = (typeof EXPENSE_CATEGORIES)[number];
+
+/**
+ * Display label for an expense category. When the category is OTHERS the user
+ * typed their own label, stored in customCategory — show that instead of the
+ * generic "Others".
+ */
+export function expenseCategoryLabel(
+  category: string,
+  customCategory?: string | null,
+): string {
+  if (category === "OTHERS" && customCategory?.trim()) return customCategory.trim();
+  return labelise(category);
+}
 
 export const PAYMENT_METHODS = [
   "CASH",

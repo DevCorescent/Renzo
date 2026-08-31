@@ -8,7 +8,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Search, X } from "lucide-react";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
-import { GenerateInvoiceButton } from "@/components/reception/generate-invoice-button";
+import { AppointmentBill, type CatalogueItem } from "@/components/reception/appointment-bill";
 
 const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info"> = {
   UNPAID: "warning",
@@ -49,11 +49,14 @@ export function BillingWorkspace({
   unbilled,
   basePath,
   showBranch,
+  catalogue,
 }: {
   invoices: BillingInvoiceRow[];
   unbilled: BillingUnbilledRow[];
   basePath: string;
   showBranch: boolean;
+  /** Active services and products the desk can add ad-hoc to an appointment bill. */
+  catalogue: CatalogueItem[];
 }) {
   const [query, setQuery] = React.useState("");
   const needle = query.trim().toLowerCase();
@@ -158,8 +161,16 @@ export function BillingWorkspace({
                     <TD className="text-gray-700 dark:text-(--sa-text)">
                       ₹{a.totalAmount.toLocaleString("en-IN")}
                     </TD>
-                    <TD className="text-right">
-                      <GenerateInvoiceButton appointmentId={a.id} basePath={basePath} />
+                    <TD className="align-top">
+                      <div className="flex justify-end">
+                        <AppointmentBill
+                          appointmentId={a.id}
+                          basePath={basePath}
+                          catalogue={catalogue}
+                          bookedServices={a.services}
+                          bookedTotal={a.totalAmount}
+                        />
+                      </div>
                     </TD>
                   </TR>
                 ))

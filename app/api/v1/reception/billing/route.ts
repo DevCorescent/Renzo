@@ -34,9 +34,11 @@ import {
   assertBillingAccess,
   computeInvoiceTotals,
   isTotalsError,
+  round2,
   toInvoiceItemRows,
   type InvoiceLine,
 } from "@/lib/billing-service";
+import { applyStockMovement, InsufficientStockError } from "@/lib/stock";
 
 const MODULE = "BILLING";
 const ROLES = ["RECEPTIONIST", "BRANCH_ADMIN", "SUPER_ADMIN", "OWNER"] as const;
@@ -147,6 +149,89 @@ export async function POST(req: NextRequest) {
       })),
     ];
 
+    // Ad-hoc lines added at the desk: a service or retail product the customer
+    // also took but was never booked, or a miscellaneous charge. This is what
+    // stops appointment billing being a dead end when the booking missed
+    // something. Product lines move stock in the same transaction as the invoice.
+    const extraLinesRaw: unknown[] = Array.isArray(body.extraLines) ? body.extraLines : [];
+    if (extraLinesRaw.length > 50) {
+      return err("Validation failed", 422, { extraLines: ["Too many extra lines"] });
+    }
+
+    const idsOfKind = (kind: string) =>
+      extraLinesRaw
+        .filter(
+          (l): l is { kind: string; id: string } =>
+            !!l && typeof l === "object" && (l as { kind?: unknown }).kind === kind &&
+            typeof (l as { id?: unknown }).id === "string"
+        )
+        .map((l) => l.id);
+
+    const extraServiceIds = idsOfKind("SERVICE");
+    const extraProductIds = idsOfKind("PRODUCT");
+
+    const [extraServices, extraProducts] = await Promise.all([
+      extraServiceIds.length
+        ? prisma.service.findMany({
+            where: { id: { in: extraServiceIds }, isActive: true },
+            select: { id: true, name: true, basePrice: true },
+          })
+        : Promise.resolve([]),
+      extraProductIds.length
+        ? prisma.product.findMany({
+            where: { id: { in: extraProductIds }, isActive: true },
+            select: { id: true, name: true, sellingPrice: true },
+          })
+        : Promise.resolve([]),
+    ]);
+    const extraServiceMap = new Map(extraServices.map((s) => [s.id, s]));
+    const extraProductMap = new Map(extraProducts.map((p) => [p.id, p]));
+
+    // Products added here must have their stock taken when the invoice commits.
+    const productMovements: { productId: string; quantity: number; name: string }[] = [];
+
+    for (const [i, raw] of extraLinesRaw.entries()) {
+      if (!raw || typeof raw !== "object") continue;
+      const l = raw as { kind?: unknown; id?: unknown; name?: unknown; quantity?: unknown; unitPrice?: unknown };
+      const qty = Number.isFinite(Number(l.quantity))
+        ? Math.max(1, Math.min(999, Math.trunc(Number(l.quantity))))
+        : 1;
+
+      if (l.kind === "MISC") {
+        const name = typeof l.name === "string" ? l.name.trim() : "";
+        const price = Number(l.unitPrice);
+        if (!name || !Number.isFinite(price) || price < 0) {
+          return err("Validation failed", 422, {
+            extraLines: [`Line ${i + 1}: a custom charge needs a name and a price`],
+          });
+        }
+        lines.push({ type: "MISC", refId: null, name, quantity: qty, unitPrice: round2(price), total: round2(price * qty) });
+      } else if (l.kind === "SERVICE") {
+        const svc = typeof l.id === "string" ? extraServiceMap.get(l.id) : undefined;
+        if (!svc) {
+          return err("Validation failed", 422, {
+            extraLines: [`Line ${i + 1}: unknown or inactive service`],
+          });
+        }
+        const unit = Number.isFinite(Number(l.unitPrice)) ? Number(l.unitPrice) : svc.basePrice;
+        lines.push({ type: "SERVICE", refId: svc.id, name: svc.name, quantity: qty, unitPrice: round2(unit), total: round2(unit * qty) });
+      } else if (l.kind === "PRODUCT") {
+        const prod = typeof l.id === "string" ? extraProductMap.get(l.id) : undefined;
+        if (!prod) {
+          return err("Validation failed", 422, {
+            extraLines: [`Line ${i + 1}: unknown or inactive product`],
+          });
+        }
+        const unit = Number.isFinite(Number(l.unitPrice)) ? Number(l.unitPrice) : prod.sellingPrice;
+        lines.push({ type: "PRODUCT", refId: prod.id, name: prod.name, quantity: qty, unitPrice: round2(unit), total: round2(unit * qty) });
+        productMovements.push({ productId: prod.id, quantity: qty, name: prod.name });
+      } else {
+        return err("Validation failed", 422, {
+          extraLines: [`Line ${i + 1}: only services, products and custom charges can be added here`],
+        });
+      }
+    }
+
     if (lines.length === 0) return err("Appointment has no billable services", 422);
 
     const totals = computeInvoiceTotals({
@@ -165,24 +250,42 @@ export async function POST(req: NextRequest) {
       return err("Validation failed", 422, { [totals.field]: [totals.error] });
     }
 
-    const invoice = await prisma.invoice.create({
-      data: {
-        invoiceNo: genCode("INV"),
-        appointmentId: appointment.id,
-        customerId: appointment.customerId,
-        branchId: appointment.branchId,
-        subtotal: totals.subtotal,
-        taxAmount: totals.taxAmount,
-        discountAmount: totals.discountAmount,
-        totalAmount: totals.totalAmount,
-        paidAmount: totals.paidAmount,
-        balanceDue: totals.balanceDue,
-        status: totals.status,
-        notes: typeof body.notes === "string" ? body.notes : null,
-        generatedBy: user.userId,
-        items: { create: toInvoiceItemRows(lines, totals.tipAmount) },
-      },
-      include: { items: true },
+    // One transaction: retail stock must not move if the invoice fails, and an
+    // invoice must not exist for stock that could not be taken.
+    const invoice = await prisma.$transaction(async (tx) => {
+      const createdInvoice = await tx.invoice.create({
+        data: {
+          invoiceNo: genCode("INV"),
+          appointmentId: appointment.id,
+          customerId: appointment.customerId,
+          branchId: appointment.branchId,
+          subtotal: totals.subtotal,
+          taxAmount: totals.taxAmount,
+          discountAmount: totals.discountAmount,
+          totalAmount: totals.totalAmount,
+          paidAmount: totals.paidAmount,
+          balanceDue: totals.balanceDue,
+          status: totals.status,
+          notes: typeof body.notes === "string" ? body.notes : null,
+          generatedBy: user.userId,
+          items: { create: toInvoiceItemRows(lines, totals.tipAmount) },
+        },
+        include: { items: true },
+      });
+
+      for (const m of productMovements) {
+        await applyStockMovement(tx, {
+          productId: m.productId,
+          branchId: appointment.branchId,
+          delta: -m.quantity,
+          type: "RETAIL_SALE",
+          performedBy: user.userId,
+          refId: createdInvoice.id,
+          notes: `Added on bill ${createdInvoice.invoiceNo}`,
+        });
+      }
+
+      return createdInvoice;
     });
 
     await writeAudit(user, {
@@ -203,7 +306,12 @@ export async function POST(req: NextRequest) {
     });
 
     return created(invoice, "Invoice generated");
-  } catch {
+  } catch (e) {
+    if (e instanceof InsufficientStockError) {
+      return err("Validation failed", 422, {
+        extraLines: [`Not enough stock — only ${e.available} left`],
+      });
+    }
     return err("Internal server error", 500);
   }
 }

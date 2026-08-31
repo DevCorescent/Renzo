@@ -30,8 +30,10 @@ import { EXPENSE_SELECT } from "@/lib/operations-service";
 const MODULE = "EXPENSE";
 const ROLES = ["SUPER_ADMIN", "OWNER", "BRANCH_ADMIN"] as const;
 
-const PatchSchema = z.object({
+const PatchSchema = z
+  .object({
   category: z.enum(EXPENSE_CATEGORIES).optional(),
+  customCategory: z.string().trim().max(60).nullable().optional(),
   amount: z.number().positive().max(10_000_000).optional(),
   expenseDate: z
     .string()
@@ -43,14 +45,19 @@ const PatchSchema = z.object({
   vendor: z.string().trim().max(120).nullable().optional(),
   referenceNo: z.string().trim().max(60).nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
-});
+  })
+  // Changing the category TO Others requires a typed label in the same request.
+  .refine((v) => v.category !== "OTHERS" || !!v.customCategory?.trim(), {
+    path: ["customCategory"],
+    message: "Type the category name",
+  });
 
 /** Load an expense the caller is allowed to touch, or null. */
 async function loadInScope(id: string, branchId: string | null) {
   const expense = await prisma.expense.findUnique({
     where: { id },
     select: {
-      id: true, branchId: true, category: true, amount: true, expenseDate: true,
+      id: true, branchId: true, category: true, customCategory: true, amount: true, expenseDate: true,
       description: true, paidVia: true, vendor: true, referenceNo: true, notes: true,
     },
   });
@@ -92,6 +99,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       where: { id },
       data: {
         ...(input.category !== undefined ? { category: input.category } : {}),
+        // Keep customCategory consistent with category: cleared when the
+        // category moves away from Others, set when it is Others or when only
+        // the label itself is being corrected.
+        ...(input.category !== undefined && input.category !== "OTHERS"
+          ? { customCategory: null }
+          : input.category === "OTHERS"
+            ? { customCategory: input.customCategory!.trim() }
+            : input.customCategory !== undefined
+              ? { customCategory: input.customCategory?.trim() || null }
+              : {}),
         ...(input.amount !== undefined ? { amount: input.amount } : {}),
         ...(input.expenseDate !== undefined
           ? { expenseDate: new Date(`${input.expenseDate}T00:00:00.000Z`) }

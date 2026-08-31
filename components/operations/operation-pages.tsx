@@ -22,7 +22,7 @@ import { QualificationManager } from "@/components/operations/qualification-mana
 import { ExpenseManager, type ExpenseRow } from "@/components/operations/expense-manager";
 import { MembershipSale, LoyaltyAdjust, type PlanOption } from "@/components/operations/quick-forms";
 import { operationsCapabilitiesFor, type OperationsCapability } from "@/lib/operations";
-import { billingCapabilitiesFor } from "@/lib/billing-service";
+import { billingCapabilitiesFor, BILLABLE_STATUSES } from "@/lib/billing-service";
 import { loadHealthReport, loadWorkerReadiness } from "@/lib/health-service";
 import { BillingWorkspace } from "@/components/operations/billing-workspace";
 import type { AuthUser, UserType } from "@/types/api";
@@ -223,6 +223,7 @@ export async function ExpensesPage({ allowedRoles }: { allowedRoles: readonly Us
       select: {
         id: true,
         category: true,
+        customCategory: true,
         amount: true,
         expenseDate: true,
         description: true,
@@ -399,7 +400,7 @@ export async function BillingPage({
 }) {
   const { branchId, isGlobal } = await guard(allowedRoles, "canBill");
 
-  const [invoices, unbilled] = await Promise.all([
+  const [invoices, unbilled, catalogueServices, catalogueProducts] = await Promise.all([
     prisma.invoice.findMany({
       where: branchId ? { branchId } : {},
       orderBy: { createdAt: "desc" },
@@ -415,14 +416,37 @@ export async function BillingPage({
     prisma.appointment.findMany({
       where: {
         ...(branchId ? { branchId } : {}),
-        status: "COMPLETED",
+        // The customer has arrived (checked in / in-chair / done) but has no
+        // invoice yet — anything the billing API will actually accept. Only
+        // showing COMPLETED hid arrived customers the desk still had to bill.
+        status: { in: [...BILLABLE_STATUSES] },
         invoice: { is: null },
       },
-      orderBy: { completedAt: "desc" },
+      orderBy: { updatedAt: "desc" },
       take: 30,
       include: {
         customer: { select: { firstName: true, lastName: true, phone: true } },
         services: { include: { service: { select: { name: true } } } },
+      },
+    }),
+    // Catalogue for adding ad-hoc services onto a bill at the desk.
+    prisma.service.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      take: 400,
+      select: { id: true, name: true, basePrice: true },
+    }),
+    // Retail products too — stock is per-branch, so only offer counts for a
+    // branch-scoped desk. A platform role with no branch sees them without stock.
+    prisma.product.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      take: 400,
+      select: {
+        id: true,
+        name: true,
+        sellingPrice: true,
+        stocks: branchId ? { where: { branchId }, select: { quantity: true }, take: 1 } : false,
       },
     }),
   ]);
@@ -454,6 +478,21 @@ export async function BillingPage({
     <BillingWorkspace
       basePath={basePath}
       showBranch={isGlobal}
+      catalogue={[
+        ...catalogueServices.map((s) => ({
+          id: s.id,
+          name: s.name,
+          price: Number(s.basePrice),
+          kind: "SERVICE" as const,
+        })),
+        ...catalogueProducts.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: Number(p.sellingPrice),
+          kind: "PRODUCT" as const,
+          stock: p.stocks?.[0]?.quantity ?? null,
+        })),
+      ]}
       invoices={invoices.map((inv) => {
         const c = inv.appointment?.customer ?? customerById.get(inv.customerId);
         return {

@@ -10,13 +10,14 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Loader2, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
 import { Badge, Card, CardBody, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_PAYMENT_METHODS,
+  expenseCategoryLabel,
   formatMoney,
   labelise,
 } from "@/lib/operations";
@@ -24,6 +25,7 @@ import {
 export type ExpenseRow = {
   id: string;
   category: string;
+  customCategory: string | null;
   amount: number;
   expenseDate: string;
   description: string;
@@ -37,6 +39,21 @@ export type BranchOption = { id: string; name: string };
 
 const inputCls =
   "h-9 w-full rounded border border-gray-200 bg-white px-2.5 text-sm text-gray-900 outline-none transition focus:border-gray-400 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text) dark:focus:border-white/30";
+// Native selects crowd their text and arrow against the right edge. Drop the OS
+// arrow, leave room on the right for our own chevron, and keep the label off it.
+const selectCls = cn(inputCls, "cursor-pointer appearance-none pr-9");
+
+/** A <select> styled to match inputs, with a chevron that clears the edge. */
+function Select({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div className="relative">
+      <select {...props} className={selectCls}>
+        {children}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400 dark:text-(--sa-text-2)" />
+    </div>
+  );
+}
 const labelCls = "mb-1 block text-xs font-medium text-gray-600 dark:text-(--sa-text-2)";
 const btnPrimary =
   "inline-flex items-center gap-1.5 rounded bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-gray-800 disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-white/90";
@@ -70,6 +87,7 @@ export function ExpenseManager({
   const today = new Date().toISOString().slice(0, 10);
 
   const [category, setCategory] = React.useState<string>("MISCELLANEOUS");
+  const [customCategory, setCustomCategory] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [expenseDate, setExpenseDate] = React.useState(today);
   const [description, setDescription] = React.useState("");
@@ -96,6 +114,7 @@ export function ExpenseManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           category,
+          customCategory: category === "OTHERS" ? customCategory.trim() : null,
           amount: Number(amount),
           expenseDate,
           description: description.trim(),
@@ -118,6 +137,7 @@ export function ExpenseManager({
       setDescription("");
       setVendor("");
       setReferenceNo("");
+      setCustomCategory("");
       router.refresh();
     } catch {
       setBusy(false);
@@ -150,11 +170,11 @@ export function ExpenseManager({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className={labelCls} htmlFor="exp-cat">Category</label>
-                <select id="exp-cat" value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
+                <Select id="exp-cat" value={category} onChange={(e) => setCategory(e.target.value)}>
                   {EXPENSE_CATEGORIES.map((c) => (
                     <option key={c} value={c}>{labelise(c)}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div>
                 <label className={labelCls} htmlFor="exp-amount">Amount ₹</label>
@@ -163,6 +183,16 @@ export function ExpenseManager({
                 {fieldError("amount")}
               </div>
             </div>
+
+            {category === "OTHERS" && (
+              <div>
+                <label className={labelCls} htmlFor="exp-custom-cat">Category name</label>
+                <input id="exp-custom-cat" required minLength={2} maxLength={60} value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)} className={inputCls}
+                  placeholder="Type the category" />
+                {fieldError("customCategory")}
+              </div>
+            )}
 
             <div>
               <label className={labelCls} htmlFor="exp-desc">Description</label>
@@ -181,11 +211,11 @@ export function ExpenseManager({
               </div>
               <div>
                 <label className={labelCls} htmlFor="exp-via">Paid via</label>
-                <select id="exp-via" value={paidVia} onChange={(e) => setPaidVia(e.target.value)} className={inputCls}>
+                <Select id="exp-via" value={paidVia} onChange={(e) => setPaidVia(e.target.value)}>
                   {EXPENSE_PAYMENT_METHODS.map((m) => (
                     <option key={m} value={m}>{labelise(m)}</option>
                   ))}
-                </select>
+                </Select>
               </div>
             </div>
 
@@ -205,13 +235,12 @@ export function ExpenseManager({
             {canChooseBranch && (
               <div>
                 <label className={labelCls} htmlFor="exp-branch">Branch</label>
-                <select id="exp-branch" value={branchId} onChange={(e) => setBranchId(e.target.value)}
-                  className={inputCls} required>
+                <Select id="exp-branch" value={branchId} onChange={(e) => setBranchId(e.target.value)} required>
                   <option value="">Choose a branch…</option>
                   {branches.map((b) => (
                     <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
-                </select>
+                </Select>
                 {fieldError("branchId")}
               </div>
             )}
@@ -259,7 +288,7 @@ export function ExpenseManager({
                     {formatDate(row.expenseDate)}
                   </TD>
                   <TD className="whitespace-nowrap">
-                    <Badge tone="neutral">{labelise(row.category)}</Badge>
+                    <Badge tone="neutral">{expenseCategoryLabel(row.category, row.customCategory)}</Badge>
                   </TD>
                   <TD className="max-w-60">
                     <span className="block truncate text-sm text-gray-800 dark:text-(--sa-text)">

@@ -66,6 +66,7 @@ enum ExpenseCategory {
   SUPPLIES
   TRANSPORT
   MISCELLANEOUS
+  OTHERS
 }
 
 /// How a customer relates to the salon. Distinct from BookingSource, which
@@ -931,6 +932,8 @@ model Expense {
   id          String          @id @default(cuid())
   branchId    String
   category    ExpenseCategory
+  /// Free-text label the user typed when category is OTHERS. Null otherwise.
+  customCategory String?
   amount      Float
   /// The date the money was actually spent, which is not always today.
   expenseDate DateTime        @db.Date

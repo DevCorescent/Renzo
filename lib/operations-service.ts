@@ -19,6 +19,7 @@ import { attendanceDateKey } from "@/lib/attendance";
 export const EXPENSE_SELECT = {
   id: true,
   category: true,
+  customCategory: true,
   amount: true,
   expenseDate: true,
   description: true,
