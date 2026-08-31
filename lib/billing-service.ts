@@ -130,18 +130,21 @@ export async function assertBillingAccess(params: {
 /**
  * Statuses a bill may be raised against.
  *
- * PENDING and CONFIRMED are excluded on purpose: the customer has not arrived, so
- * there is nothing to charge for yet — billing one would let a no-show be invoiced
- * as a completed visit. CANCELLED and NO_SHOW are excluded for the same reason.
+ * Only PENDING is excluded now: an unconfirmed (typically online) booking has not
+ * been accepted, so there is nothing to charge yet. CONFIRMED IS billable — the
+ * front desk books a customer standing at the counter as CONFIRMED, so demanding a
+ * separate check-in before billing them is pure friction. Billing a not-yet-done
+ * appointment marks it COMPLETED (see the billing route), so it can't linger or be
+ * billed twice. CANCELLED and NO_SHOW stay excluded — there is no visit to charge.
  */
-export const BILLABLE_STATUSES = ["CHECKED_IN", "STARTED", "COMPLETED"] as const;
+export const BILLABLE_STATUSES = ["CONFIRMED", "CHECKED_IN", "STARTED", "COMPLETED"] as const;
 
 export function appointmentBillableReason(status: string, hasInvoice: boolean): string | null {
   if (hasInvoice) return "An invoice already exists for this appointment";
   if (status === "CANCELLED") return "Cannot bill a cancelled appointment";
   if (status === "NO_SHOW") return "Cannot bill a no-show appointment";
   if (!(BILLABLE_STATUSES as readonly string[]).includes(status)) {
-    return `This appointment is still ${status.toLowerCase().replace("_", " ")} — check the customer in before billing`;
+    return `This appointment is still ${status.toLowerCase().replace("_", " ")} — confirm the booking before billing`;
   }
   return null;
 }

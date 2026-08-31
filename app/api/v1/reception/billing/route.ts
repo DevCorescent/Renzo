@@ -285,6 +285,19 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // Skip-the-queue billing: a confirmed / checked-in / started booking can be
+      // billed straight from the billing screen. Raising the invoice IS the act
+      // of finishing the visit, so mark it completed now — otherwise it would sit
+      // in the ready-to-invoice list forever (an invoice already exists, so it
+      // can never be billed again anyway). Setting completedAt matches exactly
+      // what the status route does for a COMPLETED transition.
+      if (appointment.status !== "COMPLETED") {
+        await tx.appointment.update({
+          where: { id: appointment.id },
+          data: { status: "COMPLETED", completedAt: new Date() },
+        });
+      }
+
       return createdInvoice;
     });
 

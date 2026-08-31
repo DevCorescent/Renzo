@@ -23,10 +23,18 @@ export default async function ReceptionCheckinPage() {
   if (!authUser?.branchId) redirect("/login");
   const branchId = authUser.branchId;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // appointmentDate is a @db.Date (stored as UTC-midnight). Postgres compares a
+  // date column to a timestamp by truncating to a date in UTC, so the range
+  // boundaries must be the UTC midnight of the LOCAL calendar day. Using
+  // setHours(0,0,0,0) produced a server-local instant (e.g. IST midnight =
+  // 18:30Z the day before) that truncated to the wrong date and hid today's
+  // bookings while showing yesterday's.
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const ymd = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const today = new Date(`${ymd}T00:00:00.000Z`);
   const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
   const appointments = await prisma.appointment.findMany({
     where: {

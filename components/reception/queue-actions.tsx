@@ -7,6 +7,11 @@ import { AssignWorkerSelect } from "@/components/reception/assign-worker-select"
 import { ConfirmAppointmentButton } from "@/components/appointments/confirm-appointment-button";
 import { CancelBookingButton } from "@/components/appointments/cancel-booking-button";
 
+// Kept in sync with BILLABLE_STATUSES in lib/billing-service.ts. It lives there
+// too, but that module imports prisma, so a client component can't share it.
+// CONFIRMED is billable so the desk can bill a counter booking without a check-in.
+const BILLABLE_STATUSES = ["CONFIRMED", "CHECKED_IN", "STARTED", "COMPLETED"];
+
 export function QueueActions({
   appointmentId,
   status,
@@ -18,7 +23,10 @@ export function QueueActions({
   workerId?: string | null;
   invoiceId?: string | null;
 }) {
-  const showBill = Boolean(invoiceId) || status === "COMPLETED";
+  // Show "Bill" the moment the customer has arrived — checked in, in-chair or
+  // done — so the desk can jump straight to the ready-to-invoice list. Before,
+  // this waited for COMPLETED, which the reception UI has no button to set.
+  const showBill = Boolean(invoiceId) || BILLABLE_STATUSES.includes(status);
 
   return (
     <div className="inline-flex flex-wrap items-center justify-end gap-1.5">
