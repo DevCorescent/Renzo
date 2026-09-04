@@ -14,7 +14,7 @@ import {
   PanelsTopLeft, Menu, X, LogOut, ChevronRight, ChevronDown,
   Truck, Tag, Percent, Gift, ArrowLeftRight, ShoppingCart, ClipboardCheck,
   CalendarPlus, UserPlus, Sparkles, Store, Zap,
-  DollarSign, Heart, CreditCard,
+  DollarSign, Heart, CreditCard, LayoutGrid,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/dashboard/theme-toggle";
 import { DashThemeInit } from "@/components/dashboard/dash-theme-init";
@@ -81,6 +81,7 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
       { label: "Loyalty",      href: "/branch-admin/loyalty",      icon: Heart },
       { label: "Membership",   href: "/branch-admin/membership",   icon: CreditCard },
       { label: "Sale",         href: "/branch-admin/sale",         icon: ShoppingCart },
+      { label: "Sheet",        href: "/branch-admin/sheet",        icon: LayoutGrid },
       { label: "Reviews",      href: "/branch-admin/reviews",      icon: Star },
       { label: "Reports",      href: "/branch-admin/reports",      icon: BarChart3 },
     ],

@@ -46,6 +46,14 @@ export type BookingInput = {
   customerEmail?: string | null;
   serviceIds: string[];
   workerId?: string | null;
+  /**
+   * Per-service worker overrides. Key = serviceId, value = workerId.
+   * When provided the all-services qualification check is skipped — the front
+   * desk is responsible for confirming each stylist offers their specific service.
+   * Each AppointmentService row gets the mapped worker instead of the single
+   * appointment-level workerId.
+   */
+  serviceWorkers?: Record<string, string>;
   /** "YYYY-MM-DD". */
   appointmentDate: string;
   /** "HH:mm". */
@@ -235,11 +243,15 @@ export async function createBooking(
       return fail("This worker is not assigned to the selected branch", 422);
     }
 
-    const qualified = await prisma.workerService.count({
-      where: { workerId: worker.id, serviceId: { in: serviceIds }, isActive: true },
-    });
-    if (qualified !== serviceIds.length) {
-      return fail("This stylist does not offer one or more of the selected services", 422);
+    // When per-service workers are provided each stylist is responsible for their
+    // own service only, so the all-services qualification check does not apply.
+    if (!input.serviceWorkers) {
+      const qualified = await prisma.workerService.count({
+        where: { workerId: worker.id, serviceId: { in: serviceIds }, isActive: true },
+      });
+      if (qualified !== serviceIds.length) {
+        return fail("This stylist does not offer one or more of the selected services", 422);
+      }
     }
 
     // Double-booking guard. Half-open comparison: an appointment ending exactly
@@ -366,7 +378,11 @@ export async function createBooking(
         assistantWorkerId: resolvedAssistantId,
         notes: input.notes?.trim() || null,
         services: {
-          create: serviceRows.map((r) => ({ ...r, workerId: resolvedWorkerId })),
+          create: serviceRows.map((r) => ({
+            ...r,
+            // Per-service override takes priority; falls back to the appointment worker.
+            workerId: input.serviceWorkers?.[r.serviceId] ?? resolvedWorkerId,
+          })),
         },
       },
       include: {

@@ -218,6 +218,12 @@ export async function POST(req: NextRequest) {
         assistantWorkerId: isNonEmptyString(body.assistantWorkerId)
           ? (body.assistantWorkerId as string)
           : null,
+        serviceWorkers:
+          body.serviceWorkers &&
+          typeof body.serviceWorkers === "object" &&
+          !Array.isArray(body.serviceWorkers)
+            ? (body.serviceWorkers as Record<string, string>)
+            : undefined,
       },
       {
         source: BookingSource.WALK_IN,

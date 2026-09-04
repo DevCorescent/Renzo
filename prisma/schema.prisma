@@ -398,10 +398,25 @@ model Branch {
   performanceTargets PerformanceTarget[]
   campaigns        Campaign[]
   ratingSummaries  RatingSummary[]
+  sheetLogs        SheetLog[]
 
   @@index([slug])
   @@index([isActive, isPublic])
   @@map("branches")
+}
+
+model SheetLog {
+  id        String   @id @default(cuid())
+  branchId  String
+  date      DateTime @db.Date
+  cells     Json     // { [workerId: string]: string }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, date])
+  @@index([branchId, date])
+  @@map("sheet_logs")
 }
 
 model BranchTiming {
