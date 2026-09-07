@@ -303,6 +303,8 @@ export function WalkInConsole({
   type ServiceRow = { serviceId: string; workerId: string };
   const [rows,        setRows]        = React.useState<ServiceRow[]>([]);
   const [addSvcId,    setAddSvcId]    = React.useState("");
+  const [svcQuery,    setSvcQuery]    = React.useState("");
+  const [svcOpen,     setSvcOpen]     = React.useState(false);
   const [assistantId, setAssistantId] = React.useState("");
   const [chair,       setChair]       = React.useState("");
   const [room,        setRoom]        = React.useState("");
@@ -387,7 +389,7 @@ export function WalkInConsole({
   function clearFlow() {
     setTerm(""); setHits([]); setCustomer(null);
     setNewName(""); setNewPhone(""); setNewEmail("");
-    setRows([]); setAddSvcId(""); setAssistantId("");
+    setRows([]); setAddSvcId(""); setSvcQuery(""); setSvcOpen(false); setAssistantId("");
     setChair(""); setRoom(""); setNotes(""); setDiscount("");
     setStartTime(freshTime());
     setAppointment(null); setInvoice(null);
@@ -884,35 +886,49 @@ export function WalkInConsole({
                   </div>
                 )}
 
-                {/* ── Add service ────────────────────────────────────────── */}
+                {/* ── Add service (searchable combobox) ──────────────────── */}
                 {!appointment && (
-                  <div className="flex items-center gap-2">
-                    <select
-                      value={addSvcId}
-                      onChange={(e) => setAddSvcId(e.target.value)}
-                      className={cn(inputCls, "flex-1")}
-                    >
-                      <option value="">
-                        {availableToAdd.length === 0 ? "All services added" : "Add a service…"}
-                      </option>
-                      {availableToAdd.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} · {formatMoney(s.price)}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={!addSvcId}
-                      onClick={() => {
-                        if (!addSvcId) return;
-                        setRows((prev) => [...prev, { serviceId: addSvcId, workerId: "" }]);
-                        setAddSvcId("");
-                      }}
-                      className={cn(btnGhost, "shrink-0")}
-                    >
-                      <PlusCircle className="size-3.5" aria-hidden="true" /> Add
-                    </button>
+                  <div className="relative">
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+                      <input
+                        type="search"
+                        value={svcQuery}
+                        onChange={(e) => { setSvcQuery(e.target.value); setSvcOpen(true); setAddSvcId(""); }}
+                        onFocus={() => setSvcOpen(true)}
+                        onBlur={() => setTimeout(() => setSvcOpen(false), 150)}
+                        placeholder={availableToAdd.length === 0 ? "All services added" : "Search and add a service…"}
+                        disabled={availableToAdd.length === 0}
+                        className={cn(inputCls, "pl-8")}
+                      />
+                    </div>
+                    {svcOpen && availableToAdd.length > 0 && (
+                      <ul className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded border border-gray-200 bg-white shadow-lg dark:border-(--sa-border) dark:bg-(--sa-surface)">
+                        {availableToAdd
+                          .filter((s) => s.name.toLowerCase().includes(svcQuery.toLowerCase()))
+                          .map((s) => (
+                            <li key={s.id}>
+                              <button
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  setRows((prev) => [...prev, { serviceId: s.id, workerId: "" }]);
+                                  setSvcQuery("");
+                                  setSvcOpen(false);
+                                  setAddSvcId("");
+                                }}
+                                className="flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-gray-50 dark:hover:bg-white/5"
+                              >
+                                <span className="text-gray-800 dark:text-(--sa-text)">{s.name}</span>
+                                <span className="ml-4 shrink-0 text-gray-400 dark:text-(--sa-muted)">{formatMoney(s.price)}</span>
+                              </button>
+                            </li>
+                          ))}
+                        {availableToAdd.filter((s) => s.name.toLowerCase().includes(svcQuery.toLowerCase())).length === 0 && (
+                          <li className="px-3 py-2 text-xs text-gray-400 dark:text-(--sa-muted)">No services match "{svcQuery}"</li>
+                        )}
+                      </ul>
+                    )}
                   </div>
                 )}
 
