@@ -10,7 +10,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Loader2, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Loader2, Plus, Search, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
 import { Badge, Card, CardBody, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
@@ -100,6 +100,9 @@ export function ExpenseManager({
   const [banner, setBanner] = React.useState<string | null>(null);
   const [errors, setErrors] = React.useState<Record<string, string[]>>({});
 
+  // ── Search / filter ───────────────────────────────────────────────────────
+  const [search, setSearch] = React.useState("");
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -154,6 +157,18 @@ export function ExpenseManager({
     errors[name]?.[0] ? (
       <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors[name][0]}</p>
     ) : null;
+
+  const needle = search.trim().toLowerCase();
+  const visibleRows = needle
+    ? rows.filter(
+        (r) =>
+          r.description.toLowerCase().includes(needle) ||
+          (r.vendor ?? "").toLowerCase().includes(needle) ||
+          (r.referenceNo ?? "").toLowerCase().includes(needle) ||
+          expenseCategoryLabel(r.category, r.customCategory).toLowerCase().includes(needle) ||
+          (r.branch?.name ?? "").toLowerCase().includes(needle)
+      )
+    : rows;
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -256,12 +271,24 @@ export function ExpenseManager({
       </Card>
 
       <Card className="lg:col-span-2">
-        <CardHeader className="flex items-center justify-between gap-2">
-          <CardTitle>Recent expenses</CardTitle>
+        <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle>Expense history</CardTitle>
           <span className="text-xs text-gray-500 dark:text-(--sa-text-2)">
             {total} entr{total === 1 ? "y" : "ies"} · {formatMoney(filteredTotal)} total
           </span>
         </CardHeader>
+        <div className="border-b border-gray-100 px-4 py-2 dark:border-(--sa-border)">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search description, vendor, category…"
+              className="h-8 w-full rounded border border-gray-200 bg-white pl-8 pr-3 text-xs text-gray-900 outline-none transition focus:border-gray-400 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text) dark:focus:border-white/30"
+            />
+          </div>
+        </div>
         <Table>
           <THead>
             <tr>
@@ -275,14 +302,14 @@ export function ExpenseManager({
             </tr>
           </THead>
           <tbody>
-            {rows.length === 0 ? (
+            {visibleRows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400 dark:text-(--sa-muted)">
-                  No expenses recorded yet.
+                  {needle ? `No expenses match "${search}".` : "No expenses recorded yet."}
                 </td>
               </tr>
             ) : (
-              rows.map((row) => (
+              visibleRows.map((row) => (
                 <TR key={row.id}>
                   <TD className="whitespace-nowrap font-mono text-xs text-gray-600 dark:text-(--sa-text-2)">
                     {formatDate(row.expenseDate)}

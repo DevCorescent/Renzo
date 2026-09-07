@@ -219,7 +219,7 @@ export async function ExpensesPage({ allowedRoles }: { allowedRoles: readonly Us
     prisma.expense.findMany({
       where: scopeWhere,
       orderBy: [{ expenseDate: "desc" }, { createdAt: "desc" }],
-      take: 50,
+      take: 300,
       select: {
         id: true,
         category: true,

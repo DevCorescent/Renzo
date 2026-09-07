@@ -235,6 +235,56 @@ export async function POST(req: NextRequest) {
 
     if (!result.ok) return err(result.message, result.status, result.errors);
 
+    // Auto-log each service to the Sheet under the assigned worker so the
+    // branch admin can see at a glance who did what and for how much.
+    // Non-fatal: a sheet write failure must never block the booking response.
+    try {
+      const apptDate = result.appointment.appointmentDate;
+
+      // Group service entries by workerId.
+      const workerEntries: Record<string, string[]> = {};
+      for (const svc of result.appointment.services) {
+        const wId = svc.workerId;
+        if (!wId) continue;
+        const price = Number(svc.price ?? 0);
+        const entry = `${svc.service.name} · ₹${price}`;
+        if (!workerEntries[wId]) workerEntries[wId] = [];
+        workerEntries[wId].push(entry);
+      }
+
+      if (Object.keys(workerEntries).length > 0) {
+        const existing = await prisma.sheetLog.findUnique({
+          where: { branchId_date: { branchId, date: apptDate } },
+          select: { cells: true },
+        });
+
+        const raw = (existing?.cells ?? {}) as Record<string, unknown>;
+        const cells: Record<string, string[]> = {};
+
+        // Carry forward all existing worker values.
+        for (const [k, v] of Object.entries(raw)) {
+          const arr = Array.isArray(v)
+            ? (v as unknown[]).filter((x): x is string => typeof x === "string")
+            : typeof v === "string" && v.trim() ? [v] : [];
+          if (arr.length) cells[k] = arr;
+        }
+
+        // Append new entries for each worker.
+        for (const [wId, entries] of Object.entries(workerEntries)) {
+          cells[wId] = [...(cells[wId] ?? []), ...entries];
+        }
+
+        const cellsJson = cells as unknown as import("@prisma/client").Prisma.InputJsonValue;
+        await prisma.sheetLog.upsert({
+          where: { branchId_date: { branchId, date: apptDate } },
+          create: { branchId, date: apptDate, cells: cellsJson },
+          update: { cells: cellsJson },
+        });
+      }
+    } catch (sheetErr) {
+      console.error("Sheet auto-log error (non-fatal):", sheetErr);
+    }
+
     await writeAudit(user, {
       action: "CREATE",
       module: "APPOINTMENT",
