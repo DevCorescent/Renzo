@@ -905,7 +905,17 @@ export function WalkInConsole({
                     {svcOpen && availableToAdd.length > 0 && (
                       <ul className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded border border-gray-200 bg-white shadow-lg dark:border-(--sa-border) dark:bg-(--sa-surface)">
                         {availableToAdd
-                          .filter((s) => s.name.toLowerCase().includes(svcQuery.toLowerCase()))
+                          .filter((s) => {
+                            const q = svcQuery.toLowerCase().trim();
+                            if (!q) return true;
+                            const n = s.name.toLowerCase();
+                            // 1. Direct substring — "face d" matches "face d tan"
+                            if (n.includes(q)) return true;
+                            // 2. Space-stripped — "dtan" matches "d tan", "facedt" matches "face d tan"
+                            if (n.replace(/\s+/g, "").includes(q.replace(/\s+/g, ""))) return true;
+                            // 3. Every query word appears somewhere in the name
+                            return q.split(/\s+/).every((w) => n.includes(w));
+                          })
                           .map((s) => (
                             <li key={s.id}>
                               <button
@@ -924,7 +934,7 @@ export function WalkInConsole({
                               </button>
                             </li>
                           ))}
-                        {availableToAdd.filter((s) => s.name.toLowerCase().includes(svcQuery.toLowerCase())).length === 0 && (
+                        {availableToAdd.filter((s) => { const q = svcQuery.toLowerCase().trim(); if (!q) return true; const n = s.name.toLowerCase(); return n.includes(q) || n.replace(/\s+/g,"").includes(q.replace(/\s+/g,"")) || q.split(/\s+/).every(w=>n.includes(w)); }).length === 0 && (
                           <li className="px-3 py-2 text-xs text-gray-400 dark:text-(--sa-muted)">No services match "{svcQuery}"</li>
                         )}
                       </ul>
