@@ -909,11 +909,13 @@ export function WalkInConsole({
                             const q = svcQuery.toLowerCase().trim();
                             if (!q) return true;
                             const n = s.name.toLowerCase();
-                            // 1. Direct substring — "face d" matches "face d tan"
+                            const norm = (v: string) => v.replace(/[^a-z0-9]/gi, "").toLowerCase();
+                            // 1. Direct substring
                             if (n.includes(q)) return true;
-                            // 2. Space-stripped — "dtan" matches "d tan", "facedt" matches "face d tan"
-                            if (n.replace(/\s+/g, "").includes(q.replace(/\s+/g, ""))) return true;
-                            // 3. Every query word appears somewhere in the name
+                            // 2. Strip ALL non-alphanumeric (spaces, hyphens, dots…)
+                            //    "dtan" → finds "Face D Tan", "Face D-Tan", "Face-DTan"
+                            if (norm(n).includes(norm(q))) return true;
+                            // 3. Every query word appears somewhere in name
                             return q.split(/\s+/).every((w) => n.includes(w));
                           })
                           .map((s) => (
@@ -934,7 +936,7 @@ export function WalkInConsole({
                               </button>
                             </li>
                           ))}
-                        {availableToAdd.filter((s) => { const q = svcQuery.toLowerCase().trim(); if (!q) return true; const n = s.name.toLowerCase(); return n.includes(q) || n.replace(/\s+/g,"").includes(q.replace(/\s+/g,"")) || q.split(/\s+/).every(w=>n.includes(w)); }).length === 0 && (
+                        {availableToAdd.filter((s) => { const q = svcQuery.toLowerCase().trim(); if (!q) return true; const n = s.name.toLowerCase(); const norm = (v: string) => v.replace(/[^a-z0-9]/gi,"").toLowerCase(); return n.includes(q) || norm(n).includes(norm(q)) || q.split(/\s+/).every(w=>n.includes(w)); }).length === 0 && (
                           <li className="px-3 py-2 text-xs text-gray-400 dark:text-(--sa-muted)">No services match "{svcQuery}"</li>
                         )}
                       </ul>
