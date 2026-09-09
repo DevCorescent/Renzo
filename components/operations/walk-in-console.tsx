@@ -562,11 +562,21 @@ export function WalkInConsole({
       }
     });
 
-  const openPdf = (format?: string) =>
-    window.open(
-      `${API.reception.bill(invoice!.id)}/pdf?inline=true${format ? `&format=${format}` : ""}`,
-      "_blank", "noopener,noreferrer"
-    );
+  const openPdf = (format?: string) => {
+    const billId = invoice!.id;
+    // 80 mm / 58 mm thermal: use an HTML receipt page that auto-triggers
+    // window.print(). Chrome's PDF pipeline fails with non-standard paper sizes
+    // on thermal printers; the HTML route avoids the PDF renderer entirely.
+    if (format === "THERMAL_80") {
+      window.open(`${API.reception.bill(billId)}/print-thermal?mm=80`, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (format === "THERMAL_58") {
+      window.open(`${API.reception.bill(billId)}/print-thermal?mm=58`, "_blank", "noopener,noreferrer");
+      return;
+    }
+    window.open(`${API.reception.bill(billId)}/pdf?inline=true`, "_blank", "noopener,noreferrer");
+  };
 
   // ── SESSIONS BOARD ────────────────────────────────────────────────────────
   if (stage === "sessions") {
