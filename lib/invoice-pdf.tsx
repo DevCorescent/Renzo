@@ -141,13 +141,26 @@ export type InvoicePdfData = {
   paid: number;
   balance: number;
   method: string;
+  // Invoice display fields — configured once per branch in Branch Settings.
+  // All optional; renderers fall back to hardcoded defaults when absent.
+  businessName?: string;   // header brand name
+  tagline?: string;        // header tagline
+  address?: string;        // footer address line
+  phone?: string;          // footer contact phone
+  email?: string;          // footer contact email
+  website?: string;        // footer website
+  footerNote?: string;     // footer closing note
+  taxName?: string;        // label for the tax line (e.g., "GST")
+  taxNumber?: string;      // GST / tax registration number
 };
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
 function InvoiceDoc({ d }: { d: InvoicePdfData }) {
+  const bizName = d.businessName || "Renzo";
+  const initial = bizName.charAt(0).toUpperCase();
   return (
-    <Document title={`Invoice ${d.invoiceNo} — Renzo`} author="Renzo Salon">
+    <Document title={`Invoice ${d.invoiceNo} — ${bizName}`} author={bizName}>
       <Page size="A4" style={s.page}>
 
         {/* Decorative background circles */}
@@ -157,10 +170,10 @@ function InvoiceDoc({ d }: { d: InvoicePdfData }) {
         {/* Centered logo + brand */}
         <View style={s.logoWrap}>
           <View style={s.logoCircle}>
-            <Text style={s.logoInitial}>R</Text>
+            <Text style={s.logoInitial}>{initial}</Text>
           </View>
-          <Text style={s.brandName}>Renzo</Text>
-          <Text style={s.tagline}>Hair &amp; Beauty Salon</Text>
+          <Text style={s.brandName}>{bizName}</Text>
+          <Text style={s.tagline}>{d.tagline || "Hair & Beauty Salon"}</Text>
         </View>
 
         {/* "INVOICE" heading */}
@@ -218,7 +231,7 @@ function InvoiceDoc({ d }: { d: InvoicePdfData }) {
           )}
           {d.tax > 0 && (
             <View style={s.tRow}>
-              <Text style={s.tLbl}>Tax</Text>
+              <Text style={s.tLbl}>{d.taxName || "Tax"}</Text>
               <Text style={s.tVal}>{inr(d.tax)}</Text>
             </View>
           )}
@@ -242,12 +255,16 @@ function InvoiceDoc({ d }: { d: InvoicePdfData }) {
         <View style={s.footerRule} />
         <View style={s.footerRow}>
           <View>
-            <Text style={s.thankYou}>Thank You!</Text>
-            <Text style={[s.ftBrand, { marginTop: 6 }]}>Renzo Hair &amp; Beauty Salon</Text>
-            <Text style={s.ftContact}>{d.branch}</Text>
+            <Text style={s.thankYou}>{d.footerNote || "Thank You!"}</Text>
+            <Text style={[s.ftBrand, { marginTop: 6 }]}>{d.businessName || "Renzo Hair & Beauty Salon"}</Text>
+            {d.branch ? <Text style={s.ftContact}>{d.branch}</Text> : null}
+            {d.address ? <Text style={s.ftContact}>{d.address}</Text> : null}
+            {d.phone ? <Text style={s.ftContact}>{d.phone}</Text> : null}
+            {d.email ? <Text style={s.ftContact}>{d.email}</Text> : null}
+            {d.taxNumber ? <Text style={s.ftContact}>GST: {d.taxNumber}</Text> : null}
           </View>
           <View style={s.ftRight}>
-            <Text style={s.ftWebsite}>renzosalon.com</Text>
+            <Text style={s.ftWebsite}>{d.website || "renzosalon.com"}</Text>
           </View>
         </View>
 
@@ -307,13 +324,16 @@ function ThermalDoc({ d, kind }: { d: InvoicePdfData; kind: "THERMAL_80" | "THER
   const t = thermalStyles(kind);
   const { width } = ROLL[kind];
 
+  const bizName = (d.businessName || "RENZO").toUpperCase();
   return (
-    <Document title={`Invoice ${d.invoiceNo} — Renzo`} author="Renzo Salon">
+    <Document title={`Invoice ${d.invoiceNo} — ${bizName}`} author={bizName}>
       {/* Height grows with the content: a roll has no page break. */}
       <Page size={{ width, height: 400 + d.items.length * 14 }} style={t.page}>
-        <Text style={t.brand}>RENZO</Text>
-        <Text style={t.tagline}>Hair &amp; Beauty Salon</Text>
+        <Text style={t.brand}>{bizName}</Text>
+        <Text style={t.tagline}>{d.tagline || "Hair & Beauty Salon"}</Text>
         {d.branch ? <Text style={t.meta}>{d.branch}</Text> : null}
+        {d.address ? <Text style={t.meta}>{d.address}</Text> : null}
+        {d.phone ? <Text style={t.meta}>{d.phone}</Text> : null}
 
         <View style={t.hr} />
 
@@ -359,7 +379,7 @@ function ThermalDoc({ d, kind }: { d: InvoicePdfData; kind: "THERMAL_80" | "THER
         ) : null}
         {d.tax > 0 ? (
           <View style={t.row}>
-            <Text>Tax</Text>
+            <Text>{d.taxName || "Tax"}</Text>
             <Text style={t.amount}>{inr(d.tax)}</Text>
           </View>
         ) : null}
@@ -385,8 +405,9 @@ function ThermalDoc({ d, kind }: { d: InvoicePdfData; kind: "THERMAL_80" | "THER
         ) : null}
 
         <View style={t.hr} />
-        <Text style={t.footer}>Thank you for visiting!</Text>
-        <Text style={t.footer}>renzosalon.com</Text>
+        {d.taxNumber ? <Text style={t.footer}>GST: {d.taxNumber}</Text> : null}
+        <Text style={t.footer}>{d.footerNote || "Thank you for visiting!"}</Text>
+        <Text style={t.footer}>{d.website || "renzosalon.com"}</Text>
       </Page>
     </Document>
   );

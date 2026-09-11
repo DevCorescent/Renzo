@@ -47,6 +47,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       })
       .join("");
 
+    const bizName = d.businessName || d.branch || "Renzo";
+
     const discountRow =
       d.discount > 0
         ? `<tr><td class="lbl">Discount</td><td class="val">- ${esc(inr(d.discount))}</td></tr>`
@@ -54,7 +56,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const taxRow =
       d.tax > 0
-        ? `<tr><td class="lbl">Tax</td><td class="val">${esc(inr(d.tax))}</td></tr>`
+        ? `<tr><td class="lbl">${esc(d.taxName || "Tax")}</td><td class="val">${esc(inr(d.tax))}</td></tr>`
         : "";
 
     const balanceRow =
@@ -71,11 +73,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ? `<p class="center small">${esc(d.customerPhone)}</p>`
       : "";
 
+    const addressLine = d.address ? `<p class="center small">${esc(d.address)}</p>` : "";
+    const contactLine =
+      d.phone || d.email
+        ? `<p class="center small">${esc([d.phone, d.email].filter(Boolean).join(" | "))}</p>`
+        : "";
+    const gstLine = d.taxNumber ? `<p class="center small">GST: ${esc(d.taxNumber)}</p>` : "";
+    const websiteLine = `<p class="center small">${esc(d.website || "renzosalon.com")}</p>`;
+    const footerNote = d.footerNote || "Thank you for visiting!";
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Receipt ${esc(d.invoiceNo)}</title>
+<title>Receipt ${esc(d.invoiceNo)} — ${esc(bizName)}</title>
 <style>
   @page {
     size: ${mm}mm auto;
@@ -107,7 +118,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 </style>
 </head>
 <body>
-  <h1>${esc(d.branch || "Renzo")}</h1>
+  <h1>${esc(bizName)}</h1>
+  ${d.tagline ? `<p class="center small">${esc(d.tagline)}</p>` : ""}
+  ${addressLine}
+  ${contactLine}
+  ${gstLine}
   <p class="center small">Invoice #${esc(d.invoiceNo)}</p>
   <p class="center small">${esc(d.date)}</p>
   <hr class="dash">
@@ -130,8 +145,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   </table>
   ${methodLine}
   <hr class="dash">
-  <p class="center small">Thank you for visiting!</p>
-  <p class="center small">See you again soon.</p>
+  <p class="center small">${esc(footerNote)}</p>
+  ${websiteLine}
 
 <script>
   window.addEventListener("load", function () {

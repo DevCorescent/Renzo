@@ -68,7 +68,23 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
     }),
     prisma.branch.findUnique({
       where: { id: invoice.branchId },
-      select: { name: true, setting: { select: { printFormat: true } } },
+      select: {
+        name: true,
+        setting: {
+          select: {
+            printFormat: true,
+            taxName: true,
+            taxNumber: true,
+            invoiceBusinessName: true,
+            invoiceTagline: true,
+            invoiceAddress: true,
+            invoicePhone: true,
+            invoiceEmail: true,
+            invoiceWebsite: true,
+            invoiceFooterNote: true,
+          },
+        },
+      },
     }),
   ]);
 
@@ -109,6 +125,15 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
       paid: Number(invoice.paidAmount),
       balance: Number(invoice.balanceDue),
       method: invoice.payments[0]?.method ?? "",
+      businessName: branch?.setting?.invoiceBusinessName ?? undefined,
+      tagline: branch?.setting?.invoiceTagline ?? undefined,
+      address: branch?.setting?.invoiceAddress ?? undefined,
+      phone: branch?.setting?.invoicePhone ?? undefined,
+      email: branch?.setting?.invoiceEmail ?? undefined,
+      website: branch?.setting?.invoiceWebsite ?? undefined,
+      footerNote: branch?.setting?.invoiceFooterNote ?? undefined,
+      taxName: branch?.setting?.taxName ?? undefined,
+      taxNumber: branch?.setting?.taxNumber ?? undefined,
     },
   };
 }

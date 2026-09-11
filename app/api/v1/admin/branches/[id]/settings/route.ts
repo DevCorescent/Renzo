@@ -63,6 +63,14 @@ const EDITABLE = [
   "receiptPrefix",
   "printFormat",
   "allowReceptionBlankBill",
+  // ── Invoice display ──
+  "invoiceBusinessName",
+  "invoiceTagline",
+  "invoiceAddress",
+  "invoicePhone",
+  "invoiceEmail",
+  "invoiceWebsite",
+  "invoiceFooterNote",
 ] as const;
 
 const PRINT_FORMATS = ["A4", "THERMAL_80", "THERMAL_58"];

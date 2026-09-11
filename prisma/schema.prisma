@@ -480,6 +480,17 @@ model BranchSetting {
   /// A string, not an enum, so a branch can be re-papered without a migration.
   printFormat            String  @default("A4")
 
+  // ── Invoice display fields ─────────────────────────────────────────────────
+  // These print on every invoice/receipt for this branch. Blank fields fall back
+  // to the hardcoded defaults in the PDF renderer so old branches keep working.
+  invoiceBusinessName    String?  // brand name in invoice header  (e.g., "Renzo Hair & Beauty Studio")
+  invoiceTagline         String?  // tagline under brand name       (e.g., "Hair & Beauty Salon")
+  invoiceAddress         String?  // branch address in footer
+  invoicePhone           String?  // contact phone in footer
+  invoiceEmail           String?  // contact email in footer
+  invoiceWebsite         String?  // website URL in footer          (e.g., "renzosalon.com")
+  invoiceFooterNote      String?  // closing note                   (e.g., "See you soon!")
+
   branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   @@map("branch_settings")

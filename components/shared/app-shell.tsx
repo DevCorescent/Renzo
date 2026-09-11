@@ -84,6 +84,7 @@ const NAV: Record<Role, { brand: string; label: string; items: NavItem[] }> = {
       { label: "Sheet",        href: "/branch-admin/sheet",        icon: LayoutGrid },
       { label: "Reviews",      href: "/branch-admin/reviews",      icon: Star },
       { label: "Reports",      href: "/branch-admin/reports",      icon: BarChart3 },
+      { label: "Settings",     href: "/branch-admin/settings",     icon: Settings },
     ],
   },
   "super-admin": {
