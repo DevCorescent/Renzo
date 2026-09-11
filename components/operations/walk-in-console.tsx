@@ -172,12 +172,24 @@ function SessionCard({
   session,
   onResume,
   dimmed,
+  billingBasePath,
+  printSize,
 }: {
   session: LiveSession;
   onResume: (s: LiveSession) => void;
   dimmed?: boolean;
+  billingBasePath?: string;
+  printSize?: PrintFormat;
 }) {
   const badge = statusBadge(session.status, session.invoice);
+
+  const invoicePrintUrl = (inv: NonNullable<LiveSession["invoice"]>, fmt: PrintFormat) => {
+    const base = `${API.reception.bill(inv.id)}`;
+    if (fmt === "THERMAL_80") return `${base}/print-thermal?mm=80`;
+    if (fmt === "THERMAL_58") return `${base}/print-thermal?mm=58`;
+    return `${base}/pdf?inline=true`;
+  };
+
   return (
     <div className={cn(
       "rounded-lg border p-3 flex flex-col gap-2 transition-shadow",
@@ -225,11 +237,31 @@ function SessionCard({
       </div>
 
       {/* Action */}
-      {!dimmed && (
+      {!dimmed ? (
         <button onClick={() => onResume(session)} className={cn(btnGhost, "mt-auto w-full justify-center text-[11px]")}>
           Continue →
         </button>
-      )}
+      ) : session.invoice ? (
+        <div className="mt-auto flex gap-1.5">
+          {billingBasePath && (
+            <a
+              href={`${billingBasePath}/${session.invoice.id}`}
+              className={cn(btnGhost, "flex-1 justify-center text-[11px]")}
+            >
+              View invoice
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={() => window.open(invoicePrintUrl(session.invoice!, printSize ?? "A4"), "_blank", "noopener,noreferrer")}
+            className={cn(btnGhost, "px-2")}
+            aria-label="Print invoice"
+            title={`Print (${PRINT_LABELS[printSize ?? "A4"]})`}
+          >
+            <Printer className="size-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -239,11 +271,15 @@ function SessionGroup({
   sessions,
   onResume,
   dimmed,
+  billingBasePath,
+  printSize,
 }: {
   title: string;
   sessions: LiveSession[];
   onResume: (s: LiveSession) => void;
   dimmed?: boolean;
+  billingBasePath?: string;
+  printSize?: PrintFormat;
 }) {
   return (
     <div>
@@ -255,7 +291,7 @@ function SessionGroup({
       </h3>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {sessions.map((s) => (
-          <SessionCard key={s.id} session={s} onResume={onResume} dimmed={dimmed} />
+          <SessionCard key={s.id} session={s} onResume={onResume} dimmed={dimmed} billingBasePath={billingBasePath} printSize={printSize} />
         ))}
       </div>
     </div>
@@ -725,7 +761,7 @@ export function WalkInConsole({
           <SessionGroup title="Pending Payment" sessions={inPayment} onResume={resumeLive} />
         )}
         {done.length > 0 && (
-          <SessionGroup title="Done Today" sessions={done} onResume={resumeLive} dimmed />
+          <SessionGroup title="Done Today" sessions={done} onResume={resumeLive} dimmed billingBasePath={billingBasePath} printSize={printSize} />
         )}
       </div>
     );
