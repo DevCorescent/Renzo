@@ -264,17 +264,22 @@ function SessionGroup({
 
 // ── Main console ──────────────────────────────────────────────────────────────
 
+type PrintFormat = "A4" | "THERMAL_80" | "THERMAL_58";
+const PRINT_LABELS: Record<PrintFormat, string> = { A4: "A4", THERMAL_80: "80mm", THERMAL_58: "58mm" };
+
 export function WalkInConsole({
   services,
   workers,
   taxPercent,
   taxName,
+  defaultPrintFormat = "A4",
   billingBasePath,
 }: {
   services: WalkInService[];
   workers: WalkInWorker[];
   taxPercent: number;
   taxName: string;
+  defaultPrintFormat?: PrintFormat;
   billingBasePath: string;
 }) {
   const router = useRouter();
@@ -283,6 +288,7 @@ export function WalkInConsole({
   const [busy,  setBusy]  = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [note,  setNote]  = React.useState<string | null>(null);
+  const [printSize, setPrintSize] = React.useState<PrintFormat>(defaultPrintFormat);
 
   // ── Sessions board state ──────────────────────────────────────────────────
   const [liveSessions,    setLiveSessions]    = React.useState<LiveSession[]>([]);
@@ -562,24 +568,18 @@ export function WalkInConsole({
       }
     });
 
-  const openPdf = (format?: string) => {
+  const printUrl = (fmt: PrintFormat) => {
     const billId = invoice!.id;
-    // 80 mm / 58 mm thermal: use an HTML receipt page that auto-triggers
-    // window.print(). Chrome's PDF pipeline fails with non-standard paper sizes
-    // on thermal printers; the HTML route avoids the PDF renderer entirely.
-    if (format === "THERMAL_80") {
-      window.open(`${API.reception.bill(billId)}/print-thermal?mm=80`, "_blank", "noopener,noreferrer");
-      return;
-    }
-    if (format === "THERMAL_58") {
-      window.open(`${API.reception.bill(billId)}/print-thermal?mm=58`, "_blank", "noopener,noreferrer");
-      return;
-    }
-    window.open(`${API.reception.bill(billId)}/pdf?inline=true`, "_blank", "noopener,noreferrer");
+    if (fmt === "THERMAL_80") return `${API.reception.bill(billId)}/print-thermal?mm=80`;
+    if (fmt === "THERMAL_58") return `${API.reception.bill(billId)}/print-thermal?mm=58`;
+    return `${API.reception.bill(billId)}/pdf?inline=true`;
   };
 
+  const openPdf = (fmt?: PrintFormat) =>
+    window.open(printUrl(fmt ?? printSize), "_blank", "noopener,noreferrer");
+
   const downloadPdf = () => {
-    // No ?inline=true → browser triggers Save-As / Downloads the file.
+    // A4 PDF download only (thermal is HTML, not a saveable PDF).
     const a = document.createElement("a");
     a.href = `${API.reception.bill(invoice!.id)}/pdf`;
     a.download = "";
@@ -1099,11 +1099,27 @@ export function WalkInConsole({
                       Collect {amount ? formatMoney(Number(amount)) : "payment"}
                     </button>
                   )}
-                  <button type="button" onClick={() => openPdf()} className={btnGhost}>
-                    <Printer className="size-3.5" aria-hidden="true" /> Print A4
-                  </button>
-                  <button type="button" onClick={() => openPdf("THERMAL_80")} className={btnGhost}>80mm</button>
-                  <button type="button" onClick={() => openPdf("THERMAL_58")} className={btnGhost}>58mm</button>
+                  {/* Print button + inline size toggle */}
+                  <div className="flex items-center rounded border border-gray-200 dark:border-(--sa-border) overflow-hidden">
+                    <button type="button" onClick={() => openPdf()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition dark:bg-(--sa-surface) dark:text-(--sa-text) dark:hover:bg-(--sa-hover)">
+                      <Printer className="size-3.5" aria-hidden="true" /> Print
+                    </button>
+                    <div className="w-px self-stretch bg-gray-200 dark:bg-(--sa-border)" />
+                    {(["A4", "THERMAL_80", "THERMAL_58"] as PrintFormat[]).map((fmt) => (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => setPrintSize(fmt)}
+                        className={`px-2.5 py-1.5 text-xs transition ${
+                          printSize === fmt
+                            ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                            : "bg-white text-gray-500 hover:bg-gray-50 dark:bg-(--sa-surface) dark:text-(--sa-text-2) dark:hover:bg-(--sa-hover)"
+                        }`}
+                      >
+                        {PRINT_LABELS[fmt]}
+                      </button>
+                    ))}
+                  </div>
                   <button type="button" onClick={downloadPdf} className={btnGhost}>
                     <Download className="size-3.5" aria-hidden="true" /> Download PDF
                   </button>

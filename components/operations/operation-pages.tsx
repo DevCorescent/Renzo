@@ -145,7 +145,7 @@ export async function WalkInPage({ allowedRoles }: { allowedRoles: readonly User
     branchId
       ? prisma.branchSetting.findUnique({
           where: { branchId },
-          select: { taxPercent: true, taxName: true },
+          select: { taxPercent: true, taxName: true, printFormat: true },
         })
       : Promise.resolve(null),
     // Priced at the BRANCH rate where one exists, exactly as the booking engine
@@ -197,6 +197,7 @@ export async function WalkInPage({ allowedRoles }: { allowedRoles: readonly User
         }))}
         taxPercent={setting?.taxPercent ?? 0}
         taxName={setting?.taxName ?? "Tax"}
+        defaultPrintFormat={(setting?.printFormat ?? "A4") as "A4" | "THERMAL_80" | "THERMAL_58"}
         billingBasePath="/reception/billing"
       />
     </div>
