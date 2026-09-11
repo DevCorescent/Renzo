@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
 import {
   Loader2, Search, UserPlus, CalendarPlus, Play, Check, Receipt,
   Wallet, Printer, MessageCircle, Mail, ArrowRight, X, CircleCheck,
-  ArrowLeft, LayoutGrid, Clock, PlusCircle, Pencil, RefreshCw,
+  ArrowLeft, LayoutGrid, Clock, PlusCircle, Pencil, RefreshCw, Download, Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
@@ -578,6 +578,22 @@ export function WalkInConsole({
     window.open(`${API.reception.bill(billId)}/pdf?inline=true`, "_blank", "noopener,noreferrer");
   };
 
+  const downloadPdf = () => {
+    // No ?inline=true → browser triggers Save-As / Downloads the file.
+    const a = document.createElement("a");
+    a.href = `${API.reception.bill(invoice!.id)}/pdf`;
+    a.download = "";
+    a.click();
+  };
+
+  const [copied, setCopied] = React.useState(false);
+  const copyLink = async () => {
+    const url = `${window.location.origin}${API.reception.bill(invoice!.id)}/pdf?inline=true`;
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   // ── SESSIONS BOARD ────────────────────────────────────────────────────────
   if (stage === "sessions") {
     const active      = liveSessions.filter((s) => ["STARTED", "CONFIRMED", "PENDING"].includes(s.status));
@@ -1084,10 +1100,17 @@ export function WalkInConsole({
                     </button>
                   )}
                   <button type="button" onClick={() => openPdf()} className={btnGhost}>
-                    <Printer className="size-3.5" aria-hidden="true" /> Print / preview
+                    <Printer className="size-3.5" aria-hidden="true" /> Print A4
                   </button>
                   <button type="button" onClick={() => openPdf("THERMAL_80")} className={btnGhost}>80mm</button>
                   <button type="button" onClick={() => openPdf("THERMAL_58")} className={btnGhost}>58mm</button>
+                  <button type="button" onClick={downloadPdf} className={btnGhost}>
+                    <Download className="size-3.5" aria-hidden="true" /> Download PDF
+                  </button>
+                  <button type="button" onClick={() => void copyLink()} className={btnGhost}>
+                    <Share2 className="size-3.5" aria-hidden="true" />
+                    {copied ? "Link copied!" : "Copy link"}
+                  </button>
                   <button type="button" onClick={() => send("WHATSAPP")} disabled={busy} className={btnGhost}>
                     <MessageCircle className="size-3.5" aria-hidden="true" /> WhatsApp
                   </button>
