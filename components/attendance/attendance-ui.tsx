@@ -107,9 +107,11 @@ export function ApprovalBadge({
       </Badge>
     </span>
   ) : (
-    <Badge tone="warning" className={className}>
-      Pending
-    </Badge>
+    <span title="Added or corrected by hand — waiting for a Super Admin or Owner to approve it">
+      <Badge tone="warning" className={className}>
+        Pending approval
+      </Badge>
+    </span>
   );
 }
 

@@ -86,7 +86,7 @@ export function buildSurface(options: {
 
 /** Whitelisted before they reach the API — junk params never leave the page. */
 const PASSTHROUGH = [
-  "search", "branchId", "workerId", "shiftId", "status",
+  "search", "branchId", "workerId", "shiftId", "status", "entryType",
   "from", "to", "date", "late", "overtime",
   "sortBy", "sortOrder", "page", "limit",
 ] as const;
@@ -209,6 +209,7 @@ export async function AttendanceRecordsPage({
           workers={options.workers}
           capabilities={surface.capabilities}
           endpoints={{ ...ENDPOINTS, mark: surface.markEndpoint }}
+          showBranch={surface.isGlobal}
         />
       )}
     </div>

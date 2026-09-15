@@ -6,8 +6,13 @@
 // URL-as-state (shareable, refresh-safe, back-button-friendly), the same pattern
 // as the leave module's toolbar. EVERY control maps 1:1 onto a query param that
 // GET /api/v1/admin/attendance actually reads — search, branchId, workerId,
-// shiftId, status, from, to, late, overtime, sortBy, sortOrder — so no control
-// here is decorative.
+// shiftId, status, entryType, from, to, late, overtime, sortBy, sortOrder — so no
+// control here is decorative.
+//
+// The everyday filters (search, employee, status, dates) are always visible; the
+// rest sit behind "Filters", which opens by itself when one of them is in use and
+// shows a count so an active hidden filter is never a mystery. On small screens
+// every control goes full width in a two-column grid.
 //
 // The Branch select is rendered only when the caller is global; the API ignores a
 // branch-scoped role's ?branchId anyway, so showing it to a branch admin would be
@@ -16,7 +21,7 @@
 
 import * as React from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Search, X, RotateCw } from "lucide-react";
+import { Search, X, RotateCw, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   ATTENDANCE_STATUSES,
@@ -28,13 +33,21 @@ import {
 
 const SEARCH_DEBOUNCE_MS = 300;
 
+/** Params that live behind the "Filters" disclosure. */
+const SECONDARY_KEYS = ["shiftId", "entryType", "late", "overtime", "sortBy", "sortOrder"] as const;
+
 const inputCls =
-  "h-9 rounded border border-gray-200 bg-white px-2.5 text-sm text-gray-700 outline-none transition " +
+  "h-9 w-full min-w-0 rounded border border-gray-200 bg-white px-2.5 text-sm text-gray-700 outline-none transition " +
   "focus:border-gray-400 focus:ring-2 focus:ring-gray-900/5 " +
   "dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text)";
 
+const ghostBtn =
+  "inline-flex h-9 items-center justify-center gap-1.5 rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 transition " +
+  "hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 " +
+  "dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text-2) dark:hover:bg-white/5";
+
 const toggleCls =
-  "inline-flex h-9 items-center gap-1.5 rounded border px-2.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-gray-900/10";
+  "inline-flex h-9 items-center justify-center gap-1.5 rounded border px-3 text-sm transition focus:outline-none focus:ring-2 focus:ring-gray-900/10";
 
 export function AttendanceToolbar({
   branches,
@@ -53,6 +66,9 @@ export function AttendanceToolbar({
 
   const [isPending, startTransition] = React.useTransition();
   const [term, setTerm] = React.useState(searchParams.get("search") ?? "");
+
+  const secondaryCount = SECONDARY_KEYS.filter((key) => searchParams.get(key)).length;
+  const [moreOpen, setMoreOpen] = React.useState(secondaryCount > 0);
 
   // Every mutation resets the page number — a narrowed result set invalidates it.
   const commit = React.useCallback(
@@ -93,176 +109,205 @@ export function AttendanceToolbar({
   const overtimeOn = searchParams.get("overtime") === "true";
   const hasAnything = [...searchParams.keys()].some((k) => k !== "page");
 
+  function resetAll() {
+    setTerm("");
+    startTransition(() => router.replace(pathname, { scroll: false }));
+  }
+
   return (
-    <div className={cn("flex flex-wrap items-center gap-2 transition-opacity", isPending && "opacity-60")}>
-      <div className="relative min-w-0 flex-1 sm:max-w-xs">
-        <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="search"
-          value={term}
-          onChange={(e) => setTerm(e.target.value)}
-          placeholder="Search employee or code…"
-          aria-label="Search attendance"
-          className={cn(inputCls, "w-full pl-8 pr-8")}
-        />
-        {term && (
+    <div
+      className={cn(
+        "space-y-2 rounded border border-gray-200 bg-white p-3 transition-opacity dark:border-(--sa-border) dark:bg-(--sa-surface)",
+        isPending && "opacity-60"
+      )}
+    >
+      <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
+        <div className="relative col-span-2 lg:min-w-56 lg:flex-1">
+          <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="search"
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+            placeholder="Search employee or code…"
+            aria-label="Search attendance"
+            className={cn(inputCls, "pl-8 pr-8")}
+          />
+          {term && (
+            <button
+              type="button"
+              onClick={() => setTerm("")}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+
+        {showBranchFilter && branches.length > 0 && (
+          <select
+            aria-label="Filter by branch"
+            value={searchParams.get("branchId") ?? ""}
+            onChange={(e) => setParam("branchId", e.target.value)}
+            className={cn(inputCls, "lg:w-44")}
+          >
+            <option value="">All branches</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        )}
+
+        {workers.length > 0 && (
+          <select
+            aria-label="Filter by employee"
+            value={searchParams.get("workerId") ?? ""}
+            onChange={(e) => setParam("workerId", e.target.value)}
+            className={cn(inputCls, "lg:w-48")}
+          >
+            <option value="">All employees</option>
+            {workers.map((w) => (
+              <option key={w.id} value={w.id}>{w.name} ({w.employeeCode})</option>
+            ))}
+          </select>
+        )}
+
+        <select
+          aria-label="Filter by status"
+          value={searchParams.get("status") ?? ""}
+          onChange={(e) => setParam("status", e.target.value)}
+          className={cn(inputCls, "lg:w-36")}
+        >
+          <option value="">All statuses</option>
+          {ATTENDANCE_STATUSES.map((s) => (
+            <option key={s} value={s}>{statusLabel(s)}</option>
+          ))}
+        </select>
+
+        <div className="col-span-2 flex items-center gap-1.5 lg:col-span-1">
+          <input
+            type="date"
+            aria-label="From date"
+            value={searchParams.get("from") ?? ""}
+            onChange={(e) => setParam("from", e.target.value)}
+            className={cn(inputCls, "lg:w-38")}
+          />
+          <span className="shrink-0 text-xs text-gray-400 dark:text-(--sa-muted)">to</span>
+          <input
+            type="date"
+            aria-label="To date"
+            value={searchParams.get("to") ?? ""}
+            onChange={(e) => setParam("to", e.target.value)}
+            className={cn(inputCls, "lg:w-38")}
+          />
+        </div>
+
+        <div className="col-span-2 flex gap-2 lg:ml-auto">
           <button
             type="button"
-            onClick={() => setTerm("")}
-            aria-label="Clear search"
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            onClick={() => setMoreOpen((open) => !open)}
+            aria-expanded={moreOpen}
+            aria-controls="attendance-more-filters"
+            className={cn(ghostBtn, "flex-1 lg:flex-none", moreOpen && "border-gray-400 text-gray-900 dark:border-white/40 dark:text-(--sa-text)")}
           >
-            <X className="size-3.5" />
+            <SlidersHorizontal className="size-3.5" aria-hidden="true" />
+            Filters
+            {secondaryCount > 0 && (
+              <span className="rounded-full bg-gray-900 px-1.5 text-[10px] font-semibold leading-4 text-white dark:bg-white dark:text-gray-900">
+                {secondaryCount}
+              </span>
+            )}
           </button>
-        )}
+          {hasAnything && (
+            <button type="button" onClick={resetAll} className={cn(ghostBtn, "flex-1 lg:flex-none")}>
+              <RotateCw className="size-3.5" aria-hidden="true" /> Reset
+            </button>
+          )}
+        </div>
       </div>
 
-      {showBranchFilter && branches.length > 0 && (
-        <select
-          aria-label="Filter by branch"
-          value={searchParams.get("branchId") ?? ""}
-          onChange={(e) => setParam("branchId", e.target.value)}
-          className={inputCls}
+      {moreOpen && (
+        <div
+          id="attendance-more-filters"
+          className="grid grid-cols-2 gap-2 border-t border-gray-100 pt-2 sm:grid-cols-3 lg:flex lg:flex-wrap lg:items-center dark:border-(--sa-border)"
         >
-          <option value="">All branches</option>
-          {branches.map((b) => (
-            <option key={b.id} value={b.id}>{b.name}</option>
-          ))}
-        </select>
-      )}
+          {shifts.length > 0 && (
+            <select
+              aria-label="Filter by shift"
+              value={searchParams.get("shiftId") ?? ""}
+              onChange={(e) => setParam("shiftId", e.target.value)}
+              className={cn(inputCls, "lg:w-40")}
+            >
+              <option value="">All shifts</option>
+              {shifts.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          )}
 
-      {workers.length > 0 && (
-        <select
-          aria-label="Filter by employee"
-          value={searchParams.get("workerId") ?? ""}
-          onChange={(e) => setParam("workerId", e.target.value)}
-          className={inputCls}
-        >
-          <option value="">All employees</option>
-          {workers.map((w) => (
-            <option key={w.id} value={w.id}>{w.name} ({w.employeeCode})</option>
-          ))}
-        </select>
-      )}
+          <select
+            aria-label="Filter by entry type"
+            value={searchParams.get("entryType") ?? ""}
+            onChange={(e) => setParam("entryType", e.target.value)}
+            className={cn(inputCls, "lg:w-40")}
+          >
+            <option value="">All entries</option>
+            <option value="automatic">Automatic only</option>
+            <option value="manual">Manual only</option>
+          </select>
 
-      <select
-        aria-label="Filter by status"
-        value={searchParams.get("status") ?? ""}
-        onChange={(e) => setParam("status", e.target.value)}
-        className={inputCls}
-      >
-        <option value="">All statuses</option>
-        {ATTENDANCE_STATUSES.map((s) => (
-          <option key={s} value={s}>{statusLabel(s)}</option>
-        ))}
-      </select>
+          <select
+            aria-label="Sort by"
+            value={searchParams.get("sortBy") ?? "date"}
+            onChange={(e) => setParam("sortBy", e.target.value === "date" ? "" : e.target.value)}
+            className={cn(inputCls, "lg:w-48")}
+          >
+            <option value="date">Sort: Date</option>
+            <option value="workingMinutes">Sort: Working hours</option>
+            <option value="lateMinutes">Sort: Late minutes</option>
+            <option value="overtimeMinutes">Sort: Overtime</option>
+            <option value="checkIn">Sort: Check in</option>
+            <option value="status">Sort: Status</option>
+          </select>
 
-      {shifts.length > 0 && (
-        <select
-          aria-label="Filter by shift"
-          value={searchParams.get("shiftId") ?? ""}
-          onChange={(e) => setParam("shiftId", e.target.value)}
-          className={inputCls}
-        >
-          <option value="">All shifts</option>
-          {shifts.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-      )}
+          <select
+            aria-label="Sort order"
+            value={searchParams.get("sortOrder") ?? "desc"}
+            onChange={(e) => setParam("sortOrder", e.target.value === "asc" ? "asc" : "")}
+            className={cn(inputCls, "lg:w-36")}
+          >
+            <option value="desc">Newest first</option>
+            <option value="asc">Oldest first</option>
+          </select>
 
-      <select
-        aria-label="Filter by entry type"
-        value={searchParams.get("entryType") ?? ""}
-        onChange={(e) => setParam("entryType", e.target.value)}
-        className={inputCls}
-      >
-        <option value="">All entries</option>
-        <option value="automatic">Automatic only</option>
-        <option value="manual">Manual only</option>
-      </select>
+          <button
+            type="button"
+            aria-pressed={lateOn}
+            onClick={() => toggleParam("late")}
+            className={cn(
+              toggleCls,
+              lateOn
+                ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300"
+                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text-2)"
+            )}
+          >
+            Late only
+          </button>
 
-      <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-(--sa-text-2)">
-        <span className="sr-only sm:not-sr-only">From</span>
-        <input
-          type="date"
-          aria-label="From date"
-          value={searchParams.get("from") ?? ""}
-          onChange={(e) => setParam("from", e.target.value)}
-          className={inputCls}
-        />
-      </label>
-      <label className="flex items-center gap-1 text-xs text-gray-500 dark:text-(--sa-text-2)">
-        <span className="sr-only sm:not-sr-only">To</span>
-        <input
-          type="date"
-          aria-label="To date"
-          value={searchParams.get("to") ?? ""}
-          onChange={(e) => setParam("to", e.target.value)}
-          className={inputCls}
-        />
-      </label>
-
-      <button
-        type="button"
-        aria-pressed={lateOn}
-        onClick={() => toggleParam("late")}
-        className={cn(
-          toggleCls,
-          lateOn
-            ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300"
-            : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text-2)"
-        )}
-      >
-        Late only
-      </button>
-
-      <button
-        type="button"
-        aria-pressed={overtimeOn}
-        onClick={() => toggleParam("overtime")}
-        className={cn(
-          toggleCls,
-          overtimeOn
-            ? "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300"
-            : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text-2)"
-        )}
-      >
-        Overtime only
-      </button>
-
-      <select
-        aria-label="Sort by"
-        value={searchParams.get("sortBy") ?? "date"}
-        onChange={(e) => setParam("sortBy", e.target.value === "date" ? "" : e.target.value)}
-        className={inputCls}
-      >
-        <option value="date">Sort: Date</option>
-        <option value="workingMinutes">Sort: Working hours</option>
-        <option value="lateMinutes">Sort: Late minutes</option>
-        <option value="overtimeMinutes">Sort: Overtime</option>
-        <option value="checkIn">Sort: Check in</option>
-        <option value="status">Sort: Status</option>
-      </select>
-
-      <select
-        aria-label="Sort order"
-        value={searchParams.get("sortOrder") ?? "desc"}
-        onChange={(e) => setParam("sortOrder", e.target.value === "asc" ? "asc" : "")}
-        className={inputCls}
-      >
-        <option value="desc">Newest first</option>
-        <option value="asc">Oldest first</option>
-      </select>
-
-      {hasAnything && (
-        <button
-          type="button"
-          onClick={() => startTransition(() => router.replace(pathname, { scroll: false }))}
-          className="inline-flex h-9 items-center gap-1.5 rounded border border-gray-200 bg-white px-2.5 text-sm text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text-2)"
-        >
-          <RotateCw className="size-3.5" aria-hidden="true" /> Reset
-        </button>
+          <button
+            type="button"
+            aria-pressed={overtimeOn}
+            onClick={() => toggleParam("overtime")}
+            className={cn(
+              toggleCls,
+              overtimeOn
+                ? "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300"
+                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text-2)"
+            )}
+          >
+            Overtime only
+          </button>
+        </div>
       )}
     </div>
   );

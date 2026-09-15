@@ -215,9 +215,20 @@ export function formatTime(iso: string | null | undefined): string {
   }).format(d);
 }
 
-/** "2026-08-03" → "03 Aug 2026". */
+/**
+ * A `@db.Date` column crosses the wire as a full ISO instant
+ * ("2026-08-03T00:00:00.000Z"), while filters and the calendar pass a bare key
+ * ("2026-08-03"). Both carry the calendar date in their first ten characters, so
+ * read only those — appending a time to the full instant produced an invalid
+ * Date, and the table printed the raw timestamp with a blank weekday.
+ */
+function dateKeyToUtc(dateKey: string): Date {
+  return new Date(`${dateKey.slice(0, 10)}T00:00:00.000Z`);
+}
+
+/** "2026-08-03" (or its ISO instant) → "03 Aug 2026". */
 export function formatDate(dateKey: string): string {
-  const d = new Date(`${dateKey}T00:00:00.000Z`);
+  const d = dateKeyToUtc(dateKey);
   if (Number.isNaN(d.getTime())) return dateKey;
   return new Intl.DateTimeFormat("en-IN", {
     timeZone: "UTC",
@@ -227,9 +238,9 @@ export function formatDate(dateKey: string): string {
   }).format(d);
 }
 
-/** "2026-08-03" → "Mon". */
+/** "2026-08-03" (or its ISO instant) → "Mon". */
 export function formatWeekday(dateKey: string): string {
-  const d = new Date(`${dateKey}T00:00:00.000Z`);
+  const d = dateKeyToUtc(dateKey);
   if (Number.isNaN(d.getTime())) return "";
   return new Intl.DateTimeFormat("en-IN", { timeZone: "UTC", weekday: "short" }).format(d);
 }
