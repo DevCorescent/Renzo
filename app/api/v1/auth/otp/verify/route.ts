@@ -3,8 +3,9 @@ import type { OtpPurpose } from "@prisma/client";
 import { ok, err } from "@/lib/response";
 import prisma from "@/lib/db";
 import { parseChannel, OTP_MAX_ATTEMPTS, OTP_PURPOSES } from "@/lib/otp";
-import { USER_INCLUDE, toPublicUser } from "@/lib/auth-user";
+import { USER_INCLUDE, toAuthUser, toPublicUser } from "@/lib/auth-user";
 import { issueSession } from "@/lib/auth-session";
+import { autoCheckIn } from "@/lib/attendance-api";
 
 // OWNER: Shalmon | MODULE: Auth — OTP Verify
 // POST /api/v1/auth/otp/verify — Verify an OTP and issue a JWT session cookie.
@@ -112,7 +113,10 @@ export async function POST(req: NextRequest) {
       { user: toPublicUser(user) },
       "OTP verified"
     );
-    return await issueSession(req, res, user);
+    const session = await issueSession(req, res, user);
+    // Workers are clocked in on sign-in. Best-effort — never fails the login.
+    await autoCheckIn(toAuthUser(user));
+    return session;
   } catch {
     return err("Internal server error", 500);
   }

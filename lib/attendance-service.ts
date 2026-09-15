@@ -125,6 +125,9 @@ function contextKey(workerId: string, date: Date): ContextKey {
   return `${workerId}|${formatDateKey(date)}`;
 }
 
+/** The key {@link loadAttendanceContexts} files each context under. */
+export const attendanceContextKey = contextKey;
+
 export type ContextRequest = {
   workerId: string;
   branchId: string;

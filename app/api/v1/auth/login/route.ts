@@ -2,9 +2,10 @@ import { NextRequest } from "next/server";
 import { ok, err } from "@/lib/response";
 import prisma from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
-import { USER_INCLUDE, toPublicUser } from "@/lib/auth-user";
+import { USER_INCLUDE, toAuthUser, toPublicUser } from "@/lib/auth-user";
 import { issueSession } from "@/lib/auth-session";
 import { isStaffRole } from "@/lib/auth-paths";
+import { autoCheckIn } from "@/lib/attendance-api";
 import type { UserType } from "@/types/api";
 
 // OWNER: Shalmon | MODULE: Auth — Login
@@ -55,7 +56,10 @@ export async function POST(req: NextRequest) {
       { user: toPublicUser(user) },
       "Logged in successfully"
     );
-    return await issueSession(req, res, user);
+    const session = await issueSession(req, res, user);
+    // Workers are clocked in on sign-in. Best-effort — never fails the login.
+    await autoCheckIn(toAuthUser(user));
+    return session;
   } catch {
     return err("Internal server error", 500);
   }

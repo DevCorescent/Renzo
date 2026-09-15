@@ -47,6 +47,7 @@ import {
   ATTENDANCE_METRIC_SELECT,
   ATTENDANCE_SELECT,
   applyOverrides,
+  attendanceContextKey,
   attendanceOrderBy,
   buildAttendanceWhere,
   buildRecordFields,
@@ -1298,6 +1299,191 @@ export async function workerClockAction(req: NextRequest) {
   } catch {
     return err("Internal server error", 500);
   }
+}
+
+/**
+ * Clock a worker in automatically when they sign in, or when they first open the
+ * worker portal that day (sessions last 7 days, so "first visit" is what actually
+ * catches most mornings).
+ *
+ * Runs the SAME applyClock() path as the Clock in button, recorded as self-service.
+ * It is deliberately conservative — it never touches a day that already has a row
+ * (clocked in, clocked out, or decided by an admin), and it skips days the worker
+ * is not expected in: approved leave, a branch holiday, or a non-rostered weekday.
+ *
+ * Best-effort: failures are logged and swallowed so attendance can never block a
+ * login or a page render.
+ */
+export async function autoCheckIn(user: AuthUser): Promise<void> {
+  if (user.userType !== "WORKER") return;
+
+  try {
+    const workerId = await resolveOwnWorkerId(user);
+    if (!workerId) return;
+
+    const date = attendanceDateKey();
+    const existing = await prisma.attendance.findUnique({
+      where: { workerId_date: { workerId, date } },
+      select: { id: true },
+    });
+    if (existing) return;
+
+    const branchId = await resolveWorkerBranchId(prisma, workerId, null);
+    if (!branchId) return;
+
+    const context = await loadAttendanceContext(prisma, { workerId, branchId, date });
+    if (context.isOnLeave || context.isHoliday || context.shift?.isRostered === false) return;
+
+    await applyClock({
+      workerId,
+      action: "CHECK_IN",
+      at: undefined,
+      actor: user,
+      markedBy: null,
+      canOverrideLock: false,
+      preferredBranchId: null,
+    });
+  } catch (e) {
+    console.error("Auto check-in failed:", e);
+  }
+}
+
+// ============================================================================
+// AUTO CLOCK-OUT
+// ============================================================================
+
+/** Minutes past the shift end before an open record is closed automatically. */
+export const AUTO_CLOCK_OUT_BUFFER_MINUTES = 30;
+/** Open records older than this are left for an admin rather than closed blind. */
+const AUTO_CLOCK_OUT_LOOKBACK_DAYS = 7;
+const AUTO_CLOCK_OUT_NOTE = "Auto clock-out at shift end";
+
+export type AutoClockOutResult = {
+  closed: { id: string; workerId: string; date: string; checkOut: string; status: AttendanceStatus }[];
+  skipped: { id: string; workerId: string; date: string; reason: string }[];
+};
+
+/**
+ * Close every attendance record still open AUTO_CLOCK_OUT_BUFFER_MINUTES after its
+ * shift ended. Driven by the cron endpoint (/api/v1/cron/attendance).
+ *
+ * The clock-out is stamped at the SHIFT END, not the time the job ran, so
+ * forgetting to clock out never earns overtime. The row stays automatic and gets a
+ * note, so the branch admin can see it and correct it from the Edit dialog.
+ *
+ * What it will NOT touch:
+ *   • isManual rows — once a branch admin has edited a record it is theirs. This is
+ *     the override: set a later check-out, or keep the day open, and the job leaves
+ *     it alone.
+ *   • locked (payroll-frozen) rows, and rows with no shift to measure against.
+ *   • a row that gets clocked out while the job runs — the update is guarded on
+ *     `checkOut: null`, so a real clock-out is never overwritten.
+ */
+export async function autoClockOut(now: Date = new Date()): Promise<AutoClockOutResult> {
+  const result: AutoClockOutResult = { closed: [], skipped: [] };
+
+  const today = attendanceDateKey(now);
+  const since = new Date(today.getTime());
+  since.setUTCDate(since.getUTCDate() - AUTO_CLOCK_OUT_LOOKBACK_DAYS);
+
+  const open = await prisma.attendance.findMany({
+    where: {
+      checkIn: { not: null },
+      checkOut: null,
+      isManual: false,
+      isLocked: false,
+      date: { gte: since, lte: today },
+    },
+    select: {
+      id: true, workerId: true, branchId: true, date: true,
+      checkIn: true, breakStart: true, breakEnd: true, notes: true,
+    },
+    orderBy: { date: "asc" },
+    take: 500,
+  });
+  if (open.length === 0) return result;
+
+  const contexts = await loadAttendanceContexts(
+    prisma,
+    open.map((r) => ({ workerId: r.workerId, branchId: r.branchId, date: r.date }))
+  );
+
+  for (const row of open) {
+    const dateKey = formatDateKey(row.date);
+    const context = contexts.get(attendanceContextKey(row.workerId, row.date));
+    const shiftEnd = context?.shift?.end ?? null;
+
+    if (!context || !shiftEnd) {
+      // Only worth reporting once the day is over; today may still get a roster.
+      if (row.date.getTime() < today.getTime()) {
+        result.skipped.push({ id: row.id, workerId: row.workerId, date: dateKey, reason: "No shift assigned" });
+      }
+      continue;
+    }
+
+    // Not due yet.
+    if (now.getTime() < shiftEnd.getTime() + AUTO_CLOCK_OUT_BUFFER_MINUTES * 60_000) continue;
+
+    const checkIn = row.checkIn!;
+    // Someone who clocked in after their shift had already ended is closed one
+    // minute later — the record stays valid without inventing hours.
+    let checkOut =
+      shiftEnd.getTime() > checkIn.getTime() ? shiftEnd : new Date(checkIn.getTime() + 60_000);
+
+    // An open break is closed at the same moment as the day.
+    const breakStart = row.breakStart;
+    let breakEnd = row.breakEnd;
+    if (breakStart && !breakEnd) {
+      if (breakStart.getTime() >= checkOut.getTime()) {
+        checkOut = new Date(breakStart.getTime() + 60_000);
+      }
+      breakEnd = checkOut;
+    }
+
+    const times = { checkIn, checkOut, breakStart, breakEnd };
+    const timeErrors = validateTimes(times);
+    if (timeErrors) {
+      result.skipped.push({
+        id: row.id, workerId: row.workerId, date: dateKey,
+        reason: Object.values(timeErrors).flat().join("; "),
+      });
+      continue;
+    }
+
+    const fields = buildRecordFields(row.date, times, context);
+
+    const { count } = await prisma.attendance.updateMany({
+      where: { id: row.id, checkOut: null, isManual: false, isLocked: false },
+      data: {
+        ...times,
+        ...fields,
+        notes: row.notes ? `${row.notes} · ${AUTO_CLOCK_OUT_NOTE}` : AUTO_CLOCK_OUT_NOTE,
+        markedBy: null,
+      },
+    });
+    if (count === 0) continue; // clocked out or edited while we were working
+
+    // No acting user exists for a scheduled job, so this goes to ActivityLog
+    // (AuditLog requires a real user id).
+    await prisma.activityLog
+      .create({
+        data: {
+          module: MODULE,
+          action: "AUTO_CLOCK_OUT",
+          description: `Auto clock-out for worker ${row.workerId} on ${dateKey} at ${checkOut.toISOString()}`,
+          refId: row.id,
+          refType: "Attendance",
+        },
+      })
+      .catch((e) => console.error("Auto clock-out activity log failed:", e));
+
+    result.closed.push({
+      id: row.id, workerId: row.workerId, date: dateKey,
+      checkOut: checkOut.toISOString(), status: fields.status,
+    });
+  }
+
+  return result;
 }
 
 /**

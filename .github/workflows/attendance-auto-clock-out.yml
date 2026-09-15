@@ -1,0 +1,33 @@
+# Calls the auto clock-out endpoint every 15 minutes. Works whatever hosts the app.
+#
+# Setup (GitHub → repo Settings → Secrets and variables → Actions):
+#   APP_URL      e.g. https://renzosalons.com   (no trailing slash)
+#   CRON_SECRET  the same value as CRON_SECRET in the app's environment
+#
+# Until both secrets exist the job exits cleanly without calling anything.
+# GitHub may start scheduled runs a few minutes late; the 30-minute buffer after
+# shift end absorbs that, and the clock-out is stamped at shift end regardless.
+
+name: Attendance auto clock-out
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  clock-out:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Close attendance left open past shift end
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "APP_URL / CRON_SECRET not configured — skipping."
+            exit 0
+          fi
+          curl --fail-with-body -sS -X POST "$APP_URL/api/v1/cron/attendance" \
+            -H "Authorization: Bearer $CRON_SECRET"
