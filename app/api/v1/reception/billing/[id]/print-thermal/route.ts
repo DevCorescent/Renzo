@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope } from "@/lib/branch-scope";
 import { err } from "@/lib/response";
 import { loadInvoiceForDelivery } from "@/lib/invoice-delivery";
 
@@ -13,7 +14,7 @@ import { loadInvoiceForDelivery } from "@/lib/invoice-delivery";
 //
 // ACCESS: RECEPTIONIST, BRANCH_ADMIN, SUPER_ADMIN, OWNER, ACCOUNTANT
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAuth(
+  const { user, error } = await requireAuth(
     req,
     "RECEPTIONIST",
     "BRANCH_ADMIN",
@@ -23,16 +24,35 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   );
   if (error) return error;
 
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
+
   try {
     const { id } = await params;
     const invoice = await loadInvoiceForDelivery(id);
     if (!invoice) return err("Invoice not found", 404);
+
+    // Same rule as /send and /reprint: another branch's invoice answers 404, so a
+    // branch-scoped account can neither print it nor learn that it exists.
+    if (!scope.isGlobal && invoice.branchId !== scope.branchId) {
+      return err("Invoice not found", 404);
+    }
 
     const url = new URL(req.url);
     const mmParam = url.searchParams.get("mm");
     // 58mm roll: printable width ~48mm; 80mm roll: ~72mm. Default to 80.
     const mm = mmParam === "58" ? 58 : 80;
     const contentMm = mm === 58 ? 48 : 72;
+
+    // ?scale=150 prints the text 1.5× larger (50–200, default 100). The roll width
+    // is unchanged — lines just wrap sooner — and the page height the script below
+    // measures still follows the content, so nothing needs Chrome's Scale setting.
+    const scaleParam = Number(url.searchParams.get("scale") ?? "100");
+    const scale =
+      Number.isFinite(scaleParam) && scaleParam >= 50 && scaleParam <= 200
+        ? Math.round(scaleParam)
+        : 100;
+    const pt = (base: number) => `${((base * scale) / 100).toFixed(2)}pt`;
 
     const d = invoice.pdf;
     const inr = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -88,32 +108,39 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 <meta charset="UTF-8">
 <title>Receipt ${esc(d.invoiceNo)} — ${esc(bizName)}</title>
 <style>
+  /* Fallback only — the script at the bottom replaces it with the receipt's exact
+     height before printing. It must be a valid two-length size: "${mm}mm auto" is
+     invalid CSS, so Chrome dropped it and defaulted to A4 at "fit" scale, which is
+     why staff had to pick the paper size and scale by hand on every print. */
   @page {
-    size: ${mm}mm auto;
-    margin: 2mm 3mm;
+    size: ${mm}mm 297mm;
+    margin: 0;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: "Courier New", Courier, monospace;
-    font-size: 10pt;
-    width: ${contentMm}mm;
+    font-size: ${pt(10)};
+    /* Full roll width with the unprintable edge as padding, so the page box and
+       the paper match exactly and Chrome has nothing to scale. */
+    width: ${mm}mm;
+    padding: 2mm ${(mm - contentMm) / 2}mm;
     color: #000;
     background: #fff;
   }
-  h1 { font-size: 13pt; font-weight: bold; text-align: center; margin-bottom: 2px; }
+  h1 { font-size: ${pt(13)}; font-weight: bold; text-align: center; margin-bottom: 2px; }
   p { line-height: 1.4; }
   .center { text-align: center; }
-  .small { font-size: 8.5pt; }
+  .small { font-size: ${pt(8.5)}; }
   .dash { border: none; border-top: 1px dashed #000; margin: 4px 0; }
   table { width: 100%; border-collapse: collapse; }
   .item-name { padding: 1px 0; }
   .item-amt  { padding: 1px 0; text-align: right; white-space: nowrap; padding-left: 4px; }
   .lbl { padding: 1px 0; color: #444; }
   .val { padding: 1px 0; text-align: right; white-space: nowrap; }
-  .total-row td { font-weight: bold; font-size: 11pt; padding-top: 3px; }
+  .total-row td { font-weight: bold; font-size: ${pt(11)}; padding-top: 3px; }
   .bal { color: #b00; }
   @media print {
-    html, body { width: ${contentMm}mm; }
+    html, body { width: ${mm}mm; }
   }
 </style>
 </head>
@@ -149,10 +176,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   ${websiteLine}
 
 <script>
-  window.addEventListener("load", function () {
-    window.print();
+  (function () {
+    // Size the page to the receipt itself — roll width by measured height — so
+    // Chrome selects this paper at 100% scale: no A4 default, no "fit to page"
+    // shrink, and no metre of blank roll after a short bill.
+    function printReceipt() {
+      var heightMm = Math.ceil((document.body.getBoundingClientRect().height * 25.4) / 96) + 2;
+      var style = document.createElement("style");
+      style.textContent = "@page { size: ${mm}mm " + heightMm + "mm; margin: 0; }";
+      document.head.appendChild(style);
+      window.print();
+    }
     window.addEventListener("afterprint", function () { window.close(); });
-  });
+    window.addEventListener("load", function () {
+      // Measure after fonts settle, or the height is taken from fallback metrics.
+      var ready = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+      ready.then(printReceipt, printReceipt);
+    });
+  })();
 </script>
 </body>
 </html>`;

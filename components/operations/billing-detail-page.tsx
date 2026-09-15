@@ -60,10 +60,17 @@ export async function BillingDetailPage({
   if (!invoice) notFound();
   if (denyIfOutOfScope(scope, invoice.branchId)) notFound();
 
-  const customer = await prisma.customer.findUnique({
-    where: { id: invoice.customerId },
-    select: { firstName: true, lastName: true, phone: true, email: true },
-  });
+  const [customer, setting] = await Promise.all([
+    prisma.customer.findUnique({
+      where: { id: invoice.customerId },
+      select: { firstName: true, lastName: true, phone: true, email: true },
+    }),
+    // The INVOICE's branch decides the printer format, not the viewer's.
+    prisma.branchSetting.findUnique({
+      where: { branchId: invoice.branchId },
+      select: { printFormat: true },
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -88,6 +95,11 @@ export async function BillingDetailPage({
             customerPhone={customer?.phone ?? null}
             customerEmail={customer?.email ?? null}
             canReprint
+            printFormat={
+              setting?.printFormat === "THERMAL_80" || setting?.printFormat === "THERMAL_58"
+                ? setting.printFormat
+                : "A4"
+            }
           />
         </CardBody>
       </Card>

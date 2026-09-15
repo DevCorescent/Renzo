@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope } from "@/lib/branch-scope";
 import { err } from "@/lib/response";
 import {
   invoiceFilename,
@@ -17,7 +18,7 @@ import {
 // `?inline=true` renders it in the browser's viewer instead of downloading —
 // that is the Preview and Print path, which needs no second endpoint.
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAuth(
+  const { user, error } = await requireAuth(
     req,
     "RECEPTIONIST",
     "BRANCH_ADMIN",
@@ -27,11 +28,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   );
   if (error) return error;
 
+  const { scope, error: scopeError } = requireBranchScope(user);
+  if (scopeError) return scopeError;
+
   try {
     const { id } = await params;
 
     const invoice = await loadInvoiceForDelivery(id);
     if (!invoice) return err("Invoice not found", 404);
+
+    // Same rule as /send and /reprint: another branch's invoice answers 404, so a
+    // branch-scoped account can neither print it nor learn that it exists.
+    if (!scope.isGlobal && invoice.branchId !== scope.branchId) {
+      return err("Invoice not found", 404);
+    }
 
     const url = new URL(req.url);
     // ?format=THERMAL_80 prints a till receipt from a branch set to A4, without

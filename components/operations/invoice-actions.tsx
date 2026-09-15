@@ -9,8 +9,9 @@
 // all reach this bar.
 //
 // Every button drives an EXISTING endpoint: the PDF comes from
-// /billing/:id/pdf (the same document in all three cases), delivery from
-// /billing/:id/send, and the reprint record from /billing/:id/reprint.
+// /billing/:id/pdf (the same document in all three cases), the till receipt from
+// /billing/:id/print-thermal, delivery from /billing/:id/send, and the reprint
+// record from /billing/:id/reprint.
 // ============================================================================
 
 import * as React from "react";
@@ -26,6 +27,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
+import {
+  ReceiptScaleControl,
+  thermalReceiptUrl,
+  useReceiptScale,
+} from "@/components/operations/receipt-scale";
 
 const btnGhost =
   "inline-flex items-center gap-1.5 rounded border border-gray-200 px-2.5 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-(--sa-border) dark:text-(--sa-text-2) dark:hover:bg-white/5";
@@ -36,12 +42,18 @@ const inputCls =
 
 type Panel = "none" | "email" | "whatsapp" | "reprint";
 
+/** Mirrors PrintFormat in lib/invoice-pdf.tsx (a server module this client file cannot import). */
+export type InvoicePrintFormat = "A4" | "THERMAL_80" | "THERMAL_58";
+
+const ROLL_MM: Partial<Record<InvoicePrintFormat, 58 | 80>> = { THERMAL_80: 80, THERMAL_58: 58 };
+
 export function InvoiceActions({
   invoiceId,
   invoiceNo,
   customerPhone,
   customerEmail,
   canReprint,
+  printFormat = "A4",
 }: {
   invoiceId: string;
   invoiceNo: string;
@@ -49,8 +61,12 @@ export function InvoiceActions({
   customerEmail: string | null;
   /** Reception may reprint; a worker viewing an invoice may not. */
   canReprint: boolean;
+  /** The branch's BranchSetting.printFormat — decides what Print sends to the printer. */
+  printFormat?: InvoicePrintFormat;
 }) {
   const pdfUrl = `${API.reception.bill(invoiceId)}/pdf`;
+  const rollMm = ROLL_MM[printFormat];
+  const [receiptScale] = useReceiptScale();
 
   const [panel, setPanel] = React.useState<Panel>("none");
   const [busy, setBusy] = React.useState(false);
@@ -61,14 +77,22 @@ export function InvoiceActions({
   const [reason, setReason] = React.useState("");
   const [waLink, setWaLink] = React.useState<string | null>(null);
 
-  /**
-   * Printing opens the PDF itself rather than window.print() on the page: the
-   * page is a screen layout, while the PDF is the A4 document the salon actually
-   * hands over. The browser's viewer then drives whichever printer is attached —
-   * A4 or an 80mm/58mm thermal roll — through its own paper-size setting.
-   */
   function openPdf(inline: boolean) {
     window.open(`${pdfUrl}${inline ? "?inline=true" : ""}`, "_blank", "noopener,noreferrer");
+  }
+
+  /**
+   * A thermal branch prints the receipt page, which sizes itself to the roll and
+   * opens the print dialog on its own — the browser's PDF viewer assumes A4 and
+   * made staff change the paper size and scale by hand every time. An A4 branch
+   * keeps printing the PDF, which already is an A4 page.
+   */
+  function print() {
+    if (rollMm) {
+      window.open(thermalReceiptUrl(invoiceId, rollMm, receiptScale), "_blank", "noopener,noreferrer");
+    } else {
+      openPdf(true);
+    }
   }
 
   async function send(channel: "EMAIL" | "WHATSAPP") {
@@ -148,8 +172,8 @@ export function InvoiceActions({
 
       setReason("");
       setPanel("none");
-      setNote({ tone: "ok", text: "Reprint recorded — opening the invoice." });
-      openPdf(true);
+      setNote({ tone: "ok", text: "Reprint recorded — sending to the printer." });
+      print();
     } catch {
       setBusy(false);
       setNote({ tone: "err", text: "Network error — please try again." });
@@ -162,9 +186,13 @@ export function InvoiceActions({
         <button type="button" onClick={() => openPdf(true)} className={btnGhost}>
           <Eye className="size-3.5" aria-hidden="true" /> Preview
         </button>
-        <button type="button" onClick={() => openPdf(true)} className={btnGhost}>
-          <Printer className="size-3.5" aria-hidden="true" /> Print
-        </button>
+        <span className="inline-flex flex-wrap items-center gap-2">
+          <button type="button" onClick={print} className={btnGhost}>
+            <Printer className="size-3.5" aria-hidden="true" /> Print{rollMm ? ` (${rollMm}mm)` : ""}
+          </button>
+          {/* Receipt text size only applies to the thermal receipt, not the A4 PDF. */}
+          {rollMm && <ReceiptScaleControl />}
+        </span>
         <button type="button" onClick={() => openPdf(false)} className={btnGhost}>
           <Download className="size-3.5" aria-hidden="true" /> Download PDF
         </button>

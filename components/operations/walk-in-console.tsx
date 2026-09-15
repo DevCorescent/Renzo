@@ -25,6 +25,11 @@ import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/shared/ui";
 import { formatMoney, labelise } from "@/lib/operations";
+import {
+  ReceiptScaleControl,
+  thermalReceiptUrl,
+  useReceiptScale,
+} from "@/components/operations/receipt-scale";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -183,11 +188,12 @@ function SessionCard({
 }) {
   const badge = statusBadge(session.status, session.invoice);
 
+  const [receiptScale] = useReceiptScale();
+
   const invoicePrintUrl = (inv: NonNullable<LiveSession["invoice"]>, fmt: PrintFormat) => {
-    const base = `${API.reception.bill(inv.id)}`;
-    if (fmt === "THERMAL_80") return `${base}/print-thermal?mm=80`;
-    if (fmt === "THERMAL_58") return `${base}/print-thermal?mm=58`;
-    return `${base}/pdf?inline=true`;
+    if (fmt === "THERMAL_80") return thermalReceiptUrl(inv.id, 80, receiptScale);
+    if (fmt === "THERMAL_58") return thermalReceiptUrl(inv.id, 58, receiptScale);
+    return `${API.reception.bill(inv.id)}/pdf?inline=true`;
   };
 
   return (
@@ -604,10 +610,12 @@ export function WalkInConsole({
       }
     });
 
+  const [receiptScale] = useReceiptScale();
+
   const printUrl = (fmt: PrintFormat) => {
     const billId = invoice!.id;
-    if (fmt === "THERMAL_80") return `${API.reception.bill(billId)}/print-thermal?mm=80`;
-    if (fmt === "THERMAL_58") return `${API.reception.bill(billId)}/print-thermal?mm=58`;
+    if (fmt === "THERMAL_80") return thermalReceiptUrl(billId, 80, receiptScale);
+    if (fmt === "THERMAL_58") return thermalReceiptUrl(billId, 58, receiptScale);
     return `${API.reception.bill(billId)}/pdf?inline=true`;
   };
 
@@ -1135,6 +1143,8 @@ export function WalkInConsole({
                       Collect {amount ? formatMoney(Number(amount)) : "payment"}
                     </button>
                   )}
+                  {/* Receipt text size — only meaningful for the thermal roll, not the A4 PDF. */}
+                  {printSize !== "A4" && <ReceiptScaleControl />}
                   {/* Print button + inline size toggle */}
                   <div className="flex items-center rounded border border-gray-200 dark:border-(--sa-border) overflow-hidden">
                     <button type="button" onClick={() => openPdf()} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 transition dark:bg-(--sa-surface) dark:text-(--sa-text) dark:hover:bg-(--sa-hover)">
