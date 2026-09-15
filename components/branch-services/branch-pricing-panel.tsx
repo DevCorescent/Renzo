@@ -453,7 +453,7 @@ export function BranchPricingPanel() {
       try {
         const [svcRes, catRes] = await Promise.all([
           fetch(API.admin.branchServices),
-          fetch(API.admin.categories),
+          fetch(`${API.admin.categories}?limit=100`),
         ]);
         const [svcJson, catJson] = await Promise.all([svcRes.json(), catRes.json()]);
         if (!svcRes.ok) throw new Error(svcJson?.message ?? "Failed to load");

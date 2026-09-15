@@ -182,10 +182,13 @@ function getServiceDescription(service: ApiService) {
   }
 }
 
+/** Every typed word must start some word of the service, in any order — so
+ *  "repair hair spa men" finds "Repair Hair Spa For men", and "men" doesn't
+ *  match "women" or "treatment". */
 function serviceMatchesQuery(service: ApiService, query: string) {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  const haystack = [
+  const needles = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  if (needles.length === 0) return true;
+  const words = [
     service.name,
     service.description,
     service.category.name,
@@ -193,8 +196,10 @@ function serviceMatchesQuery(service: ApiService, query: string) {
   ]
     .filter(Boolean)
     .join(" ")
-    .toLowerCase();
-  return haystack.includes(needle);
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  return needles.every((n) => words.some((w) => w.startsWith(n)));
 }
 
 /** Audience filter on the service step. UNISEX stays visible for both Men and Women. */
@@ -593,11 +598,22 @@ function ServiceStep({
 
   React.useEffect(() => {
     let cancelled = false;
-    fetch(`${API.public.services}?branchId=${branchId}&limit=100`)
-      .then((r) => r.json())
-      .then((j) => {
-        if (!cancelled)
-          setResult({ key: branchId, items: j.data?.items ?? j.data ?? [] });
+    // The endpoint caps limit at 100 and a branch can offer more, so walk every
+    // page — otherwise services late in the sort order silently never appear.
+    (async () => {
+      const items: ApiService[] = [];
+      for (let page = 1; ; page++) {
+        const r = await fetch(
+          `${API.public.services}?branchId=${branchId}&limit=100&page=${page}`,
+        );
+        const j = await r.json();
+        items.push(...(j.data?.items ?? j.data ?? []));
+        if (!j.data?.totalPages || page >= j.data.totalPages) break;
+      }
+      return items;
+    })()
+      .then((items) => {
+        if (!cancelled) setResult({ key: branchId, items });
       })
       .catch(() => {
         if (!cancelled) setResult({ key: branchId, items: [] });
