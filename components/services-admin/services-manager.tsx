@@ -360,7 +360,7 @@ export function ServicesManager({
         ref={confirmRef}
         onCancel={(e) => { e.preventDefault(); if (!deleting) setPendingDelete(null); }}
         onClick={(e) => { if (e.target === confirmRef.current && !deleting) setPendingDelete(null); }}
-        className="w-[calc(100vw-2rem)] max-w-sm rounded-lg border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40"
+        className="m-auto w-[calc(100vw-2rem)] max-w-sm rounded-lg border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40"
       >
         {pendingDelete && (
           <div className="p-5">

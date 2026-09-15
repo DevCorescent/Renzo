@@ -16,10 +16,16 @@
 // ROLE-AWARE FIELDS: a Branch Admin's PATCH may change only image + description
 // (the backend enforces this), so in restricted-edit mode every other field is shown
 // read-only for context and only image/description are submitted.
+//
+// LAYOUT mirrors the Branch Admin "Add New Service" modal (image first, uppercase
+// labels, For-toggle, full-width Cancel / Create buttons) so both roles see the same
+// form. The native <dialog> needs `m-auto`: Tailwind's preflight zeroes every margin,
+// which strips the UA `margin: auto` that centers a modal — without it the dialog
+// pins to the top-left corner.
 // ============================================================================
 
 import * as React from "react";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { API } from "@/lib/endpoints";
 import { cn } from "@/lib/utils";
 import { ImageUpload } from "@/components/shared/image-upload";
@@ -31,9 +37,9 @@ import {
 type Mode = "create" | "edit" | "view";
 
 const inputCls =
-  "h-9 w-full rounded border border-gray-200 bg-white px-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-300 focus:border-gray-400 focus:ring-2 focus:ring-gray-900/5 disabled:bg-gray-50 disabled:text-gray-500";
-const invalidCls = "border-red-300 focus:border-red-400 focus:ring-red-500/10";
-const labelCls = "block text-xs font-medium text-gray-700";
+  "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500";
+const invalidCls = "border-red-300 focus:border-red-400";
+const labelCls = "mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500";
 
 type FormState = {
   categoryId: string; subCategoryId: string; name: string; description: string;
@@ -222,7 +228,7 @@ export function ServiceFormDialog({
     onSaved(mode === "create" ? "Service created" : "Service updated");
   }
 
-  const title = mode === "create" ? "Add service" : mode === "edit" ? `Edit — ${service?.name ?? ""}` : service?.name ?? "Service";
+  const title = mode === "create" ? "Add New Service" : mode === "edit" ? "Edit Service" : "Service Details";
 
   return (
     <dialog
@@ -230,31 +236,43 @@ export function ServiceFormDialog({
       onCancel={(e) => { e.preventDefault(); if (!submitting) onClose(); }}
       onClick={(e) => { if (e.target === dialogRef.current && !submitting) onClose(); }}
       aria-labelledby="service-form-title"
-      className="w-[calc(100vw-2rem)] max-w-xl rounded-lg border border-gray-200 bg-white p-0 shadow-xl backdrop:bg-gray-900/40"
+      className="m-auto w-[calc(100vw-2rem)] max-w-lg overflow-hidden rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-sm"
     >
       {open && (
-        <form onSubmit={handleSubmit} className="flex max-h-[88vh] flex-col">
-          <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+        <form onSubmit={handleSubmit} className="flex max-h-[90vh] flex-col">
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
             <div className="min-w-0">
-              <h2 id="service-form-title" className="truncate text-sm font-semibold text-gray-900">{title}</h2>
+              <h2 id="service-form-title" className="font-semibold text-gray-900">{title}</h2>
+              {mode !== "create" && service && <p className="truncate text-xs text-gray-400">{service.name}</p>}
               {restricted && <p className="mt-0.5 text-xs text-gray-500">You can update the image and description for this service.</p>}
             </div>
-            <button type="button" onClick={onClose} disabled={submitting} aria-label="Close" className="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-50">
-              <X className="size-4" />
+            <button type="button" onClick={onClose} disabled={submitting} aria-label="Close" className="text-gray-400 hover:text-gray-600 disabled:opacity-50">
+              <X className="size-5" />
             </button>
           </div>
 
-          <div className="space-y-4 overflow-y-auto px-5 py-4">
-            {formError && <p role="alert" className="rounded border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">{formError}</p>}
-
-            <Field label="Service name" required error={errors.name}>
-              <input value={form.name} onChange={(e) => set("name", e.target.value)} disabled={!canEditField("name")} aria-invalid={Boolean(errors.name)} className={cn(inputCls, errors.name && invalidCls)} />
-            </Field>
+          <div className="space-y-4 overflow-y-auto p-5">
+            {/* Image first — same order as the Branch Admin modal. */}
+            <div>
+              <span className={labelCls}>Service Image</span>
+              {canEditField("image") ? (
+                <ImageUpload value={form.image} onChange={(url) => set("image", url)} label="Service Photo" />
+              ) : form.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.image} alt="" className="h-24 w-24 rounded-lg border border-gray-200 object-cover" />
+              ) : (
+                <p className="text-xs text-gray-400">No image.</p>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
+              <Field className="col-span-2" label="Service Name" required error={errors.name}>
+                <input value={form.name} onChange={(e) => set("name", e.target.value)} disabled={!canEditField("name")} placeholder="e.g. Deep Hair Spa" aria-invalid={Boolean(errors.name)} className={cn(inputCls, errors.name && invalidCls)} />
+              </Field>
+
               <Field label="Category" required error={errors.categoryId}>
                 <select value={form.categoryId} onChange={(e) => { set("categoryId", e.target.value); set("subCategoryId", ""); }} disabled={!canEditField("categoryId")} aria-invalid={Boolean(errors.categoryId)} className={cn(inputCls, errors.categoryId && invalidCls)}>
-                  <option value="">Select category…</option>
+                  <option value="">— Select category —</option>
                   {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </Field>
@@ -264,74 +282,79 @@ export function ServiceFormDialog({
                   {subCategories.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </Field>
-            </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <Field label="Base price" required error={errors.basePrice}>
-                <input type="number" min={0} step="any" value={form.basePrice} onChange={(e) => set("basePrice", e.target.value)} disabled={!canEditField("basePrice")} aria-invalid={Boolean(errors.basePrice)} className={cn(inputCls, errors.basePrice && invalidCls)} />
+              <Field label="Base Price (₹)" required error={errors.basePrice}>
+                <input type="number" min={0} step={10} value={form.basePrice} onChange={(e) => set("basePrice", e.target.value)} disabled={!canEditField("basePrice")} placeholder="999" aria-invalid={Boolean(errors.basePrice)} className={cn(inputCls, errors.basePrice && invalidCls)} />
               </Field>
               <Field label="Duration (min)" required error={errors.duration}>
-                <input type="number" min={0} step="1" value={form.duration} onChange={(e) => set("duration", e.target.value)} disabled={!canEditField("duration")} aria-invalid={Boolean(errors.duration)} className={cn(inputCls, errors.duration && invalidCls)} />
+                <input type="number" min={5} step={5} value={form.duration} onChange={(e) => set("duration", e.target.value)} disabled={!canEditField("duration")} placeholder="60" aria-invalid={Boolean(errors.duration)} className={cn(inputCls, errors.duration && invalidCls)} />
               </Field>
-              <Field label="Buffer (min)" error={errors.bufferTime}>
-                <input type="number" min={0} step="1" value={form.bufferTime} onChange={(e) => set("bufferTime", e.target.value)} disabled={!canEditField("bufferTime")} className={inputCls} />
-              </Field>
-            </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <Field label="Gender">
-                <select value={form.gender} onChange={(e) => set("gender", e.target.value as Gender)} disabled={!canEditField("gender")} className={inputCls}>
-                  {GENDERS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
-                </select>
-              </Field>
-              <Field label="Tax %" error={errors.taxPercent}>
-                <input type="number" min={0} step="any" value={form.taxPercent} onChange={(e) => set("taxPercent", e.target.value)} disabled={!canEditField("taxPercent")} className={inputCls} />
-              </Field>
-              <Field label="Sort order">
-                <input type="number" step="1" value={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} disabled={!canEditField("sortOrder")} className={inputCls} />
-              </Field>
-            </div>
+              <div className="col-span-2 grid grid-cols-3 gap-3">
+                <Field label="Buffer (min)" error={errors.bufferTime}>
+                  <input type="number" min={0} step={5} value={form.bufferTime} onChange={(e) => set("bufferTime", e.target.value)} disabled={!canEditField("bufferTime")} className={inputCls} />
+                </Field>
+                <Field label="Tax %" error={errors.taxPercent}>
+                  <input type="number" min={0} step="any" value={form.taxPercent} onChange={(e) => set("taxPercent", e.target.value)} disabled={!canEditField("taxPercent")} className={inputCls} />
+                </Field>
+                <Field label="Sort order">
+                  <input type="number" step={1} value={form.sortOrder} onChange={(e) => set("sortOrder", e.target.value)} disabled={!canEditField("sortOrder")} className={inputCls} />
+                </Field>
+              </div>
 
-            <Field label="Description">
-              <textarea rows={2} value={form.description} onChange={(e) => set("description", e.target.value)} disabled={!canEditField("description")} className={cn(inputCls, "h-auto py-2")} />
-            </Field>
+              <Field className="col-span-2" label="For" error={errors.gender}>
+                <div className="flex gap-2">
+                  {GENDERS.map((g) => (
+                    <button
+                      key={g.value}
+                      type="button"
+                      onClick={() => set("gender", g.value)}
+                      disabled={!canEditField("gender")}
+                      aria-pressed={form.gender === g.value}
+                      className={cn(
+                        "flex-1 rounded-lg border py-2 text-xs font-medium transition disabled:cursor-not-allowed",
+                        form.gender === g.value
+                          ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                          : "border-gray-200 text-gray-600 hover:bg-gray-50 disabled:hover:bg-transparent",
+                      )}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+              </Field>
 
-            {/* Image is editable by every role (it is one of the two branch-admin fields). */}
-            <div className="space-y-1">
-              <span className={labelCls}>Image</span>
-              {canEditField("image") ? (
-                <ImageUpload value={form.image} onChange={(url) => set("image", url)} label="Service image" />
-              ) : form.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={form.image} alt="" className="h-24 w-24 rounded border border-gray-200 object-cover" />
-              ) : (
-                <p className="text-xs text-gray-400">No image.</p>
+              <Field className="col-span-2" label="Description">
+                <textarea rows={3} value={form.description} onChange={(e) => set("description", e.target.value)} disabled={!canEditField("description")} placeholder="What does this service include?" className={cn(inputCls, "resize-none")} />
+              </Field>
+
+              {!restricted && (
+                <div className="col-span-2 flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                    <input type="checkbox" checked={form.isPopular} onChange={(e) => set("isPopular", e.target.checked)} disabled={!canEditField("isPopular")} className="size-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500/20" />
+                    Popular
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                    <input type="checkbox" checked={form.isActive} onChange={(e) => set("isActive", e.target.checked)} disabled={!canEditField("isActive")} className="size-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500/20" />
+                    Active
+                  </label>
+                </div>
               )}
             </div>
 
-            {!restricted && (
-              <div className="flex flex-wrap gap-4 pt-1">
-                <label className="flex items-center gap-2 text-xs text-gray-700">
-                  <input type="checkbox" checked={form.isPopular} onChange={(e) => set("isPopular", e.target.checked)} disabled={!canEditField("isPopular")} className="size-3.5 rounded border-gray-300 text-gray-900 focus:ring-gray-900/20" />
-                  Popular
-                </label>
-                <label className="flex items-center gap-2 text-xs text-gray-700">
-                  <input type="checkbox" checked={form.isActive} onChange={(e) => set("isActive", e.target.checked)} disabled={!canEditField("isActive")} className="size-3.5 rounded border-gray-300 text-gray-900 focus:ring-gray-900/20" />
-                  Active
-                </label>
-              </div>
-            )}
-          </div>
+            {formError && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{formError}</p>}
 
-          <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-4">
-            <button type="button" onClick={onClose} disabled={submitting} className="inline-flex h-9 items-center rounded border border-gray-200 bg-white px-3 text-sm text-gray-600 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900/10 disabled:opacity-50">
-              {readOnlyAll ? "Close" : "Cancel"}
-            </button>
-            {!readOnlyAll && (
-              <button type="submit" disabled={submitting} className="inline-flex h-9 items-center rounded bg-gray-900 px-4 text-sm font-medium text-white transition hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900/20 disabled:cursor-not-allowed disabled:opacity-60">
-                {submitting ? "Saving…" : mode === "create" ? "Create service" : "Save changes"}
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={onClose} disabled={submitting} className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+                {readOnlyAll ? "Close" : "Cancel"}
               </button>
-            )}
+              {!readOnlyAll && (
+                <button type="submit" disabled={submitting} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
+                  {submitting && <Loader2 className="size-4 animate-spin" />}
+                  {mode === "create" ? "Create Service" : "Save Changes"}
+                </button>
+              )}
+            </div>
           </div>
         </form>
       )}
@@ -339,12 +362,12 @@ export function ServiceFormDialog({
   );
 }
 
-function Field({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
+function Field({ label, required, error, className, children }: { label: string; required?: boolean; error?: string; className?: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-1">
-      <label className="block text-xs font-medium text-gray-700">{label}{required && <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>}</label>
+    <div className={className}>
+      <label className={labelCls}>{label}{required && <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>}</label>
       {children}
-      {error && <p role="alert" className="text-[11px] text-red-600">{error}</p>}
+      {error && <p role="alert" className="mt-1 text-[11px] text-red-600">{error}</p>}
     </div>
   );
 }
