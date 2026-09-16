@@ -26,6 +26,7 @@ import { created, err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import { branchWhere, requireBranchScope } from "@/lib/branch-scope";
 import { writeAudit } from "@/lib/audit";
+import { syncServiceProgress } from "@/lib/appointment-work";
 import prisma from "@/lib/db";
 import { genCode } from "@/lib/codes";
 import type { InvoiceStatus, Prisma } from "@prisma/client";
@@ -297,6 +298,7 @@ export async function POST(req: NextRequest) {
           data: { status: "COMPLETED", completedAt: new Date() },
         });
       }
+      await syncServiceProgress(tx, appointment.id, "COMPLETED");
 
       return createdInvoice;
     });

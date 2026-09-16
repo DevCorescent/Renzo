@@ -89,6 +89,8 @@ export const API = {
     appointments: `${BASE}/reception/appointments`,
     checkin:      (id: string) => `${BASE}/reception/appointments/${id}/checkin`,
     assign:       (id: string) => `${BASE}/reception/appointments/${id}/assign`,
+    /** Edit staff per service + visit details — allowed after completion/billing. */
+    appointmentDetails: (id: string) => `${BASE}/reception/appointments/${id}/details`,
     billing:      `${BASE}/reception/billing`,
     bill:         (id: string) => `${BASE}/reception/billing/${id}`,
     payment:      (id: string) => `${BASE}/reception/billing/${id}/payment`,

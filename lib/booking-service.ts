@@ -54,6 +54,12 @@ export type BookingInput = {
    * appointment-level workerId.
    */
   serviceWorkers?: Record<string, string>;
+  /**
+   * Desk only: the visit is being recorded as it is billed (the customer is
+   * here or has just been served), so worker/chair/room clash checks against
+   * the slot are skipped. Ignored for any non-desk booking.
+   */
+  recordingVisit?: boolean;
   /** "YYYY-MM-DD". */
   appointmentDate: string;
   /** "HH:mm". */
@@ -160,12 +166,30 @@ export async function createBooking(
   const slotStart = new Date(`${input.appointmentDate}T${start}:00.000Z`);
   const nowUtc = new Date();
 
+  // A staff member booking a walk-in at the desk: the customer is already here
+  // (or has just been served), so the online "minimum notice" rule does not
+  // apply and a start time earlier today is legitimate. Only past DATES are
+  // refused.
+  const isDeskBooking =
+    context.source === BookingSource.WALK_IN && context.createdByUserId !== null;
+  const skipSlotClashes = isDeskBooking && input.recordingVisit === true;
+  // An empty per-service map means "no per-service assignment", not "nobody".
+  const serviceWorkers =
+    input.serviceWorkers && Object.keys(input.serviceWorkers).length > 0 ? input.serviceWorkers : undefined;
+
+  if (isDeskBooking) {
+    const todayLocal = new Date(nowUtc.getTime() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    if (input.appointmentDate < todayLocal) {
+      return fail("That date has already passed", 409);
+    }
+  }
+
   if (settings) {
     const leadMs = settings.minAdvanceBookingHours * 60 * 60 * 1000;
     // Salon-local "now" is +05:30; the slot is stored as a wall-clock string, so
     // both sides are compared in the same naive frame.
     const nowLocal = new Date(nowUtc.getTime() + 5.5 * 60 * 60 * 1000);
-    if (slotStart.getTime() < nowLocal.getTime() + leadMs) {
+    if (!isDeskBooking && slotStart.getTime() < nowLocal.getTime() + leadMs) {
       return fail(
         settings.minAdvanceBookingHours > 0
           ? `Bookings need at least ${settings.minAdvanceBookingHours} hour(s) notice`
@@ -245,7 +269,7 @@ export async function createBooking(
 
     // When per-service workers are provided each stylist is responsible for their
     // own service only, so the all-services qualification check does not apply.
-    if (!input.serviceWorkers) {
+    if (!serviceWorkers) {
       const qualified = await prisma.workerService.count({
         where: { workerId: worker.id, serviceId: { in: serviceIds }, isActive: true },
       });
@@ -255,8 +279,9 @@ export async function createBooking(
     }
 
     // Double-booking guard. Half-open comparison: an appointment ending exactly
-    // when this one starts is NOT an overlap.
-    const overlapping = await prisma.appointment.count({
+    // when this one starts is NOT an overlap. Skipped when the desk is recording
+    // a visit that is already happening — the slot is not being reserved.
+    const overlapping = skipSlotClashes ? 0 : await prisma.appointment.count({
       where: {
         workerId: worker.id,
         appointmentDate: parsedDate,
@@ -270,6 +295,25 @@ export async function createBooking(
     }
 
     resolvedWorkerId = worker.id;
+  }
+
+  // ── Per-service workers (optional) ───────────────────────────────────────
+  // Whoever is named against a service gets the credit for it, so each one must
+  // be a real, active worker at this branch.
+  const perServiceIds = [...new Set(Object.values(serviceWorkers ?? {}).filter(Boolean))];
+  if (perServiceIds.length > 0) {
+    const valid = await prisma.workerProfile.count({
+      where: {
+        id: { in: perServiceIds },
+        isActive: true,
+        branches: { some: { branchId: branch.id, isActive: true } },
+      },
+    });
+    if (valid !== perServiceIds.length) {
+      return fail("One or more selected staff are not active at this branch", 422, {
+        serviceWorkers: ["Choose staff who work at this branch"],
+      });
+    }
   }
 
   // ── Assistant (optional) ─────────────────────────────────────────────────
@@ -305,7 +349,7 @@ export async function createBooking(
     ["chairCabinNo", input.chairCabinNo, "chair"],
     ["roomNo", input.roomNo, "room"],
   ] as const) {
-    if (!value) continue;
+    if (!value || skipSlotClashes) continue;
     const clash = await prisma.appointment.count({
       where: {
         branchId: branch.id,
@@ -380,8 +424,13 @@ export async function createBooking(
         services: {
           create: serviceRows.map((r) => ({
             ...r,
-            // Per-service override takes priority; falls back to the appointment worker.
-            workerId: input.serviceWorkers?.[r.serviceId] ?? resolvedWorkerId,
+            // With a per-service map, each line is credited only to the person named
+            // for it — an unassigned line stays unassigned rather than silently
+            // landing on the lead stylist. Without a map, the appointment worker
+            // does every service.
+            workerId: serviceWorkers
+              ? serviceWorkers[r.serviceId] || null
+              : resolvedWorkerId,
           })),
         },
       },

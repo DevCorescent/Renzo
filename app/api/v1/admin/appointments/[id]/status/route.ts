@@ -8,6 +8,7 @@ import { requireAuth } from "@/lib/auth-guard";
 import { requireBranchScope } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 import { notifyAppointmentConfirmed } from "@/lib/notifications";
+import { syncServiceProgress } from "@/lib/appointment-work";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -169,6 +170,10 @@ export async function PATCH(
           },
         },
       });
+
+      // Keep each service line in step, so the visit counts in the worker's
+      // "services performed" and history — not just on the appointment row.
+      await syncServiceProgress(tx, updated.id, status as AppointmentStatus, now);
 
       if (
         (status as AppointmentStatus) === AppointmentStatus.CONFIRMED &&

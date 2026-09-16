@@ -22,15 +22,18 @@ export async function GET(req: NextRequest) {
   if (!branchId) return err("No branch associated with your account", 403);
 
   const { searchParams } = new URL(req.url);
-  const dateStr = searchParams.get("date") ?? new Date().toISOString().slice(0, 10);
-
-  const dateObj = new Date(dateStr + "T00:00:00");
+  // appointmentDate is a @db.Date stored at UTC midnight, so match the calendar
+  // day exactly. Default is today in salon time (IST), not the server's zone.
+  const dateStr =
+    searchParams.get("date") ?? new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return err("Invalid date", 400);
+  const dateObj = new Date(`${dateStr}T00:00:00.000Z`);
   if (isNaN(dateObj.getTime())) return err("Invalid date", 400);
 
   const appointments = await prisma.appointment.findMany({
     where: {
       branchId,
-      appointmentDate: { gte: dateObj, lte: new Date(dateStr + "T23:59:59") },
+      appointmentDate: dateObj,
       status: { notIn: ["CANCELLED", "NO_SHOW"] },
     },
     orderBy: { startTime: "asc" },
@@ -39,6 +42,11 @@ export async function GET(req: NextRequest) {
       appointmentNo: true,
       status: true,
       startTime: true,
+      appointmentDate: true,
+      chairCabinNo: true,
+      roomNo: true,
+      notes: true,
+      assistantWorkerId: true,
       source: true,
       customer: {
         select: {
@@ -52,6 +60,7 @@ export async function GET(req: NextRequest) {
       services: {
         select: {
           serviceId: true,
+          workerId: true,
           price: true,
           duration: true,
           service: { select: { name: true } },
@@ -71,6 +80,11 @@ export async function GET(req: NextRequest) {
     appointmentNo: a.appointmentNo,
     status: a.status,
     startTime: a.startTime,
+    appointmentDate: a.appointmentDate.toISOString().slice(0, 10),
+    chairCabinNo: a.chairCabinNo,
+    roomNo: a.roomNo,
+    notes: a.notes,
+    assistantWorkerId: a.assistantWorkerId,
     source: a.source,
     customer: {
       id: a.customer.id,
@@ -84,6 +98,8 @@ export async function GET(req: NextRequest) {
     workerName: a.worker ? `${a.worker.firstName} ${a.worker.lastName}`.trim() : null,
     serviceNames: a.services.map((s) => s.service.name).join(", ") || "—",
     serviceCount: a.services.length,
+    // Lets the console restore the service rows (and bill preview) on resume.
+    services: a.services.map((s) => ({ serviceId: s.serviceId, workerId: s.workerId })),
     invoice: a.invoice
       ? {
           id: a.invoice.id,
