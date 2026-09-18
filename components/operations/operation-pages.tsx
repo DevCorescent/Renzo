@@ -15,14 +15,30 @@ import prisma from "@/lib/db";
 import { getServerUser } from "@/lib/server-session";
 import { branchWhere, requireBranchScope } from "@/lib/branch-scope";
 import { PageHeader } from "@/components/shared/ui";
-import { SaleTerminal, type CatalogueItem } from "@/components/operations/sale-terminal";
+import {
+  SaleTerminal,
+  type CatalogueItem,
+} from "@/components/operations/sale-terminal";
 import { WalkInConsole } from "@/components/operations/walk-in-console";
 import { HealthView } from "@/components/operations/health-view";
 import { QualificationManager } from "@/components/operations/qualification-manager";
-import { ExpenseManager, type ExpenseRow } from "@/components/operations/expense-manager";
-import { MembershipSale, LoyaltyAdjust, type PlanOption } from "@/components/operations/quick-forms";
-import { operationsCapabilitiesFor, type OperationsCapability } from "@/lib/operations";
-import { billingCapabilitiesFor, BILLABLE_STATUSES } from "@/lib/billing-service";
+import {
+  ExpenseManager,
+  type ExpenseRow,
+} from "@/components/operations/expense-manager";
+import {
+  MembershipSale,
+  LoyaltyAdjust,
+  type PlanOption,
+} from "@/components/operations/quick-forms";
+import {
+  operationsCapabilitiesFor,
+  type OperationsCapability,
+} from "@/lib/operations";
+import {
+  billingCapabilitiesFor,
+  BILLABLE_STATUSES,
+} from "@/lib/billing-service";
 import { loadHealthReport, loadWorkerReadiness } from "@/lib/health-service";
 import { BillingWorkspace } from "@/components/operations/billing-workspace";
 import type { AuthUser, UserType } from "@/types/api";
@@ -30,10 +46,16 @@ import type { AuthUser, UserType } from "@/types/api";
 /** Shared guard: role allowed, capability held, branch scope resolved. */
 async function guard(
   allowedRoles: readonly UserType[],
-  capability: keyof OperationsCapability
-): Promise<{ user: AuthUser; caps: OperationsCapability; branchId: string | null; isGlobal: boolean }> {
+  capability: keyof OperationsCapability,
+): Promise<{
+  user: AuthUser;
+  caps: OperationsCapability;
+  branchId: string | null;
+  isGlobal: boolean;
+}> {
   const authUser = await getServerUser();
-  if (!authUser || !allowedRoles.includes(authUser.userType)) redirect("/login");
+  if (!authUser || !allowedRoles.includes(authUser.userType))
+    redirect("/login");
 
   const caps = operationsCapabilitiesFor(authUser.userType);
   if (!caps[capability]) redirect("/unauthorized");
@@ -41,14 +63,23 @@ async function guard(
   const { scope, error } = requireBranchScope(authUser);
   if (error || !scope) redirect("/unauthorized");
 
-  return { user: authUser, caps, branchId: scope.branchId, isGlobal: scope.isGlobal };
+  return {
+    user: authUser,
+    caps,
+    branchId: scope.branchId,
+    isGlobal: scope.isGlobal,
+  };
 }
 
 // ============================================================================
 // DIRECT SALE
 // ============================================================================
 
-export async function SalePage({ allowedRoles }: { allowedRoles: readonly UserType[] }) {
+export async function SalePage({
+  allowedRoles,
+}: {
+  allowedRoles: readonly UserType[];
+}) {
   // NOT `guard(..., "canManualBill")`: that reads the STATIC table, which cannot
   // know about `BranchSetting.allowReceptionBlankBill`. The real permission comes
   // from billing-service — the same function the API enforces with — so the page
@@ -58,11 +89,20 @@ export async function SalePage({ allowedRoles }: { allowedRoles: readonly UserTy
   const setting = branchId
     ? await prisma.branchSetting.findUnique({
         where: { branchId },
-        select: { taxPercent: true, taxName: true, allowReceptionBlankBill: true },
+        select: {
+          taxPercent: true,
+          taxName: true,
+          allowReceptionBlankBill: true,
+        },
       })
     : null;
 
-  if (!billingCapabilitiesFor(user.userType, setting?.allowReceptionBlankBill ?? false).canBlankBill) {
+  if (
+    !billingCapabilitiesFor(
+      user.userType,
+      setting?.allowReceptionBlankBill ?? false,
+    ).canBlankBill
+  ) {
     redirect("/unauthorized");
   }
 
@@ -138,7 +178,11 @@ export async function SalePage({ allowedRoles }: { allowedRoles: readonly UserTy
 // WALK-IN CONSOLE
 // ============================================================================
 
-export async function WalkInPage({ allowedRoles }: { allowedRoles: readonly UserType[] }) {
+export async function WalkInPage({
+  allowedRoles,
+}: {
+  allowedRoles: readonly UserType[];
+}) {
   const { branchId } = await guard(allowedRoles, "canBookAppointment");
 
   const [setting, services, workers] = await Promise.all([
@@ -160,7 +204,11 @@ export async function WalkInPage({ allowedRoles }: { allowedRoles: readonly User
         basePrice: true,
         duration: true,
         branchPricings: branchId
-          ? { where: { branchId, isActive: true }, select: { price: true }, take: 1 }
+          ? {
+              where: { branchId, isActive: true },
+              select: { price: true },
+              take: 1,
+            }
           : false,
       },
     }),
@@ -168,11 +216,19 @@ export async function WalkInPage({ allowedRoles }: { allowedRoles: readonly User
     prisma.workerProfile.findMany({
       where: {
         isActive: true,
-        ...(branchId ? { branches: { some: { branchId, isActive: true } } } : {}),
+        ...(branchId
+          ? { branches: { some: { branchId, isActive: true } } }
+          : {}),
       },
       orderBy: { firstName: "asc" },
       take: 200,
-      select: { id: true, firstName: true, lastName: true, displayName: true, employeeCode: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        displayName: true,
+        employeeCode: true,
+      },
     }),
   ]);
 
@@ -192,12 +248,16 @@ export async function WalkInPage({ allowedRoles }: { allowedRoles: readonly User
         }))}
         workers={workers.map((w) => ({
           id: w.id,
-          name: w.displayName?.trim() || `${w.firstName} ${w.lastName ?? ""}`.trim(),
+          name:
+            w.displayName?.trim() ||
+            `${w.firstName} ${w.lastName ?? ""}`.trim(),
           employeeCode: w.employeeCode,
         }))}
         taxPercent={setting?.taxPercent ?? 0}
         taxName={setting?.taxName ?? "Tax"}
-        defaultPrintFormat={(setting?.printFormat ?? "A4") as "A4" | "THERMAL_80" | "THERMAL_58"}
+        defaultPrintFormat={
+          (setting?.printFormat ?? "A4") as "A4" | "THERMAL_80" | "THERMAL_58"
+        }
         billingBasePath="/reception/billing"
       />
     </div>
@@ -208,7 +268,11 @@ export async function WalkInPage({ allowedRoles }: { allowedRoles: readonly User
 // EXPENSES
 // ============================================================================
 
-export async function ExpensesPage({ allowedRoles }: { allowedRoles: readonly UserType[] }) {
+export async function ExpensesPage({
+  allowedRoles,
+}: {
+  allowedRoles: readonly UserType[];
+}) {
   const { branchId, isGlobal } = await guard(allowedRoles, "canRecordExpense");
 
   const scopeWhere = branchWhere({
@@ -220,7 +284,6 @@ export async function ExpensesPage({ allowedRoles }: { allowedRoles: readonly Us
     prisma.expense.findMany({
       where: scopeWhere,
       orderBy: [{ expenseDate: "desc" }, { createdAt: "desc" }],
-      take: 300,
       select: {
         id: true,
         category: true,
@@ -272,7 +335,11 @@ export async function ExpensesPage({ allowedRoles }: { allowedRoles: readonly Us
 // MEMBERSHIP SALE
 // ============================================================================
 
-export async function MembershipSalePage({ allowedRoles }: { allowedRoles: readonly UserType[] }) {
+export async function MembershipSalePage({
+  allowedRoles,
+}: {
+  allowedRoles: readonly UserType[];
+}) {
   await guard(allowedRoles, "canSellMembership");
 
   const plans = await prisma.membershipPlan.findMany({
@@ -310,7 +377,11 @@ export async function MembershipSalePage({ allowedRoles }: { allowedRoles: reado
 // LOYALTY ADJUSTMENT
 // ============================================================================
 
-export async function LoyaltyPage({ allowedRoles }: { allowedRoles: readonly UserType[] }) {
+export async function LoyaltyPage({
+  allowedRoles,
+}: {
+  allowedRoles: readonly UserType[];
+}) {
   await guard(allowedRoles, "canAdjustLoyalty");
 
   return (
@@ -342,12 +413,15 @@ export async function HealthPage({
   const { branchId, isGlobal } = await guard(allowedRoles, "canManageStaff");
 
   const branch = branchId
-    ? await prisma.branch.findUnique({ where: { id: branchId }, select: { name: true } })
+    ? await prisma.branch.findUnique({
+        where: { id: branchId },
+        select: { name: true },
+      })
     : null;
 
   const report = await loadHealthReport(
     { isGlobal, branchId } as Parameters<typeof loadHealthReport>[0],
-    branch?.name ?? "all branches"
+    branch?.name ?? "all branches",
   );
 
   return <HealthView report={report} basePath={basePath} />;
@@ -360,11 +434,17 @@ export async function HealthPage({
 // qualified for no services. Health names the count; this page clears it.
 // ============================================================================
 
-export async function QualificationPage({ allowedRoles }: { allowedRoles: readonly UserType[] }) {
+export async function QualificationPage({
+  allowedRoles,
+}: {
+  allowedRoles: readonly UserType[];
+}) {
   const { branchId, isGlobal } = await guard(allowedRoles, "canManageStaff");
 
   const [rows, services] = await Promise.all([
-    loadWorkerReadiness({ isGlobal, branchId } as Parameters<typeof loadWorkerReadiness>[0]),
+    loadWorkerReadiness({ isGlobal, branchId } as Parameters<
+      typeof loadWorkerReadiness
+    >[0]),
     // Only what PUT /admin/workers/:id/services will accept — it refuses an
     // inactive service, or one under a deactivated category, so offering either
     // here would produce a 422 the operator could do nothing about.
@@ -401,63 +481,72 @@ export async function BillingPage({
 }) {
   const { branchId, isGlobal } = await guard(allowedRoles, "canBill");
 
-  const [invoices, unbilled, catalogueServices, catalogueProducts] = await Promise.all([
-    prisma.invoice.findMany({
-      where: branchId ? { branchId } : {},
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      include: {
-        appointment: {
-          select: {
-            customer: { select: { firstName: true, lastName: true, phone: true } },
+  const [invoices, unbilled, catalogueServices, catalogueProducts] =
+    await Promise.all([
+      prisma.invoice.findMany({
+        where: branchId ? { branchId } : {},
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        include: {
+          appointment: {
+            select: {
+              customer: {
+                select: { firstName: true, lastName: true, phone: true },
+              },
+            },
           },
         },
-      },
-    }),
-    prisma.appointment.findMany({
-      where: {
-        ...(branchId ? { branchId } : {}),
-        // The customer has arrived (checked in / in-chair / done) but has no
-        // invoice yet — anything the billing API will actually accept. Only
-        // showing COMPLETED hid arrived customers the desk still had to bill.
-        status: { in: [...BILLABLE_STATUSES] },
-        invoice: { is: null },
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 30,
-      include: {
-        customer: { select: { firstName: true, lastName: true, phone: true } },
-        services: { include: { service: { select: { name: true } } } },
-      },
-    }),
-    // Catalogue for adding ad-hoc services onto a bill at the desk.
-    prisma.service.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-      take: 400,
-      select: { id: true, name: true, basePrice: true },
-    }),
-    // Retail products too — stock is per-branch, so only offer counts for a
-    // branch-scoped desk. A platform role with no branch sees them without stock.
-    prisma.product.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-      take: 400,
-      select: {
-        id: true,
-        name: true,
-        sellingPrice: true,
-        stocks: branchId ? { where: { branchId }, select: { quantity: true }, take: 1 } : false,
-      },
-    }),
-  ]);
+      }),
+      prisma.appointment.findMany({
+        where: {
+          ...(branchId ? { branchId } : {}),
+          // The customer has arrived (checked in / in-chair / done) but has no
+          // invoice yet — anything the billing API will actually accept. Only
+          // showing COMPLETED hid arrived customers the desk still had to bill.
+          status: { in: [...BILLABLE_STATUSES] },
+          invoice: { is: null },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 30,
+        include: {
+          customer: {
+            select: { firstName: true, lastName: true, phone: true },
+          },
+          services: { include: { service: { select: { name: true } } } },
+        },
+      }),
+      // Catalogue for adding ad-hoc services onto a bill at the desk.
+      prisma.service.findMany({
+        where: { isActive: true },
+        orderBy: { name: "asc" },
+        take: 400,
+        select: { id: true, name: true, basePrice: true },
+      }),
+      // Retail products too — stock is per-branch, so only offer counts for a
+      // branch-scoped desk. A platform role with no branch sees them without stock.
+      prisma.product.findMany({
+        where: { isActive: true },
+        orderBy: { name: "asc" },
+        take: 400,
+        select: {
+          id: true,
+          name: true,
+          sellingPrice: true,
+          stocks: branchId
+            ? { where: { branchId }, select: { quantity: true }, take: 1 }
+            : false,
+        },
+      }),
+    ]);
 
   // Invoice has customerId / branchId columns but no Prisma relations — look
   // those up only for rows that need them (counter sales, global branch label).
   const orphanCustomerIds = [
     ...new Set(invoices.filter((i) => !i.appointment).map((i) => i.customerId)),
   ];
-  const branchIds = isGlobal ? [...new Set(invoices.map((i) => i.branchId))] : [];
+  const branchIds = isGlobal
+    ? [...new Set(invoices.map((i) => i.branchId))]
+    : [];
   const [customers, branches] = await Promise.all([
     orphanCustomerIds.length
       ? prisma.customer.findMany({
@@ -512,7 +601,8 @@ export async function BillingPage({
       unbilled={unbilled.map((a) => ({
         id: a.id,
         appointmentNo: a.appointmentNo,
-        customerName: `${a.customer.firstName} ${a.customer.lastName ?? ""}`.trim(),
+        customerName:
+          `${a.customer.firstName} ${a.customer.lastName ?? ""}`.trim(),
         customerPhone: a.customer.phone,
         services: a.services.map((s) => s.service.name).join(", "),
         totalAmount: Number(a.totalAmount),

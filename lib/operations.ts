@@ -146,7 +146,9 @@ const ROLE_OPERATIONS: Record<UserType, OperationsCapability> = {
   ACCOUNTANT: NO_OPS,
 };
 
-export function operationsCapabilitiesFor(userType: UserType): OperationsCapability {
+export function operationsCapabilitiesFor(
+  userType: UserType,
+): OperationsCapability {
   return ROLE_OPERATIONS[userType];
 }
 
@@ -200,7 +202,10 @@ type OperationBase = {
  * Setting both, or neither, fails the build rather than producing a dead card.
  */
 export type OperationDef = OperationBase &
-  ({ href: string; absoluteHref?: never } | { href?: never; absoluteHref: string });
+  (
+    | { href: string; absoluteHref?: never }
+    | { href?: never; absoluteHref: string }
+  );
 
 /** The URL a card opens for a given role. */
 export function operationHref(op: OperationDef, basePath: string): string {
@@ -219,7 +224,8 @@ export const OPERATIONS: OperationDef[] = [
   {
     key: "walkIn",
     label: "Walk-In Console",
-    description: "Customer → booking → service → bill → payment → invoice, on one screen.",
+    description:
+      "Customer → booking → service → bill → payment → invoice, on one screen.",
     group: "Front desk",
     requires: "canBookAppointment",
     href: "walk-in",
@@ -260,7 +266,8 @@ export const OPERATIONS: OperationDef[] = [
   {
     key: "billing",
     label: "Manual Billing",
-    description: "Raise an invoice: services, products, discount, tax and tips.",
+    description:
+      "Raise an invoice: services, products, discount, tax and tips.",
     group: "Money",
     requires: "canBill",
     href: "billing",
@@ -285,7 +292,8 @@ export const OPERATIONS: OperationDef[] = [
   {
     key: "membership",
     label: "Sell Membership",
-    description: "Sell and activate a plan immediately, benefits applied at once.",
+    description:
+      "Sell and activate a plan immediately, benefits applied at once.",
     group: "Money",
     requires: "canSellMembership",
     href: "membership",
@@ -325,7 +333,8 @@ export const OPERATIONS: OperationDef[] = [
   {
     key: "loyalty",
     label: "Loyalty Adjustment",
-    description: "Add or deduct points by hand. Reason mandatory, always audited.",
+    description:
+      "Add or deduct points by hand. Reason mandatory, always audited.",
     group: "Money",
     requires: "canAdjustLoyalty",
     href: "loyalty",
@@ -342,7 +351,8 @@ export const OPERATIONS: OperationDef[] = [
   {
     key: "staff",
     label: "Staff Management",
-    description: "Create, edit, transfer, assign shifts, services and branches.",
+    description:
+      "Create, edit, transfer, assign shifts, services and branches.",
     group: "People",
     requires: "canManageStaff",
     href: "workers",
@@ -351,7 +361,8 @@ export const OPERATIONS: OperationDef[] = [
   {
     key: "health",
     label: "System Health",
-    description: "What will block staff today — unbookable stylists, stock, money, config.",
+    description:
+      "What will block staff today — unbookable stylists, stock, money, config.",
     group: "People",
     requires: "canManageStaff",
     href: "health",
@@ -371,7 +382,12 @@ export function operationsFor(caps: OperationsCapability): OperationDef[] {
   return OPERATIONS.filter((op) => caps[op.requires]);
 }
 
-export const OPERATION_GROUPS: OperationGroup[] = ["Front desk", "Money", "People", "Stock"];
+export const OPERATION_GROUPS: OperationGroup[] = [
+  "Front desk",
+  "Money",
+  "People",
+  "Stock",
+];
 
 // ============================================================================
 // EXPENSES
@@ -401,7 +417,8 @@ export function expenseCategoryLabel(
   category: string,
   customCategory?: string | null,
 ): string {
-  if (category === "OTHERS" && customCategory?.trim()) return customCategory.trim();
+  if (category === "OTHERS" && customCategory?.trim())
+    return customCategory.trim();
   return labelise(category);
 }
 
@@ -417,7 +434,12 @@ export const PAYMENT_METHODS = [
 ] as const;
 
 /** Methods that make sense for money going OUT of the branch. */
-export const EXPENSE_PAYMENT_METHODS = ["CASH", "UPI", "CARD", "ONLINE"] as const;
+export const EXPENSE_PAYMENT_METHODS = [
+  "CASH",
+  "UPI",
+  "CARD",
+  "ONLINE",
+] as const;
 
 // ============================================================================
 // FORMATTING
@@ -433,5 +455,8 @@ export function labelise(value: string | null | undefined): string {
 }
 
 export function formatMoney(value: number): string {
-  return `₹${Number(value ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+  }).format(Number(value ?? 0));
 }

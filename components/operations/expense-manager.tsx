@@ -10,10 +10,30 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
-import { Badge, Card, CardBody, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import {
+  Badge,
+  Card,
+  CardBody,
+  CardHeader,
+  CardTitle,
+  Table,
+  THead,
+  TH,
+  TR,
+  TD,
+} from "@/components/shared/ui";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_PAYMENT_METHODS,
@@ -44,7 +64,10 @@ const inputCls =
 const selectCls = cn(inputCls, "cursor-pointer appearance-none pr-9");
 
 /** A <select> styled to match inputs, with a chevron that clears the edge. */
-function Select({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+function Select({
+  children,
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <div className="relative">
       <select {...props} className={selectCls}>
@@ -54,7 +77,8 @@ function Select({ children, ...props }: React.SelectHTMLAttributes<HTMLSelectEle
     </div>
   );
 }
-const labelCls = "mb-1 block text-xs font-medium text-gray-600 dark:text-(--sa-text-2)";
+const labelCls =
+  "mb-1 block text-xs font-medium text-gray-600 dark:text-(--sa-text-2)";
 const btnGhost =
   "inline-flex h-9 items-center justify-center gap-1.5 rounded border border-gray-200 px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-(--sa-border) dark:text-(--sa-text-2) dark:hover:bg-white/5";
 const btnPrimary =
@@ -111,7 +135,10 @@ export function ExpenseManager({
 
   // Floating confirmation after a record / edit / delete. No toast library is
   // installed, so this follows the same local pattern as the other screens.
-  const [toast, setToast] = React.useState<{ text: string; ok: boolean } | null>(null);
+  const [toast, setToast] = React.useState<{
+    text: string;
+    ok: boolean;
+  } | null>(null);
 
   React.useEffect(() => {
     if (!toast) return;
@@ -161,31 +188,43 @@ export function ExpenseManager({
     setErrors({});
 
     try {
-      const res = await fetch(editingId ? API.admin.expense(editingId) : API.admin.expenses, {
-        method: editingId ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          category,
-          customCategory: category === "OTHERS" ? customCategory.trim() : null,
-          amount: Number(amount),
-          expenseDate,
-          description: description.trim(),
-          paidVia,
-          vendor: vendor.trim() || null,
-          referenceNo: referenceNo.trim() || null,
-          ...(!editingId && canChooseBranch && branchId ? { branchId } : {}),
-        }),
-      });
+      const res = await fetch(
+        editingId ? API.admin.expense(editingId) : API.admin.expenses,
+        {
+          method: editingId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            category,
+            customCategory:
+              category === "OTHERS" ? customCategory.trim() : null,
+            amount: Number(amount),
+            expenseDate,
+            description: description.trim(),
+            paidVia,
+            vendor: vendor.trim() || null,
+            referenceNo: referenceNo.trim() || null,
+            ...(!editingId && canChooseBranch && branchId ? { branchId } : {}),
+          }),
+        },
+      );
       const json = await res.json().catch(() => null);
       setBusy(false);
 
       if (!res.ok || !json?.success) {
-        setBanner(json?.message ?? (editingId ? "Could not update the expense." : "Could not record the expense."));
+        setBanner(
+          json?.message ??
+            (editingId
+              ? "Could not update the expense."
+              : "Could not record the expense."),
+        );
         setErrors(json?.errors ?? {});
         return;
       }
 
-      setToast({ text: editingId ? "Changes saved" : "Expense added", ok: true });
+      setToast({
+        text: editingId ? "Changes saved" : "Expense added",
+        ok: true,
+      });
       if (editingId) {
         resetForm();
       } else {
@@ -219,7 +258,9 @@ export function ExpenseManager({
 
   const fieldError = (name: string) =>
     errors[name]?.[0] ? (
-      <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors[name][0]}</p>
+      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+        {errors[name][0]}
+      </p>
     ) : null;
 
   // Search every column the user can see — date, category, description, vendor,
@@ -239,22 +280,29 @@ export function ExpenseManager({
         r.referenceNo,
         r.branch?.name,
         labelise(r.paidVia),
-        String(r.amount),
-        formatMoney(r.amount),
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
-      // "2000" should find ₹2,000 — compare with separators stripped too.
-      const bare = haystack.replace(/[₹,]/g, "");
-      return tokens.every((t) => haystack.includes(t) || bare.includes(t.replace(/[₹,]/g, "")));
+
+      const normalizedAmount = Number(r.amount).toFixed(2);
+      return tokens.every((token) => {
+        if (haystack.includes(token)) return true;
+        const normalizedToken = token.replace(/[₹,]/g, "");
+        return (
+          /^\d+(?:\.\d+)?$/.test(normalizedToken) &&
+          Number(normalizedToken).toFixed(2) === normalizedAmount
+        );
+      });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, needle]);
 
   const isFiltering = tokens.length > 0;
   const shownCount = isFiltering ? visibleRows.length : total;
-  const shownTotal = isFiltering ? visibleRows.reduce((sum, r) => sum + Number(r.amount), 0) : filteredTotal;
+  const shownTotal = isFiltering
+    ? visibleRows.reduce((sum, r) => sum + Number(r.amount), 0)
+    : filteredTotal;
 
   return (
     // The form sits beside the table only on very wide screens; below that it
@@ -264,25 +312,37 @@ export function ExpenseManager({
         ref={formRef}
         className={cn(
           "@container h-fit min-w-0 scroll-mt-4 transition-colors",
-          editingId && "border-amber-300 dark:border-amber-400/40"
+          editingId && "border-amber-300 dark:border-amber-400/40",
         )}
       >
         <CardHeader>
           <div>
-            <CardTitle>{editingId ? "Edit expense" : "Record an expense"}</CardTitle>
+            <CardTitle>
+              {editingId ? "Edit expense" : "Record an expense"}
+            </CardTitle>
             <p className="mt-0.5 text-xs text-gray-500 dark:text-(--sa-muted)">
-              {editingId ? "Update the details and save." : "Add a bill or payment made by the branch."}
+              {editingId
+                ? "Update the details and save."
+                : "Add a bill or payment made by the branch."}
             </p>
           </div>
           {editingId && (
-            <button type="button" onClick={resetForm} aria-label="Cancel editing" title="Cancel editing"
-              className="rounded p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/5">
+            <button
+              type="button"
+              onClick={resetForm}
+              aria-label="Cancel editing"
+              title="Cancel editing"
+              className="rounded p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/5"
+            >
               <X className="size-4" aria-hidden="true" />
             </button>
           )}
         </CardHeader>
         <CardBody>
-          <form onSubmit={submit} className="grid grid-cols-2 gap-x-3 gap-y-3.5 @2xl:grid-cols-4">
+          <form
+            onSubmit={submit}
+            className="grid grid-cols-2 gap-x-3 gap-y-3.5 @2xl:grid-cols-4"
+          >
             {banner && (
               <p className="col-span-full rounded border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
                 {banner}
@@ -290,74 +350,155 @@ export function ExpenseManager({
             )}
 
             <div className="col-span-2 @2xl:col-span-1">
-              <label className={labelCls} htmlFor="exp-cat">Category</label>
-              <Select id="exp-cat" value={category} onChange={(e) => setCategory(e.target.value)}>
+              <label className={labelCls} htmlFor="exp-cat">
+                Category
+              </label>
+              <Select
+                id="exp-cat"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
                 {EXPENSE_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{labelise(c)}</option>
+                  <option key={c} value={c}>
+                    {labelise(c)}
+                  </option>
                 ))}
               </Select>
             </div>
             <div>
-              <label className={labelCls} htmlFor="exp-amount">Amount (₹)</label>
-              <input id="exp-amount" type="number" min={0.01} step="0.01" required value={amount}
-                onChange={(e) => setAmount(e.target.value)} className={inputCls} placeholder="0.00" />
+              <label className={labelCls} htmlFor="exp-amount">
+                Amount (₹)
+              </label>
+              <input
+                id="exp-amount"
+                type="number"
+                min={0.01}
+                step="0.01"
+                required
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className={inputCls}
+                placeholder="0.00"
+              />
               {fieldError("amount")}
             </div>
             <div>
-              <label className={labelCls} htmlFor="exp-date">Date</label>
-              <input id="exp-date" type="date" required max={today} value={expenseDate}
-                onChange={(e) => setExpenseDate(e.target.value)} className={inputCls} />
+              <label className={labelCls} htmlFor="exp-date">
+                Date
+              </label>
+              <input
+                id="exp-date"
+                type="date"
+                required
+                max={today}
+                value={expenseDate}
+                onChange={(e) => setExpenseDate(e.target.value)}
+                className={inputCls}
+              />
               {fieldError("expenseDate")}
             </div>
             <div className="col-span-2 @2xl:col-span-1">
-              <label className={labelCls} htmlFor="exp-via">Paid via</label>
-              <Select id="exp-via" value={paidVia} onChange={(e) => setPaidVia(e.target.value)}>
+              <label className={labelCls} htmlFor="exp-via">
+                Paid via
+              </label>
+              <Select
+                id="exp-via"
+                value={paidVia}
+                onChange={(e) => setPaidVia(e.target.value)}
+              >
                 {EXPENSE_PAYMENT_METHODS.map((m) => (
-                  <option key={m} value={m}>{labelise(m)}</option>
+                  <option key={m} value={m}>
+                    {labelise(m)}
+                  </option>
                 ))}
               </Select>
             </div>
 
             {category === "OTHERS" && (
               <div className="col-span-2">
-                <label className={labelCls} htmlFor="exp-custom-cat">Category name</label>
-                <input id="exp-custom-cat" required minLength={2} maxLength={60} value={customCategory}
-                  onChange={(e) => setCustomCategory(e.target.value)} className={inputCls}
-                  placeholder="Type the category" />
+                <label className={labelCls} htmlFor="exp-custom-cat">
+                  Category name
+                </label>
+                <input
+                  id="exp-custom-cat"
+                  required
+                  minLength={2}
+                  maxLength={60}
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  className={inputCls}
+                  placeholder="Type the category"
+                />
                 {fieldError("customCategory")}
               </div>
             )}
 
             <div className="col-span-2">
-              <label className={labelCls} htmlFor="exp-desc">Description</label>
-              <input id="exp-desc" required minLength={2} maxLength={200} value={description}
-                onChange={(e) => setDescription(e.target.value)} className={inputCls}
-                placeholder="e.g. July electricity bill" />
+              <label className={labelCls} htmlFor="exp-desc">
+                Description
+              </label>
+              <input
+                id="exp-desc"
+                required
+                minLength={2}
+                maxLength={200}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className={inputCls}
+                placeholder="e.g. July electricity bill"
+              />
               {fieldError("description")}
             </div>
 
             <div>
               <label className={labelCls} htmlFor="exp-vendor">
-                Vendor <span className="font-normal text-gray-400 dark:text-(--sa-muted)">(optional)</span>
+                Vendor{" "}
+                <span className="font-normal text-gray-400 dark:text-(--sa-muted)">
+                  (optional)
+                </span>
               </label>
-              <input id="exp-vendor" value={vendor} onChange={(e) => setVendor(e.target.value)}
-                className={inputCls} maxLength={120} placeholder="e.g. Tata Power" />
+              <input
+                id="exp-vendor"
+                value={vendor}
+                onChange={(e) => setVendor(e.target.value)}
+                className={inputCls}
+                maxLength={120}
+                placeholder="e.g. Tata Power"
+              />
             </div>
             <div>
               <label className={labelCls} htmlFor="exp-ref">
-                Bill / ref no. <span className="font-normal text-gray-400 dark:text-(--sa-muted)">(optional)</span>
+                Bill / ref no.{" "}
+                <span className="font-normal text-gray-400 dark:text-(--sa-muted)">
+                  (optional)
+                </span>
               </label>
-              <input id="exp-ref" value={referenceNo} onChange={(e) => setReferenceNo(e.target.value)}
-                className={inputCls} maxLength={60} placeholder="e.g. INV-1042" />
+              <input
+                id="exp-ref"
+                value={referenceNo}
+                onChange={(e) => setReferenceNo(e.target.value)}
+                className={inputCls}
+                maxLength={60}
+                placeholder="e.g. INV-1042"
+              />
             </div>
 
             {canChooseBranch && !editingId && (
               <div className="col-span-2">
-                <label className={labelCls} htmlFor="exp-branch">Branch</label>
-                <Select id="exp-branch" value={branchId} onChange={(e) => setBranchId(e.target.value)} required>
+                <label className={labelCls} htmlFor="exp-branch">
+                  Branch
+                </label>
+                <Select
+                  id="exp-branch"
+                  value={branchId}
+                  onChange={(e) => setBranchId(e.target.value)}
+                  required
+                >
                   <option value="">Choose a branch…</option>
                   {branches.map((b) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
                   ))}
                 </Select>
                 {fieldError("branchId")}
@@ -366,11 +507,20 @@ export function ExpenseManager({
 
             <div className="col-span-full flex gap-2 pt-1 @2xl:justify-end">
               {editingId && (
-                <button type="button" onClick={resetForm} disabled={busy} className={cn(btnGhost, "flex-1 @2xl:flex-none")}>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  disabled={busy}
+                  className={cn(btnGhost, "flex-1 @2xl:flex-none")}
+                >
                   Cancel
                 </button>
               )}
-              <button type="submit" disabled={busy} className={cn(btnPrimary, "flex-1 @2xl:flex-none")}>
+              <button
+                type="submit"
+                disabled={busy}
+                className={cn(btnPrimary, "flex-1 @2xl:flex-none")}
+              >
                 {busy ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : editingId ? (
@@ -378,7 +528,11 @@ export function ExpenseManager({
                 ) : (
                   <Plus className="size-4" />
                 )}
-                {busy ? "Saving…" : editingId ? "Save changes" : "Record expense"}
+                {busy
+                  ? "Saving…"
+                  : editingId
+                    ? "Save changes"
+                    : "Record expense"}
               </button>
             </div>
           </form>
@@ -399,7 +553,7 @@ export function ExpenseManager({
           </div>
           <div className="text-right">
             <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-(--sa-muted)">
-              {isFiltering ? "Total (filtered)" : "Total spent"}
+              {isFiltering ? "Total spent (filtered)" : "Total spent"}
             </p>
             <p className="text-lg font-semibold tabular-nums text-gray-900 dark:text-(--sa-text)">
               {formatMoney(shownTotal)}
@@ -408,7 +562,10 @@ export function ExpenseManager({
         </CardHeader>
         <div className="border-b border-gray-100 px-4 py-3 dark:border-(--sa-border)">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400"
+              aria-hidden="true"
+            />
             <input
               type="text"
               inputMode="search"
@@ -449,15 +606,23 @@ export function ExpenseManager({
           <tbody>
             {visibleRows.length === 0 ? (
               <tr>
-                <td colSpan={canChooseBranch ? 7 : 6} className="px-4 py-12 text-center text-sm text-gray-400 dark:text-(--sa-muted)">
-                  {needle ? `No expenses match "${search}".` : "No expenses recorded yet."}
+                <td
+                  colSpan={canChooseBranch ? 7 : 6}
+                  className="px-4 py-12 text-center text-sm text-gray-400 dark:text-(--sa-muted)"
+                >
+                  {needle
+                    ? `No expenses match "${search}".`
+                    : "No expenses recorded yet."}
                 </td>
               </tr>
             ) : (
               visibleRows.map((row) => (
                 <TR
                   key={row.id}
-                  className={cn(row.id === editingId && "bg-amber-50 hover:bg-amber-50 dark:bg-amber-400/10 dark:hover:bg-amber-400/10")}
+                  className={cn(
+                    row.id === editingId &&
+                      "bg-amber-50 hover:bg-amber-50 dark:bg-amber-400/10 dark:hover:bg-amber-400/10",
+                  )}
                 >
                   <TD className="whitespace-nowrap text-sm tabular-nums text-gray-600 dark:text-(--sa-text-2)">
                     {formatDate(row.expenseDate)}
@@ -473,7 +638,9 @@ export function ExpenseManager({
                     </span>
                     {(row.vendor || row.referenceNo) && (
                       <span className="block truncate text-xs text-gray-400 dark:text-(--sa-muted)">
-                        {[row.vendor, row.referenceNo].filter(Boolean).join(" · ")}
+                        {[row.vendor, row.referenceNo]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     )}
                   </TD>
@@ -495,18 +662,25 @@ export function ExpenseManager({
                         onClick={() => startEdit(row)}
                         aria-label={`Edit ${row.description}`}
                         title="Edit"
-                        className={cn(iconBtn, "hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 dark:hover:border-blue-500/30 dark:hover:bg-blue-500/10 dark:hover:text-blue-400")}
+                        className={cn(
+                          iconBtn,
+                          "hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 dark:hover:border-blue-500/30 dark:hover:bg-blue-500/10 dark:hover:text-blue-400",
+                        )}
                       >
                         <Pencil className="size-4" aria-hidden="true" />
                       </button>
                       <button
                         type="button"
                         onClick={() => {
-                          if (window.confirm(`Delete "${row.description}"?`)) void remove(row.id);
+                          if (window.confirm(`Delete "${row.description}"?`))
+                            void remove(row.id);
                         }}
                         aria-label={`Delete ${row.description}`}
                         title="Delete"
-                        className={cn(iconBtn, "hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-500/30 dark:hover:bg-red-500/10 dark:hover:text-red-400")}
+                        className={cn(
+                          iconBtn,
+                          "hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:hover:border-red-500/30 dark:hover:bg-red-500/10 dark:hover:text-red-400",
+                        )}
                       >
                         <Trash2 className="size-4" aria-hidden="true" />
                       </button>
@@ -525,15 +699,25 @@ export function ExpenseManager({
           aria-live="polite"
           className={cn(
             "fixed bottom-6 right-6 z-100 flex items-center gap-2.5 rounded-lg border bg-white px-4 py-3 shadow-lg dark:bg-(--sa-surface)",
-            toast.ok ? "border-emerald-200 dark:border-emerald-500/30" : "border-red-200 dark:border-red-500/30"
+            toast.ok
+              ? "border-emerald-200 dark:border-emerald-500/30"
+              : "border-red-200 dark:border-red-500/30",
           )}
         >
           {toast.ok ? (
-            <Check className="size-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <Check
+              className="size-4 text-emerald-600 dark:text-emerald-400"
+              aria-hidden="true"
+            />
           ) : (
-            <X className="size-4 text-red-600 dark:text-red-400" aria-hidden="true" />
+            <X
+              className="size-4 text-red-600 dark:text-red-400"
+              aria-hidden="true"
+            />
           )}
-          <p className="text-sm font-medium text-gray-800 dark:text-(--sa-text)">{toast.text}</p>
+          <p className="text-sm font-medium text-gray-800 dark:text-(--sa-text)">
+            {toast.text}
+          </p>
           <button
             type="button"
             onClick={() => setToast(null)}
