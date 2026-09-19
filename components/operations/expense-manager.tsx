@@ -52,6 +52,7 @@ export type ExpenseRow = {
   paidVia: string;
   vendor: string | null;
   referenceNo: string | null;
+  notes: string | null;
   branch: { id: string; name: string } | null;
 };
 
@@ -121,6 +122,7 @@ export function ExpenseManager({
   const [expenseDate, setExpenseDate] = React.useState(today);
   const [description, setDescription] = React.useState("");
   const [paidVia, setPaidVia] = React.useState("CASH");
+  const [paymentNote, setPaymentNote] = React.useState("");
   const [vendor, setVendor] = React.useState("");
   const [referenceNo, setReferenceNo] = React.useState("");
   const [branchId, setBranchId] = React.useState("");
@@ -157,6 +159,7 @@ export function ExpenseManager({
     setExpenseDate(today);
     setDescription("");
     setPaidVia("CASH");
+    setPaymentNote("");
     setVendor("");
     setReferenceNo("");
     setBanner(null);
@@ -171,6 +174,7 @@ export function ExpenseManager({
     setExpenseDate(row.expenseDate.slice(0, 10));
     setDescription(row.description);
     setPaidVia(row.paidVia);
+    setPaymentNote(row.notes ?? "");
     setVendor(row.vendor ?? "");
     setReferenceNo(row.referenceNo ?? "");
     setBanner(null);
@@ -201,6 +205,7 @@ export function ExpenseManager({
             expenseDate,
             description: description.trim(),
             paidVia,
+            notes: paymentNote.trim() || null,
             vendor: vendor.trim() || null,
             referenceNo: referenceNo.trim() || null,
             ...(!editingId && canChooseBranch && branchId ? { branchId } : {}),
@@ -412,6 +417,21 @@ export function ExpenseManager({
                   </option>
                 ))}
               </Select>
+            </div>
+
+            <div className="col-span-2 @2xl:col-span-1">
+              <label className={labelCls} htmlFor="exp-pay-note">
+                Split payment note{" "}
+                <span className="font-normal text-gray-400 dark:text-(--sa-muted)">(optional)</span>
+              </label>
+              <input
+                id="exp-pay-note"
+                value={paymentNote}
+                onChange={(e) => setPaymentNote(e.target.value)}
+                className={inputCls}
+                maxLength={120}
+                placeholder="e.g. ₹500 Cash + ₹500 UPI"
+              />
             </div>
 
             {category === "OTHERS" && (
@@ -649,8 +669,13 @@ export function ExpenseManager({
                       {row.branch?.name ?? "—"}
                     </TD>
                   )}
-                  <TD className="whitespace-nowrap text-sm text-gray-500 dark:text-(--sa-text-2)">
-                    {labelise(row.paidVia)}
+                  <TD className="text-sm text-gray-500 dark:text-(--sa-text-2)">
+                    <span className="whitespace-nowrap">{labelise(row.paidVia)}</span>
+                    {row.notes && (
+                      <span className="block truncate text-xs text-gray-400 dark:text-(--sa-muted)" title={row.notes}>
+                        {row.notes}
+                      </span>
+                    )}
                   </TD>
                   <TD className="whitespace-nowrap text-right text-sm font-semibold tabular-nums text-gray-900 dark:text-(--sa-text)">
                     {formatMoney(row.amount)}

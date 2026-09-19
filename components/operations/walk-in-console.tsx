@@ -49,6 +49,9 @@ import {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+type PaySplit = { id: string; method: string; amount: string; reference: string };
+const newSplit = (): PaySplit => ({ id: Math.random().toString(36).slice(2), method: "CASH", amount: "", reference: "" });
+
 export type WalkInService = { id: string; name: string; price: number; duration: number };
 export type WalkInWorker  = { id: string; name: string; employeeCode: string };
 export type Customer = {
@@ -507,9 +510,7 @@ export function WalkInConsole({
   const [invoice,     setInvoice]     = React.useState<InvoiceState | null>(null);
 
   // ── Payment ───────────────────────────────────────────────────────────────
-  const [method,    setMethod]    = React.useState("CASH");
-  const [amount,    setAmount]    = React.useState("");
-  const [reference, setReference] = React.useState("");
+  const [splits, setSplits] = React.useState<PaySplit[]>(() => [newSplit()]);
 
   // The step is derived from what exists, so the bar always matches the screen.
   const step: FlowStep = !customer
@@ -578,7 +579,8 @@ export function WalkInConsole({
   const availableToAdd = services.filter((s) => !rows.find((r) => r.serviceId === s.id));
   const matchingToAdd  = availableToAdd.filter((s) => matchesService(s.name, svcQuery));
   const moreOpen = showMore;
-  const amountInvalid = amount.trim() !== "" && !(Number(amount) >= 0);
+  const totalSplitAmount = splits.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const amountInvalid = splits.some(s => s.amount.trim() !== "" && !(Number(s.amount) >= 0));
   // Staff is not required to bill — but until it is set, nobody gets credit.
   const unassignedCount = rows.filter((r) => !r.workerId).length;
   const staffDirty = Boolean(appointment) && rows.some((r) => (savedStaff[r.serviceId] ?? "") !== r.workerId);
@@ -609,7 +611,7 @@ export function WalkInConsole({
     setApptDate(todayIst());
     setAppointment(null); setApptStatus(null); setInvoice(null); setSavedStaff({});
     setSavedDetails({ chair: "", room: "", assistantId: "", notes: "" });
-    setMethod("CASH"); setAmount(""); setReference("");
+    setSplits([newSplit()]);
     setError(null); setNote(null);
   }
 
@@ -703,7 +705,7 @@ export function WalkInConsole({
     });
     if (session.invoice) {
       setInvoice(session.invoice);
-      setAmount(String(session.invoice.balanceDue));
+      setSplits([{ ...newSplit(), amount: String(session.invoice.balanceDue) }]);
     }
     setNote(`Resumed ${session.appointmentNo}.`);
     setView("flow");
@@ -798,20 +800,24 @@ export function WalkInConsole({
     return inv;
   }
 
-  async function collectPayment(inv: InvoiceState, value: number): Promise<InvoiceState> {
-    const data = await post(`${API.reception.bill(inv.id)}/payment`, {
-      method,
-      amount: value,
-      ...(reference.trim() ? { reference: reference.trim() } : {}),
-    });
-    const fresh = data?.invoice;
-    const next: InvoiceState = fresh
-      ? { ...inv, balanceDue: Number(fresh.balanceDue), status: fresh.status, totalAmount: Number(fresh.totalAmount ?? inv.totalAmount) }
-      : { ...inv, balanceDue: Math.max(0, inv.balanceDue - value), status: inv.balanceDue - value <= EPSILON ? "PAID" : "PARTIAL" };
-    setInvoice(next);
-    setAmount(next.balanceDue > EPSILON ? String(next.balanceDue) : "");
-    setReference("");
-    return next;
+  async function collectSplits(inv: InvoiceState, effectiveSplits?: PaySplit[]): Promise<InvoiceState> {
+    const toProcess = (effectiveSplits ?? splits).filter(s => Number(s.amount) > 0);
+    let cur = inv;
+    for (const split of toProcess) {
+      const amt = Math.round(Number(split.amount) * 100) / 100;
+      const data = await post(`${API.reception.bill(cur.id)}/payment`, {
+        method: split.method,
+        amount: amt,
+        ...(split.reference.trim() ? { reference: split.reference.trim() } : {}),
+      });
+      const fresh = data?.invoice;
+      cur = fresh
+        ? { ...cur, balanceDue: Number(fresh.balanceDue), status: fresh.status, totalAmount: Number(fresh.totalAmount ?? cur.totalAmount) }
+        : { ...cur, balanceDue: Math.max(0, cur.balanceDue - amt), status: cur.balanceDue - amt <= EPSILON ? "PAID" : "PARTIAL" };
+    }
+    setInvoice(cur);
+    setSplits([{ ...newSplit(), amount: cur.balanceDue > EPSILON ? String(cur.balanceDue) : "" }]);
+    return cur;
   }
 
   function paymentNote(inv: InvoiceState) {
@@ -866,15 +872,17 @@ export function WalkInConsole({
       let inv = invoice ?? (await raiseInvoice(apptId));
 
       if (collectNow) {
-        const wanted = amount.trim() ? Number(amount) : inv.balanceDue;
-        const pay = Math.min(Math.max(wanted, 0), inv.balanceDue);
+        const effective = splits.some(s => Number(s.amount) > 0)
+          ? splits
+          : [{ ...splits[0], amount: String(inv.balanceDue) }];
+        const pay = effective.reduce((s, r) => s + (Number(r.amount) || 0), 0);
         if (pay > EPSILON) {
-          inv = await collectPayment(inv, Math.round(pay * 100) / 100);
+          inv = await collectSplits(inv, effective);
           setNote(`Invoice ${inv.invoiceNo} generated. ${paymentNote(inv)}`);
           return;
         }
       }
-      setAmount(String(inv.balanceDue));
+      setSplits([{ ...newSplit(), amount: String(inv.balanceDue) }]);
       setNote(`Invoice ${inv.invoiceNo} generated for ${formatMoney(inv.totalAmount)}. Collect the payment below.`);
     });
 
@@ -909,7 +917,7 @@ export function WalkInConsole({
 
   const collect = () =>
     run("Payment", async () => {
-      const next = await collectPayment(invoice!, Number(amount));
+      const next = await collectSplits(invoice!);
       setNote(paymentNote(next));
     });
 
@@ -1171,7 +1179,7 @@ export function WalkInConsole({
   const customerName = customer ? `${customer.firstName} ${customer.lastName ?? ""}`.trim() : "";
   const initials = customerName.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
   const paidSoFar = invoice ? Math.max(0, invoice.totalAmount - invoice.balanceDue) : 0;
-  const payLabel = amount.trim() ? formatMoney(Number(amount) || 0) : formatMoney(grandTotal);
+  const payLabel = totalSplitAmount > 0 ? formatMoney(totalSplitAmount) : formatMoney(grandTotal);
 
   return (
     <div className="space-y-5">
@@ -1529,28 +1537,53 @@ export function WalkInConsole({
                       <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-(--sa-text)">
                         <Wallet className="size-4" aria-hidden="true" /> Payment
                       </p>
-                      <div className="grid gap-4 sm:grid-cols-3">
-                        <div>
-                          <label className={labelCls} htmlFor="wi-q-method">Method</label>
-                          <select id="wi-q-method" value={method} onChange={(e) => setMethod(e.target.value)} className={inputCls}>
-                            {PAY_METHODS.map((m) => <option key={m} value={m}>{labelise(m)}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className={labelCls} htmlFor="wi-q-amt">Amount received (₹)</label>
-                          <input id="wi-q-amt" type="number" min={0} step="0.01" value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            placeholder={`Full · ${formatMoney(grandTotal)}`} className={inputCls} />
-                        </div>
-                        <div>
-                          <label className={labelCls} htmlFor="wi-q-ref">Reference</label>
-                          <input id="wi-q-ref" value={reference} onChange={(e) => setReference(e.target.value)}
-                            className={inputCls} placeholder="UPI ref, last 4 digits…" />
-                        </div>
+                      <div className="space-y-2">
+                        {splits.map((split, i) => (
+                          <div key={split.id} className="grid gap-2 grid-cols-[1fr_1fr_1fr_auto] items-end">
+                            <div>
+                              {i === 0 && <label className={labelCls}>Method</label>}
+                              <select value={split.method} onChange={(e) => setSplits(prev => prev.map((s, idx) => idx === i ? { ...s, method: e.target.value } : s))} className={inputCls}>
+                                {PAY_METHODS.map((m) => <option key={m} value={m}>{labelise(m)}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              {i === 0 && <label className={labelCls}>Amount (₹)</label>}
+                              <input type="number" min={0} step="0.01" value={split.amount}
+                                onChange={(e) => setSplits(prev => prev.map((s, idx) => idx === i ? { ...s, amount: e.target.value } : s))}
+                                className={inputCls} placeholder={i === 0 && splits.length === 1 ? `Full · ${formatMoney(grandTotal)}` : "Amount"} />
+                            </div>
+                            <div>
+                              {i === 0 && <label className={labelCls}>Reference</label>}
+                              <input value={split.reference}
+                                onChange={(e) => setSplits(prev => prev.map((s, idx) => idx === i ? { ...s, reference: e.target.value } : s))}
+                                className={inputCls} placeholder="UPI ref, last 4…" />
+                            </div>
+                            <div className={i === 0 ? "self-end" : ""}>
+                              {splits.length > 1 ? (
+                                <button type="button" onClick={() => setSplits(prev => prev.filter((_, idx) => idx !== i))}
+                                  className="inline-flex size-9 items-center justify-center rounded text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10">
+                                  <X className="size-4" />
+                                </button>
+                              ) : <div className="size-9" />}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <p className="mt-2 text-xs text-gray-500 dark:text-(--sa-muted)">
-                        Leave the amount blank to collect the full bill. Enter less for a part payment.
-                      </p>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <button type="button" onClick={() => setSplits(prev => [...prev, newSplit()])} className={cn(btnGhost, "text-xs")}>
+                          <PlusCircle className="size-3.5" /> Add payment method
+                        </button>
+                        {splits.length > 1 && totalSplitAmount > 0 && (
+                          <span className="text-xs text-gray-500 dark:text-(--sa-muted)">
+                            Total: {formatMoney(totalSplitAmount)}
+                          </span>
+                        )}
+                      </div>
+                      {splits.length === 1 && (
+                        <p className="mt-1 text-xs text-gray-500 dark:text-(--sa-muted)">
+                          Leave amount blank to collect the full bill. Add more rows for split payment.
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -1696,40 +1729,64 @@ export function WalkInConsole({
               </div>
 
               {invoice.balanceDue > EPSILON && (
-                <div className="space-y-4 rounded-md border border-gray-200 p-4 dark:border-(--sa-border)">
-                  <div className="grid gap-4 sm:grid-cols-4">
-                    <div>
-                      <label className={labelCls} htmlFor="wi-method">Method</label>
-                      <select id="wi-method" value={method} onChange={(e) => setMethod(e.target.value)} className={inputCls}>
-                        {PAY_METHODS.map((m) => <option key={m} value={m}>{labelise(m)}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelCls} htmlFor="wi-amt">Amount (₹)</label>
-                      <input id="wi-amt" type="number" min={0} step="0.01" value={amount}
-                        onChange={(e) => setAmount(e.target.value)} className={inputCls} />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className={labelCls} htmlFor="wi-ref">Reference</label>
-                      <input id="wi-ref" value={reference} onChange={(e) => setReference(e.target.value)}
-                        className={inputCls} placeholder="UPI ref, last 4 digits…" />
-                    </div>
+                <div className="space-y-3 rounded-md border border-gray-200 p-4 dark:border-(--sa-border)">
+                  <div className="space-y-2">
+                    {splits.map((split, i) => (
+                      <div key={split.id} className="grid gap-2 grid-cols-[1fr_1fr_1fr_auto] items-end">
+                        <div>
+                          {i === 0 && <label className={labelCls}>Method</label>}
+                          <select value={split.method} onChange={(e) => setSplits(prev => prev.map((s, idx) => idx === i ? { ...s, method: e.target.value } : s))} className={inputCls}>
+                            {PAY_METHODS.map((m) => <option key={m} value={m}>{labelise(m)}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          {i === 0 && <label className={labelCls}>Amount (₹)</label>}
+                          <input type="number" min={0} step="0.01" value={split.amount}
+                            onChange={(e) => setSplits(prev => prev.map((s, idx) => idx === i ? { ...s, amount: e.target.value } : s))}
+                            className={inputCls} placeholder="Amount" />
+                        </div>
+                        <div>
+                          {i === 0 && <label className={labelCls}>Reference</label>}
+                          <input value={split.reference}
+                            onChange={(e) => setSplits(prev => prev.map((s, idx) => idx === i ? { ...s, reference: e.target.value } : s))}
+                            className={inputCls} placeholder="UPI ref, last 4…" />
+                        </div>
+                        <div className={i === 0 ? "self-end" : ""}>
+                          {splits.length > 1 ? (
+                            <button type="button" onClick={() => setSplits(prev => prev.filter((_, idx) => idx !== i))}
+                              className="inline-flex size-9 items-center justify-center rounded text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10">
+                              <X className="size-4" />
+                            </button>
+                          ) : <div className="size-9" />}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    {Number(amount) !== invoice.balanceDue && (
-                      <button type="button" onClick={() => setAmount(String(invoice.balanceDue))} className={btnGhost}>
-                        Fill full due
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={collect}
-                      disabled={busy || !(Number(amount) > 0) || Number(amount) > invoice.balanceDue + EPSILON}
-                      className={btnPrimary}
-                    >
-                      {busy ? spinner : <Wallet className="size-4" aria-hidden="true" />}
-                      Collect {amount ? formatMoney(Number(amount)) : "payment"}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <button type="button" onClick={() => setSplits(prev => [...prev, newSplit()])} className={cn(btnGhost, "text-xs")}>
+                      <PlusCircle className="size-3.5" /> Add payment method
                     </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {totalSplitAmount !== invoice.balanceDue && totalSplitAmount === 0 && (
+                        <button type="button" onClick={() => setSplits([{ ...newSplit(), amount: String(invoice.balanceDue) }])} className={btnGhost}>
+                          Fill full due
+                        </button>
+                      )}
+                      {splits.length > 1 && totalSplitAmount > 0 && (
+                        <span className="text-xs text-gray-500 dark:text-(--sa-muted)">
+                          Total: {formatMoney(totalSplitAmount)} / {formatMoney(invoice.balanceDue)}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={collect}
+                        disabled={busy || !(totalSplitAmount > 0) || totalSplitAmount > invoice.balanceDue + EPSILON}
+                        className={btnPrimary}
+                      >
+                        {busy ? spinner : <Wallet className="size-4" aria-hidden="true" />}
+                        Collect {totalSplitAmount > 0 ? formatMoney(totalSplitAmount) : "payment"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

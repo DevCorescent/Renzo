@@ -294,6 +294,7 @@ export async function ExpensesPage({
         paidVia: true,
         vendor: true,
         referenceNo: true,
+        notes: true,
         branch: { select: { id: true, name: true } },
       },
     }),
