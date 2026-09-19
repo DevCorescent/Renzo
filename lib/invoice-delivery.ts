@@ -92,7 +92,11 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
     `${customer?.firstName ?? ""} ${customer?.lastName ?? ""}`.trim() || "Customer";
   const branchName = branch?.name ?? "";
 
-  const date = new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(invoice.createdAt);
+  const date = new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Asia/Kolkata",
+  }).format(invoice.createdAt);
 
   return {
     id: invoice.id,
