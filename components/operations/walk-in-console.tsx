@@ -1378,7 +1378,7 @@ export function WalkInConsole({
                                   inputCls,
                                   "h-9 min-w-40",
                                   !row.workerId && (appointment || quickMode) &&
-                                    "border-amber-400 bg-amber-50 dark:border-amber-400/50 dark:bg-amber-400/10"
+                                    "border-amber-400 dark:border-amber-400/60"
                                 )}
                               >
                                 <option value="">{appointment ? "Not assigned" : "Any available"}</option>
