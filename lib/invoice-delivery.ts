@@ -20,6 +20,13 @@ import {
 
 const PRINT_FORMATS: PrintFormat[] = ["A4", "THERMAL_80", "THERMAL_58"];
 
+const METHOD_LABELS: Record<string, string> = {
+  CASH: "Cash", UPI: "UPI", CARD: "Card",
+  WALLET: "Wallet", GIFT_CARD: "Gift Card", BANK_TRANSFER: "Bank Transfer",
+};
+const fmtMethod = (m: string): string =>
+  METHOD_LABELS[m] ?? m.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
 /** Fall back to A4 for any unrecognised branch setting. */
 function toPrintFormat(value: string | null | undefined): PrintFormat {
   return PRINT_FORMATS.includes(value as PrintFormat) ? (value as PrintFormat) : "A4";
@@ -56,7 +63,7 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
     where: { id },
     include: {
       items: { select: { name: true, quantity: true, total: true } },
-      payments: { select: { method: true }, orderBy: { paidAt: "desc" }, take: 1 },
+      payments: { select: { method: true, amount: true }, orderBy: { paidAt: "asc" } },
     },
   });
   if (!invoice) return null;
@@ -128,7 +135,7 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
       total: Number(invoice.totalAmount),
       paid: Number(invoice.paidAmount),
       balance: Number(invoice.balanceDue),
-      method: invoice.payments[0]?.method ?? "",
+      payments: invoice.payments.map(p => ({ method: fmtMethod(p.method), amount: Number(p.amount) })),
       businessName: branch?.setting?.invoiceBusinessName ?? undefined,
       tagline: branch?.setting?.invoiceTagline ?? undefined,
       address: branch?.setting?.invoiceAddress ?? undefined,

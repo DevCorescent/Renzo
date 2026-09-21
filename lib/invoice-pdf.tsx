@@ -140,7 +140,8 @@ export type InvoicePdfData = {
   total: number;
   paid: number;
   balance: number;
-  method: string;
+  /** Per-method payment breakdown. Replaces the old single `method` string. */
+  payments?: { method: string; amount: number }[];
   // Invoice display fields — configured once per branch in Branch Settings.
   // All optional; renderers fall back to hardcoded defaults when absent.
   businessName?: string;   // header brand name
@@ -239,10 +240,19 @@ function InvoiceDoc({ d }: { d: InvoicePdfData }) {
             <Text style={s.grandLbl}>Total</Text>
             <Text style={s.grandVal}>{inr(d.total)}</Text>
           </View>
-          <View style={s.paidRow}>
-            <Text style={s.paidLbl}>Paid via {d.method}</Text>
-            <Text style={s.paidVal}>{inr(d.paid)}</Text>
-          </View>
+          {(d.payments && d.payments.length > 0) ? (
+            d.payments.map((p, i) => (
+              <View key={i} style={s.paidRow}>
+                <Text style={s.paidLbl}>Paid — {p.method}</Text>
+                <Text style={s.paidVal}>{inr(p.amount)}</Text>
+              </View>
+            ))
+          ) : (
+            <View style={s.paidRow}>
+              <Text style={s.paidLbl}>Paid</Text>
+              <Text style={s.paidVal}>{inr(d.paid)}</Text>
+            </View>
+          )}
           {d.balance > 0 && (
             <View style={s.balRow}>
               <Text style={s.balLbl}>Balance Due</Text>
@@ -391,9 +401,16 @@ function ThermalDoc({ d, kind }: { d: InvoicePdfData; kind: "THERMAL_80" | "THER
           <Text style={[t.total, t.amount]}>{inr(d.total)}</Text>
         </View>
 
-        {d.paid > 0 ? (
+        {(d.payments && d.payments.length > 0) ? (
+          d.payments.map((p, i) => (
+            <View key={i} style={t.row}>
+              <Text>Paid ({p.method})</Text>
+              <Text style={t.amount}>{inr(p.amount)}</Text>
+            </View>
+          ))
+        ) : d.paid > 0 ? (
           <View style={t.row}>
-            <Text>Paid{d.method ? ` (${d.method})` : ""}</Text>
+            <Text>Paid</Text>
             <Text style={t.amount}>{inr(d.paid)}</Text>
           </View>
         ) : null}

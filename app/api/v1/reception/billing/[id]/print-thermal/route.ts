@@ -84,10 +84,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         ? `<tr><td class="lbl bal">Balance due</td><td class="val bal">${esc(inr(d.balance))}</td></tr>`
         : "";
 
-    const methodLine =
-      d.method
-        ? `<p class="center small">Paid via ${esc(d.method.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()))}</p>`
-        : "";
+    const paymentRows = (d.payments && d.payments.length > 0)
+      ? d.payments.map(p => `<tr><td class="lbl">Paid (${esc(p.method)})</td><td class="val">${esc(inr(p.amount))}</td></tr>`).join("")
+      : (d.paid > 0 ? `<tr><td class="lbl">Paid</td><td class="val">${esc(inr(d.paid))}</td></tr>` : "");
 
     const phoneLine = d.customerPhone
       ? `<p class="center small">${esc(d.customerPhone)}</p>`
@@ -166,11 +165,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       ${discountRow}
       ${taxRow}
       <tr class="total-row"><td class="lbl">TOTAL</td><td class="val">${esc(inr(d.total))}</td></tr>
-      <tr><td class="lbl">Paid</td><td class="val">${esc(inr(d.paid))}</td></tr>
+      ${paymentRows}
       ${balanceRow}
     </tbody>
   </table>
-  ${methodLine}
   <hr class="dash">
   <p class="center small">${esc(footerNote)}</p>
   ${websiteLine}
