@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { StatCard } from "@/components/shared/ui";
 import { IndianRupee, CalendarDays, Users, TrendingUp } from "lucide-react";
+import { ReportsExport } from "./reports-export";
 
 // OWNER: Hemant | MODULE: Branch Admin Reports
 
@@ -70,11 +71,14 @@ export default async function BranchAdminReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-[var(--sa-text)]">Reports</h1>
-        <p className="mt-0.5 text-sm text-gray-500 dark:text-[var(--sa-muted)]">
-          {now.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-[var(--sa-text)]">Reports</h1>
+          <p className="mt-0.5 text-sm text-gray-500 dark:text-[var(--sa-muted)]">
+            {now.toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
+          </p>
+        </div>
+        <ReportsExport />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

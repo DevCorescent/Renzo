@@ -8,31 +8,16 @@
 //
 // Landscape A4, because the customer sheet is wider than portrait allows.
 
-import path from "path";
 import {
   Document,
   Page,
   View,
   Text,
   StyleSheet,
-  Font,
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { CustomerExportRow } from "@/lib/customer-export";
-
-const fontDir = path.join(process.cwd(), "node_modules/@fontsource/inter/files");
-
-// Registration is idempotent — whichever PDF module loads first wins and the
-// result is identical either way.
-Font.register({
-  family: "Inter",
-  fonts: [
-    { src: path.join(fontDir, "inter-latin-400-normal.woff"), fontWeight: 400 },
-    { src: path.join(fontDir, "inter-latin-700-normal.woff"), fontWeight: 700 },
-  ],
-});
-
-Font.registerHyphenationCallback((w) => [w]);
+import { PDF_FONT } from "@/lib/pdf-fonts";
 
 const ROSE = "#D4687A";
 const ROSE_LIGHT = "#FBE8EC";
@@ -65,7 +50,7 @@ const COLS = [
 
 const s = StyleSheet.create({
   page: {
-    fontFamily: "Inter",
+    fontFamily: PDF_FONT,
     fontSize: 7.5,
     color: INK,
     backgroundColor: "#FFFFFF",

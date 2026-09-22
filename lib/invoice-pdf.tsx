@@ -1,17 +1,6 @@
 // Server-only — never import from client components.
-import path from "path";
-import { Document, Page, View, Text, StyleSheet, Font, renderToBuffer } from "@react-pdf/renderer";
-
-const fontDir = path.join(process.cwd(), "node_modules/@fontsource/inter/files");
-Font.register({
-  family: "Inter",
-  fonts: [
-    { src: path.join(fontDir, "inter-latin-400-normal.woff"), fontWeight: 400 },
-    { src: path.join(fontDir, "inter-latin-700-normal.woff"), fontWeight: 700 },
-  ],
-});
-
-Font.registerHyphenationCallback((w) => [w]);
+import { Document, Page, View, Text, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
+import { PDF_FONT } from "@/lib/pdf-fonts";
 
 // ── Palette — elegant rose / blush matching reference ──
 const ROSE       = "#D4687A";   // accent / headers
@@ -24,7 +13,7 @@ const WHITE      = "#FFFFFF";
 
 const s = StyleSheet.create({
   page: {
-    fontFamily: "Inter", fontSize: 10, color: INK,
+    fontFamily: PDF_FONT, fontSize: 10, color: INK,
     backgroundColor: WHITE, paddingHorizontal: 52, paddingVertical: 44,
   },
 
@@ -308,7 +297,7 @@ function thermalStyles(kind: "THERMAL_80" | "THERMAL_58") {
   const { font, pad } = ROLL[kind];
   return StyleSheet.create({
     page: {
-      fontFamily: "Inter",
+      fontFamily: PDF_FONT,
       fontSize: font,
       color: "#000000",
       backgroundColor: WHITE,

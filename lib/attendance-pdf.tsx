@@ -9,32 +9,17 @@
 //
 // Landscape A4, because thirteen columns of attendance do not fit portrait.
 
-import path from "path";
 import {
   Document,
   Page,
   View,
   Text,
   StyleSheet,
-  Font,
   renderToBuffer,
 } from "@react-pdf/renderer";
 import type { ExportRow } from "@/lib/attendance-export";
 import { formatMinutes, type AttendanceSummary } from "@/lib/attendance";
-
-const fontDir = path.join(process.cwd(), "node_modules/@fontsource/inter/files");
-
-// Same family and same files as the invoice renderer. Registration is idempotent —
-// whichever module loads first wins and the result is identical either way.
-Font.register({
-  family: "Inter",
-  fonts: [
-    { src: path.join(fontDir, "inter-latin-400-normal.woff"), fontWeight: 400 },
-    { src: path.join(fontDir, "inter-latin-700-normal.woff"), fontWeight: 700 },
-  ],
-});
-
-Font.registerHyphenationCallback((w) => [w]);
+import { PDF_FONT } from "@/lib/pdf-fonts";
 
 const ROSE = "#D4687A";
 const ROSE_LIGHT = "#FBE8EC";
@@ -69,7 +54,7 @@ const COLS = [
 
 const s = StyleSheet.create({
   page: {
-    fontFamily: "Inter",
+    fontFamily: PDF_FONT,
     fontSize: 7.5,
     color: INK,
     backgroundColor: "#FFFFFF",

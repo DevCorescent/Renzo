@@ -10,6 +10,8 @@ export default async function SheetPage() {
 
   const branchId = authUser.branchId;
 
+  const branch = await prisma.branch.findUnique({ where: { id: branchId }, select: { name: true } });
+
   const workerBranches = await prisma.workerBranch.findMany({
     where: { branchId, isActive: true },
     orderBy: { joinedAt: "asc" },
@@ -31,5 +33,5 @@ export default async function SheetPage() {
     designation: wb.worker.designation?.name ?? null,
   }));
 
-  return <SheetClient initialWorkers={workers} />;
+  return <SheetClient initialWorkers={workers} branchName={branch?.name ?? "Renzo"} />;
 }
