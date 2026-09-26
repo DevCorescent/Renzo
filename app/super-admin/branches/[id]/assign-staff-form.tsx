@@ -6,11 +6,12 @@ import { API } from "@/lib/endpoints";
 import { Eye, EyeOff, Wand2 } from "lucide-react";
 
 const ROLES = [
-  { value: "OWNER",        label: "Owner" },
-  { value: "BRANCH_ADMIN", label: "Branch Admin" },
-  { value: "RECEPTIONIST", label: "Receptionist" },
+  { value: "OWNER",             label: "Owner" },
+  { value: "BRANCH_ADMIN",      label: "Branch Admin" },
+  { value: "RECEPTIONIST",      label: "Receptionist" },
   { value: "INVENTORY_MANAGER", label: "Inventory Manager" },
-  { value: "ACCOUNTANT",   label: "Accountant" },
+  { value: "MARKETING_MANAGER", label: "Marketing Manager" },
+  { value: "ACCOUNTANT",        label: "Accountant" },
 ];
 
 // Role slug for the auto-email, e.g. RECEPTIONIST → "receptionist",
@@ -210,4 +211,4 @@ export function AssignStaffForm({ branchId }: { branchId: string }) {
 }
 
 const inputCls =
-  "w-full rounded border border-gray-200 px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-400";
+  "w-full rounded border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100";

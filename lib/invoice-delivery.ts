@@ -182,29 +182,57 @@ const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
  * markup would arrive as literal asterisks on some clients.
  */
 export function invoiceMessage(invoice: LoadedInvoice, pdfUrl?: string): string {
+  const biz = invoice.pdf.businessName || "Renzo";
   const lines = [
-    `Hello ${invoice.customerName},`,
+    `*${biz}*`,
+    invoice.pdf.tagline ? `_${invoice.pdf.tagline}_` : `_Hair & Beauty Salon_`,
     ``,
-    `Thank you for visiting Renzo.`,
-    `Your invoice ${invoice.invoiceNo} has been generated.`,
+    `Hi *${invoice.customerName}*,`,
+    `Thank you for your visit! 🙏`,
     ``,
-    `Amount ${invoice.balanceDue > 0 ? "Payable" : "Paid"}: ${inr(
-      invoice.balanceDue > 0 ? invoice.totalAmount : invoice.paidAmount
-    )}`,
+    `*Invoice: ${invoice.invoiceNo}*`,
+    `Date: ${invoice.pdf.date}`,
+    ``,
+    `*Services:*`,
+    ...invoice.pdf.items.map((item) => `  • ${item.label}  ${inr(item.amount)}`),
+    ``,
+    `─────────────────`,
   ];
 
-  if (invoice.balanceDue > 0) {
-    lines.push(`Balance Due: ${inr(invoice.balanceDue)}`);
+  if (invoice.pdf.discount > 0) {
+    lines.push(`Subtotal:  ${inr(invoice.pdf.subtotal)}`);
+    lines.push(`*Discount:  −${inr(invoice.pdf.discount)}*`);
   }
+  if (invoice.pdf.tax > 0) {
+    lines.push(`${invoice.pdf.taxName || "Tax"}:  ${inr(invoice.pdf.tax)}`);
+  }
+  lines.push(`*Total:  ${inr(invoice.pdf.total)}*`);
+
+  if (invoice.pdf.payments && invoice.pdf.payments.length > 0) {
+    for (const p of invoice.pdf.payments) {
+      lines.push(`Paid (${p.method}):  ${inr(p.amount)}`);
+    }
+  }
+
+  if (invoice.balanceDue > 0) {
+    lines.push(``, `⚠️ *Balance Due:  ${inr(invoice.balanceDue)}*`);
+  } else {
+    lines.push(``, `✅ *Paid in Full*`);
+  }
+
+  lines.push(`─────────────────`);
+
   if (pdfUrl) {
-    lines.push(``, `Invoice: ${pdfUrl}`);
+    lines.push(``, `📄 Invoice: ${pdfUrl}`);
   }
 
   lines.push(
     ``,
-    `We look forward to serving you again.`,
-    `— Renzo Hair & Beauty Studio${invoice.branchName ? `, ${invoice.branchName}` : ""}`
+    `We look forward to serving you again! ✨`,
+    `— *${biz}*${invoice.branchName ? `, ${invoice.branchName}` : ""}`,
   );
+  if (invoice.pdf.phone) lines.push(`📞 ${invoice.pdf.phone}`);
+  if (invoice.pdf.website) lines.push(`🌐 ${invoice.pdf.website || "renzosalon.com"}`);
 
   return lines.join("\n");
 }

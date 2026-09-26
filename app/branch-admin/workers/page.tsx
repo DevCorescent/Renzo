@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { getServerUser, requireModule } from "@/lib/server-session";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
+import { CreatedToast } from "@/components/workers/created-toast";
 
 // OWNER: Hemant | MODULE: Branch Admin Workers
 
@@ -38,10 +40,21 @@ export default async function BranchAdminWorkersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900">Workers</h1>
-        <p className="mt-0.5 text-sm text-gray-500">{workerBranches.length} assigned</p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Workers</h1>
+          <p className="mt-0.5 text-sm text-gray-500">{workerBranches.length} assigned</p>
+        </div>
+        <Link
+          href="/branch-admin/workers/new"
+          className="rounded-md bg-gray-900 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+        >
+          + Add Worker
+        </Link>
       </div>
+      <Suspense>
+        <CreatedToast />
+      </Suspense>
 
       <Card>
         <CardHeader>

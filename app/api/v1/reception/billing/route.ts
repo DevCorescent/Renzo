@@ -26,7 +26,7 @@ import { created, err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import { branchWhere, requireBranchScope } from "@/lib/branch-scope";
 import { writeAudit } from "@/lib/audit";
-import { syncServiceProgress } from "@/lib/appointment-work";
+import { syncServiceProgress, updateSheet, sheetEntryText, type SheetEntry } from "@/lib/appointment-work";
 import prisma from "@/lib/db";
 import { genCode } from "@/lib/codes";
 import type { InvoiceStatus, Prisma } from "@prisma/client";
@@ -319,6 +319,34 @@ export async function POST(req: NextRequest) {
         status: totals.status,
       },
     });
+
+    // Update the Sheet: replace per-service entries (added at booking time) with
+    // one combined entry per worker showing discounted amount. Non-fatal.
+    try {
+      const workerMap = new Map<string, { names: string[]; rawTotal: number }>();
+      for (const svc of appointment.services) {
+        if (!svc.workerId) continue;
+        const entry = workerMap.get(svc.workerId) ?? { names: [], rawTotal: 0 };
+        entry.names.push(svc.service.name);
+        entry.rawTotal += Number(svc.price ?? 0);
+        workerMap.set(svc.workerId, entry);
+      }
+      if (workerMap.size > 0) {
+        const subtotalBase = totals.subtotal > 0 ? totals.subtotal : 1;
+        const discountRatio = (totals.discountAmount ?? 0) / subtotalBase;
+        const remove: SheetEntry[] = appointment.services
+          .filter((s) => s.workerId)
+          .map((s) => ({ workerId: s.workerId!, serviceName: s.service.name, price: Number(s.price ?? 0) }));
+        const add: SheetEntry[] = [];
+        for (const [workerId, { names, rawTotal }] of workerMap) {
+          const effectiveTotal = Math.round(rawTotal * (1 - discountRatio) * 100) / 100;
+          add.push({ workerId, serviceName: names.join(", "), price: effectiveTotal });
+        }
+        await updateSheet(appointment.branchId, appointment.appointmentDate, { add, remove });
+      }
+    } catch (sheetErr) {
+      console.error("Sheet update on billing (non-fatal):", sheetErr);
+    }
 
     return created(invoice, "Invoice generated");
   } catch (e) {

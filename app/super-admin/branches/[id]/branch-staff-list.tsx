@@ -140,7 +140,7 @@ function StaffEditor({
             value={member.userType}
             disabled={busy}
             onChange={(e) => patch({ userType: e.target.value }, `Role → ${ROLE_LABEL[e.target.value]}`, { userType: e.target.value })}
-            className="w-full rounded border border-gray-200 px-2.5 py-1.5 text-sm outline-none focus:border-gray-400"
+            className="w-full rounded border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-900 outline-none focus:border-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           >
             {!ROLE_LABEL[member.userType] && <option value={member.userType}>{member.userType}</option>}
             {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
