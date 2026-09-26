@@ -396,6 +396,7 @@ model Branch {
   expenses         Expense[]
   payrolls         Payroll[]
   performanceTargets PerformanceTarget[]
+  salaryAdvances   SalaryAdvance[]
   campaigns        Campaign[]
   ratingSummaries  RatingSummary[]
   sheetLogs        SheetLog[]
@@ -753,6 +754,7 @@ model WorkerProfile {
   commissions      CommissionEntry[]
   payrolls         Payroll[]
   performanceTargets PerformanceTarget[]
+  salaryAdvances   SalaryAdvance[]
   appointments     Appointment[]
   assistingOn      Appointment[]        @relation("AppointmentAssistant")
   appointmentServices AppointmentService[]
@@ -1110,6 +1112,25 @@ model PerformanceTarget {
 
   @@unique([workerId, month, year])
   @@map("performance_targets")
+}
+
+model SalaryAdvance {
+  id        String   @id @default(cuid())
+  workerId  String
+  branchId  String
+  amount    Float
+  /// ADVANCE = money given out; REPAYMENT = worker paid back
+  type      String   @default("ADVANCE")
+  reason    String?
+  notes     String?
+  givenBy   String?  // userId of the admin who recorded it
+  createdAt DateTime @default(now())
+
+  worker WorkerProfile @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  branch Branch        @relation(fields: [branchId], references: [id])
+
+  @@index([workerId])
+  @@map("salary_advances")
 }
 
 // ─────────────────────────────────────────────────────────────

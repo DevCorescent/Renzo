@@ -123,6 +123,8 @@ export const API = {
     workerPortfolio:  (id: string) => `${BASE}/admin/workers/${id}/portfolio`,
     workerAvailability:(id: string)=> `${BASE}/admin/workers/${id}/availability`,
     workerHours:      (id: string) => `${BASE}/admin/workers/${id}/hours`,
+    workerAdvances:   (id: string) => `${BASE}/admin/workers/${id}/advances`,
+    workerWorkHistory:(id: string) => `${BASE}/admin/workers/${id}/work-history`,
     departments:      `${BASE}/admin/departments`,
     designations:     `${BASE}/admin/designations`,
 

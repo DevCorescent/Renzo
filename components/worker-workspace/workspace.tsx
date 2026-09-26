@@ -21,9 +21,11 @@ import {
   OverviewTab, PortfolioTab, AttendanceTab, LeavesTab, ServicesTab, PerformanceTab, DocumentsTab, ActivityTab,
 } from "./workspace-tabs";
 import { ScheduleTab } from "./schedule-tab";
+import { AdvancesTab } from "./advances-tab";
+import { WorkHistoryTab } from "./work-history-tab";
 
 const TABS = [
-  "Overview", "Portfolio", "Schedule", "Attendance", "Leaves", "Services", "Performance", "Documents", "Activity",
+  "Overview", "Portfolio", "Schedule", "Attendance", "Leaves", "Services", "Performance", "Documents", "Activity", "Work History", "Advances",
 ] as const;
 type Tab = (typeof TABS)[number];
 
@@ -94,6 +96,8 @@ export function Workspace({
         {active === "Performance" && <PerformanceTab data={data} />}
         {active === "Documents" && <DocumentsTab data={data} />}
         {active === "Activity" && <ActivityTab data={data} />}
+        {active === "Work History" && <WorkHistoryTab workerId={data.worker.id} />}
+        {active === "Advances" && <AdvancesTab workerId={data.worker.id} />}
       </div>
     </div>
   );
