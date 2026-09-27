@@ -192,7 +192,7 @@ export default async function BranchAdminDashboardPage() {
     time: relTime(a.createdAt, now),
     tone: statusTone(a.status),
     icon: CalendarDays,
-    href: "/branch-admin/appointments",
+    href: `/branch-admin/billing`,
   }));
 
   const notifications: NotificationItem[] = recentAppointments.slice(0, 5).map((a) => ({
@@ -201,7 +201,7 @@ export default async function BranchAdminDashboardPage() {
     meta: fullName(a.customer.firstName, a.customer.lastName),
     tone: statusTone(a.status),
     unread: a.status === "PENDING" || a.status === "CONFIRMED",
-    href: "/branch-admin/appointments",
+    href: `/branch-admin/billing`,
   }));
 
   const glance = [
