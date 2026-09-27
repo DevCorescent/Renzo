@@ -179,6 +179,11 @@ function CellInput({
               )}
             </div>
           ))}
+          {/* Always show the cell total at the bottom */}
+          <div className="mt-0.5 flex items-baseline justify-between border-t border-dashed border-gray-200 pt-0.5 dark:border-(--sa-border)">
+            <span className="text-[10px] uppercase tracking-wide text-gray-400">{values.length} {values.length === 1 ? "entry" : "entries"}</span>
+            <span className="text-[13px] font-bold tabular-nums text-gray-900 dark:text-(--sa-text)">{money(total)}</span>
+          </div>
         </div>
         {isSaving && <Save className="h-2.5 w-2.5 animate-pulse shrink-0 text-blue-400" />}
       </div>
