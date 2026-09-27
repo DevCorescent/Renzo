@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/server-session";
 import { apiGet, type Paginated, type WorkerListItem } from "@/lib/api-server";
@@ -65,6 +66,15 @@ export default async function SuperAdminWorkersPage({
     );
   }
 
+  const addButton = (
+    <Link
+      href="/super-admin/workers/new"
+      className="rounded-md bg-gray-900 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+    >
+      + Add Worker
+    </Link>
+  );
+
   return (
     <WorkersDirectory
       data={result.data}
@@ -72,6 +82,7 @@ export default async function SuperAdminWorkersPage({
       title="Workers"
       subtitle={`${result.data.total} across all branches`}
       params={params}
+      action={addButton}
       canManage={false}
     />
   );

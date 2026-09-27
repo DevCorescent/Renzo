@@ -35,6 +35,8 @@ import { ImageUpload } from "@/components/shared/image-upload";
 import { validateAdmission, MIN_WORKER_AGE } from "@/lib/worker-form-schema";
 import { createWorkerAction } from "@/app/branch-admin/workers/actions";
 import { IDLE_FORM_STATE, type FormState } from "@/lib/form-state";
+
+export type WorkerFormAction = (prev: FormState, data: FormData) => Promise<FormState>;
 import { cn } from "@/lib/utils";
 
 type Option = { id: string; name: string };
@@ -180,6 +182,8 @@ export function WorkerForm({
   departments,
   maxDateOfBirth,
   today,
+  action,
+  extraFields,
 }: {
   /**
    * Empty for a BRANCH_ADMIN: GET /admin/designations and /admin/departments are
@@ -197,9 +201,13 @@ export function WorkerForm({
    */
   maxDateOfBirth: string;
   today: string;
+  /** Override the default branch-admin create action (e.g. for super admin). */
+  action?: WorkerFormAction;
+  /** Extra fields rendered at the top of the first card (e.g. branch selector). */
+  extraFields?: React.ReactNode;
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(
-    createWorkerAction,
+    action ?? createWorkerAction,
     IDLE_FORM_STATE
   );
 
@@ -312,6 +320,9 @@ export function WorkerForm({
           {nonFieldError}
         </p>
       )}
+
+      {/* Extra fields injected by callers (e.g. branch selector for super admin) */}
+      {extraFields}
 
       {/* ── 1. Personal ───────────────────────────────────────────────────── */}
       <Section step={1} title="Personal information">
