@@ -102,14 +102,23 @@ function CellInput({
   isSaving: boolean;
   onChange: (next: string[]) => void;
 }) {
-  const [adding,    setAdding]    = React.useState(false);
-  const [draft,     setDraft]     = React.useState("");
-  const [editIdx,   setEditIdx]   = React.useState<number | null>(null);
-  const [editDraft, setEditDraft] = React.useState("");
+  const [adding,         setAdding]         = React.useState(false);
+  const [draft,          setDraft]          = React.useState("");
+  const [editIdx,        setEditIdx]        = React.useState<number | null>(null);
+  const [editDraft,      setEditDraft]      = React.useState("");
+  const [expandedGroups, setExpandedGroups] = React.useState<Set<number>>(new Set());
 
   const parsed = React.useMemo(() => values.map(parseEntry), [values]);
   const total  = React.useMemo(() => sumEntries(values), [values]);
   const priced = parsed.filter((p) => p.amount !== null).length;
+
+  function toggleExpand(i: number) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i); else next.add(i);
+      return next;
+    });
+  }
 
   function openAdd() {
     setEditIdx(null);
@@ -167,11 +176,68 @@ function CellInput({
               if (e.key === "Escape") setEditIdx(null);
             }}
             onBlur={commitEdit}
-            placeholder="e.g. Haircut 1199 -200 for discount"
+            placeholder="e.g. Haircut 1199  or  Haircut 1199 -200 for discount"
             className="my-0.5 w-full rounded border border-blue-300 bg-white px-1.5 py-0.5 text-xs text-gray-800 focus:outline-none dark:border-blue-500"
           />
+        ) : p.parts !== null ? (
+          /* ── Customer-group entry (collapsed by default) ── */
+          <div key={i} className="group/line my-0.5 rounded border border-gray-100 dark:border-(--sa-border)">
+            {/* Collapsed header row */}
+            <div className="flex items-center gap-1 px-1.5 py-1">
+              <button
+                type="button"
+                onClick={() => toggleExpand(i)}
+                title={expandedGroups.has(i) ? "Collapse" : "Expand services"}
+                className="shrink-0 text-gray-400 transition hover:text-gray-700 dark:hover:text-(--sa-text)"
+              >
+                <ChevronRight className={`h-3 w-3 transition-transform ${expandedGroups.has(i) ? "rotate-90" : ""}`} />
+              </button>
+              <span className="min-w-0 flex-1 truncate text-[11px] text-gray-600 dark:text-(--sa-text-2)">
+                {p.parts.map((pt) => pt.label ?? inr.format(pt.amount ?? 0)).join("  ·  ")}
+              </span>
+              <span className="ml-auto shrink-0 text-[13px] font-semibold tabular-nums text-gray-900 dark:text-(--sa-text)">
+                {inr.format(p.net ?? 0)}
+              </span>
+              <button
+                type="button"
+                onClick={() => startEdit(i)}
+                title="Edit raw"
+                className="shrink-0 text-gray-300 opacity-0 transition hover:text-blue-500 focus:opacity-100 group-hover/line:opacity-100"
+              >
+                <Plus className="h-3 w-3 rotate-45" />
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                className="shrink-0 text-gray-300 opacity-0 transition hover:text-red-500 focus:opacity-100 group-hover/line:opacity-100"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+            {/* Expanded: individual services */}
+            {expandedGroups.has(i) && (
+              <div className="border-t border-gray-100 px-1.5 py-1 dark:border-(--sa-border)">
+                {p.parts.map((pt, j) => (
+                  <div key={j} className="flex items-baseline justify-between py-[2px]">
+                    <span className="text-[10px] text-gray-500 dark:text-(--sa-text-2)">
+                      {pt.label ?? "—"}
+                    </span>
+                    <span className="flex items-baseline gap-1 tabular-nums">
+                      {pt.discount > 0 && (
+                        <span className="text-[10px] text-gray-400 line-through">{inr.format(pt.amount ?? 0)}</span>
+                      )}
+                      <span className={`text-[11px] font-medium ${pt.discount > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-gray-700 dark:text-(--sa-text)"}`}>
+                        {inr.format(pt.net ?? pt.amount ?? 0)}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         ) : (
-          <div key={i} className="group/line -mx-1 flex items-center gap-1 rounded px-1 hover:bg-gray-100 dark:hover:bg-white/5">
+          /* ── Plain single-service entry ── */
+          <div key={i} className="group/line -mx-1 flex items-center gap-1 rounded px-1 hover:bg-gray-50 dark:hover:bg-white/5">
             <button
               type="button"
               onClick={() => startEdit(i)}
@@ -245,14 +311,21 @@ function CellInput({
         <div className="mt-auto flex items-center justify-between border-t border-dashed border-gray-300 pt-1">
           <button
             type="button"
-            title="Combine all entries into one line"
+            title="Combine into one customer entry (expandable)"
             onClick={() => {
-              const labels = parsed
-                .filter((p) => p.net !== null)
-                .map((p) => p.label ?? inr.format(p.amount!));
-              const netTotal = parsed.reduce((sum, p) => sum + (p.net ?? 0), 0);
-              if (labels.length === 0) return;
-              onChange([`${labels.join(" + ")} · ₹${netTotal}`]);
+              // Flatten any existing groups, then re-wrap all as one group
+              const allParts: string[] = [];
+              for (let i = 0; i < values.length; i++) {
+                const p = parsed[i];
+                if (p.parts !== null) {
+                  // already a group — expand its raw parts from the stored string
+                  const inner = values[i].slice(1, -1);
+                  allParts.push(...inner.split(" | "));
+                } else {
+                  allParts.push(values[i]);
+                }
+              }
+              onChange([`[${allParts.join(" | ")}]`]);
             }}
             className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/5"
           >

@@ -37,23 +37,33 @@ function fullDate(ymd: string): string {
 
 // Cells hold free text. Entries written by bookings look like "Haircut · ₹200";
 // entries typed at the desk are usually just "200" or "200P" (like the notebook).
-// Discount suffix: append " -amount" to any entry, e.g. "Haircut · ₹1199 -200"
-//   → stored as-is, displayed with strikethrough original and green net amount.
-export interface Parsed {
+//
+// Discount suffix: append " -amount" to any single entry, e.g. "Haircut · ₹1199 -200"
+//   → displayed with strikethrough on the original and the net in green.
+//
+// Customer group: wrap multiple pipe-separated services in brackets:
+//   "[Haircut · ₹200 | Moisturizing · ₹1199 | Moisturizing · ₹1199]"
+//   → displayed as one collapsed row; expand button reveals individual services.
+//   The Combine button in the cell creates this format automatically.
+export interface ParsedPart {
   label:    string | null;
   amount:   number | null;
-  discount: number;         // 0 = no discount
-  net:      number | null;  // amount − discount (null when no amount)
+  discount: number;
+  net:      number | null;
   tag:      string | null;
+}
+
+export interface Parsed extends ParsedPart {
+  /** Non-null when this is a customer-group entry (created by Combine). */
+  parts: ParsedPart[] | null;
 }
 
 const toNum = (s: string) => Number(s.replace(/,/g, ""));
 const DISC_RE = /\s+-\s*([\d,]+(?:\.\d+)?)$/;
 
-export function parseEntry(raw: string): Parsed {
+function parseSingle(raw: string): ParsedPart {
   const s = raw.trim();
 
-  // Strip optional discount suffix " -500"
   let core = s;
   let discount = 0;
   const discMatch = s.match(DISC_RE);
@@ -62,30 +72,41 @@ export function parseEntry(raw: string): Parsed {
     core = s.slice(0, s.length - discMatch[0].length).trim();
   }
 
-  // "label · ₹amount" (booking-style)
   const svc = core.match(/^(.*?)\s*·\s*₹\s*([\d,]+(?:\.\d+)?)$/);
   if (svc) {
     const amount = toNum(svc[2]);
     return { label: svc[1] || null, amount, discount, net: amount - discount, tag: null };
   }
 
-  // Plain "₹amount" or "amountTAG"
   const plain = core.match(/^₹?\s*([\d,]+(?:\.\d+)?)\s*([A-Za-z]{0,3})$/);
   if (plain) {
     const amount = toNum(plain[1]);
-    const tag = plain[2] ? plain[2].toUpperCase() : null;
-    return { label: null, amount, discount, net: amount - discount, tag };
+    return { label: null, amount, discount, net: amount - discount, tag: plain[2] ? plain[2].toUpperCase() : null };
   }
 
-  // "label trailing-amount"
   const trailing = core.match(/^(.*\D)\s+₹?\s*([\d,]+(?:\.\d+)?)$/);
   if (trailing) {
     const amount = toNum(trailing[2]);
     return { label: trailing[1].trim(), amount, discount, net: amount - discount, tag: null };
   }
 
-  // Text only — no parseable amount
   return { label: core || s, amount: null, discount: 0, net: null, tag: null };
+}
+
+export function parseEntry(raw: string): Parsed {
+  const s = raw.trim();
+
+  // Customer-group format: "[service1 | service2 | ...]"
+  if (s.startsWith("[") && s.endsWith("]")) {
+    const inner = s.slice(1, -1);
+    const parts = inner.split(" | ").map((p) => parseSingle(p.trim()));
+    const totalNet    = parts.reduce((sum, p) => sum + (p.net    ?? 0), 0);
+    const totalAmount = parts.reduce((sum, p) => sum + (p.amount ?? 0), 0);
+    const totalDisc   = parts.reduce((sum, p) => sum + p.discount,       0);
+    return { label: null, amount: totalAmount, discount: totalDisc, net: totalNet, tag: null, parts };
+  }
+
+  return { ...parseSingle(s), parts: null };
 }
 
 export function sumEntries(values: string[]): number {
@@ -145,10 +166,14 @@ function aggregate(input: ReportInput) {
       for (const raw of vals) {
         const p = parseEntry(raw);
         entries.push({ date: d, worker: w, p, raw });
-        const key = p.net === null ? "Notes (no amount)" : p.label ?? "Amount only (no service name)";
-        const s = services.get(key) ?? { count: 0, total: 0, workers: new Set<string>() };
-        s.count += 1; s.total += p.net ?? 0; s.workers.add(w.name);
-        services.set(key, s);
+        // For grouped entries, count each service part individually in reports
+        const parts: import("./sheet-reports").ParsedPart[] = p.parts ?? [p];
+        for (const part of parts) {
+          const key = part.net === null ? "Notes (no amount)" : part.label ?? "Amount only (no service name)";
+          const s = services.get(key) ?? { count: 0, total: 0, workers: new Set<string>() };
+          s.count += 1; s.total += part.net ?? 0; s.workers.add(w.name);
+          services.set(key, s);
+        }
       }
     }
     byDate.set(d, day);
@@ -260,15 +285,23 @@ function serviceTable(agg: Agg): Table {
 }
 
 function entriesTable(agg: Agg): Table {
+  // Expand grouped entries so each service appears as its own row
+  const rows: Cell[][] = [];
+  let n = 0;
+  for (const e of agg.entries) {
+    const parts = e.p.parts ?? [e.p];
+    for (const part of parts) {
+      n++;
+      rows.push([n, fullDate(e.date), e.worker.name, part.label ?? "", part.tag ?? "", part.net]);
+    }
+  }
   return {
     title: "Detailed entries",
     columns: [
       { label: "#", kind: "int" }, { label: "Date" }, { label: "Worker" },
       { label: "Service / note", weight: 2.2 }, { label: "Tag" }, { label: "Amount", kind: "money" },
     ],
-    rows: agg.entries.map((e, i) => [
-      i + 1, fullDate(e.date), e.worker.name, e.p.label ?? "", e.p.tag ?? "", e.p.amount,
-    ]),
+    rows,
     footer: ["", "Total", "", `${agg.count} entries`, "", agg.grand],
   };
 }
