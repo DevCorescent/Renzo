@@ -9,5 +9,5 @@ export default async function ReceptionBillingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <BillingDetailPage allowedRoles={ROLES} invoiceId={id} />;
+  return <BillingDetailPage allowedRoles={ROLES} invoiceId={id} customerBasePath="/branch-admin/customers" />;
 }

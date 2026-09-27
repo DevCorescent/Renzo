@@ -31,9 +31,11 @@ const METHOD_LABEL: Record<string, string> = {
 export async function BillingDetailPage({
   allowedRoles,
   invoiceId,
+  customerBasePath = "/branch-admin/customers",
 }: {
   allowedRoles: readonly UserType[];
   invoiceId: string;
+  customerBasePath?: string;
 }) {
   const authUser = await getServerUser();
   if (!authUser || !allowedRoles.includes(authUser.userType)) redirect("/login");
@@ -111,6 +113,16 @@ export async function BillingDetailPage({
         currentNotes={invoice.notes}
         currentDiscount={Number(invoice.discountAmount)}
         canVoid={authUser.userType === "BRANCH_ADMIN" || authUser.userType === "SUPER_ADMIN" || authUser.userType === "OWNER"}
+        items={invoice.items.map((i) => ({
+          id: i.id,
+          name: i.name,
+          type: i.type,
+          quantity: i.quantity,
+          unitPrice: Number(i.unitPrice),
+          total: Number(i.total),
+        }))}
+        customerId={invoice.customerId}
+        customerBasePath={customerBasePath}
       />
 
       <Card>

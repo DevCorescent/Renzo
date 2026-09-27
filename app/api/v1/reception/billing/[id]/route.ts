@@ -109,6 +109,129 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return ok(updated, "Invoice voided");
     }
 
+    // ── Remove a line item (UNPAID / PARTIAL only) ─────────────────────────
+    if ("removeItemId" in body) {
+      if (invoice.status !== "UNPAID" && invoice.status !== "PARTIAL") {
+        return err("Line items can only be changed on an unpaid or partially paid invoice", 409);
+      }
+      const itemId = typeof body.removeItemId === "string" ? body.removeItemId : null;
+      if (!itemId) return err("Validation failed", 422, { removeItemId: ["Item id is required"] });
+
+      const item = invoice.items.find((i) => i.id === itemId);
+      if (!item) return err("Invoice item not found", 404);
+      if (invoice.items.filter((i) => i.type !== "TIP").length <= 1) {
+        return err("Cannot remove the last service item — void the invoice instead", 409);
+      }
+
+      await prisma.invoiceItem.delete({ where: { id: itemId } });
+
+      const remainingItems = invoice.items.filter((i) => i.id !== itemId && i.type !== "TIP");
+      const taxSetting = await prisma.branchSetting.findUnique({
+        where: { branchId: invoice.branchId },
+        select: { taxPercent: true },
+      });
+
+      const totals = computeInvoiceTotals({
+        lines: remainingItems.map((i) => ({
+          type: i.type as "SERVICE" | "ADDON" | "PACKAGE" | "PRODUCT" | "MISC",
+          refId: null,
+          name: i.name,
+          quantity: i.quantity,
+          unitPrice: round2(Number(i.unitPrice)),
+          total: round2(Number(i.unitPrice) * i.quantity),
+        })),
+        discountAmount: Number(invoice.discountAmount),
+        taxPercent: Number(taxSetting?.taxPercent ?? 0),
+        payments: invoice.payments.map((p) => ({ amount: Number(p.amount) })),
+      });
+
+      if (isTotalsError(totals)) {
+        return err("Validation failed", 422, { [totals.field]: [totals.error] });
+      }
+
+      const updated = await prisma.invoice.update({
+        where: { id },
+        data: { ...totals },
+        include: { items: true },
+      });
+      await writeAudit(user, {
+        action: "UPDATE", module: "BILLING", refId: id, refType: "Invoice",
+        newValue: { removedItemId: itemId } as Record<string, string | number | boolean | null>,
+      });
+      return ok(updated, "Item removed");
+    }
+
+    // ── Add a line item (UNPAID / PARTIAL only) ─────────────────────────────
+    if ("addItem" in body) {
+      if (invoice.status !== "UNPAID" && invoice.status !== "PARTIAL") {
+        return err("Line items can only be changed on an unpaid or partially paid invoice", 409);
+      }
+      const ai = body.addItem as Record<string, unknown>;
+      const name = typeof ai?.name === "string" ? ai.name.trim() : "";
+      if (!name) return err("Validation failed", 422, { name: ["Item name is required"] });
+      const quantity = Number(ai?.quantity ?? 1);
+      const unitPrice = Number(ai?.unitPrice ?? 0);
+      if (!Number.isFinite(quantity) || quantity < 1) {
+        return err("Validation failed", 422, { quantity: ["Quantity must be at least 1"] });
+      }
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        return err("Validation failed", 422, { unitPrice: ["Price must be non-negative"] });
+      }
+      const allowedTypes = ["SERVICE", "ADDON", "PACKAGE", "PRODUCT", "MISC"];
+      const type = (typeof ai?.type === "string" && allowedTypes.includes(ai.type)) ? ai.type : "SERVICE";
+
+      const taxSetting = await prisma.branchSetting.findUnique({
+        where: { branchId: invoice.branchId },
+        select: { taxPercent: true },
+      });
+      const taxPercent = Number(taxSetting?.taxPercent ?? 0);
+      const itemTotal = round2(unitPrice * quantity);
+      const itemTaxAmount = round2(itemTotal * (taxPercent / 100));
+
+      await prisma.invoiceItem.create({
+        data: {
+          invoiceId: id,
+          type,
+          name,
+          quantity,
+          unitPrice,
+          taxPercent,
+          taxAmount: itemTaxAmount,
+          total: itemTotal,
+        },
+      });
+
+      const allItems = [...invoice.items.filter((i) => i.type !== "TIP"), { type, name, quantity, unitPrice, total: itemTotal }];
+      const totals = computeInvoiceTotals({
+        lines: allItems.map((i) => ({
+          type: i.type as "SERVICE" | "ADDON" | "PACKAGE" | "PRODUCT" | "MISC",
+          refId: null,
+          name: i.name,
+          quantity: i.quantity,
+          unitPrice: round2(Number(i.unitPrice)),
+          total: round2(Number(i.unitPrice) * i.quantity),
+        })),
+        discountAmount: Number(invoice.discountAmount),
+        taxPercent,
+        payments: invoice.payments.map((p) => ({ amount: Number(p.amount) })),
+      });
+
+      if (isTotalsError(totals)) {
+        return err("Validation failed", 422, { [totals.field]: [totals.error] });
+      }
+
+      const updated = await prisma.invoice.update({
+        where: { id },
+        data: { ...totals },
+        include: { items: true },
+      });
+      await writeAudit(user, {
+        action: "UPDATE", module: "BILLING", refId: id, refType: "Invoice",
+        newValue: { addedItem: name } as Record<string, string | number | boolean | null>,
+      });
+      return ok(updated, "Item added");
+    }
+
     // Discount — only for unpaid/partial invoices
     if ("discountAmount" in body) {
       if (invoice.status !== "UNPAID" && invoice.status !== "PARTIAL") {
