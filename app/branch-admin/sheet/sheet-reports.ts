@@ -37,31 +37,60 @@ function fullDate(ymd: string): string {
 
 // Cells hold free text. Entries written by bookings look like "Haircut · ₹200";
 // entries typed at the desk are usually just "200" or "200P" (like the notebook).
+// Discount suffix: append " -amount" to any entry, e.g. "Haircut · ₹1199 -200"
+//   → stored as-is, displayed with strikethrough original and green net amount.
 export interface Parsed {
-  label:  string | null;
-  amount: number | null;
-  tag:    string | null;
+  label:    string | null;
+  amount:   number | null;
+  discount: number;         // 0 = no discount
+  net:      number | null;  // amount − discount (null when no amount)
+  tag:      string | null;
 }
 
 const toNum = (s: string) => Number(s.replace(/,/g, ""));
+const DISC_RE = /\s+-\s*([\d,]+(?:\.\d+)?)$/;
 
 export function parseEntry(raw: string): Parsed {
   const s = raw.trim();
-  const svc = s.match(/^(.*?)\s*·\s*₹\s*([\d,]+(?:\.\d+)?)$/);
-  if (svc) return { label: svc[1] || null, amount: toNum(svc[2]), tag: null };
 
-  const plain = s.match(/^₹?\s*([\d,]+(?:\.\d+)?)\s*([A-Za-z]{0,3})$/);
-  if (plain) return { label: null, amount: toNum(plain[1]), tag: plain[2] ? plain[2].toUpperCase() : null };
+  // Strip optional discount suffix " -500"
+  let core = s;
+  let discount = 0;
+  const discMatch = s.match(DISC_RE);
+  if (discMatch) {
+    discount = toNum(discMatch[1]);
+    core = s.slice(0, s.length - discMatch[0].length).trim();
+  }
 
-  const trailing = s.match(/^(.*\D)\s+₹?\s*([\d,]+(?:\.\d+)?)$/);
-  if (trailing) return { label: trailing[1].trim(), amount: toNum(trailing[2]), tag: null };
+  // "label · ₹amount" (booking-style)
+  const svc = core.match(/^(.*?)\s*·\s*₹\s*([\d,]+(?:\.\d+)?)$/);
+  if (svc) {
+    const amount = toNum(svc[2]);
+    return { label: svc[1] || null, amount, discount, net: amount - discount, tag: null };
+  }
 
-  return { label: s, amount: null, tag: null };
+  // Plain "₹amount" or "amountTAG"
+  const plain = core.match(/^₹?\s*([\d,]+(?:\.\d+)?)\s*([A-Za-z]{0,3})$/);
+  if (plain) {
+    const amount = toNum(plain[1]);
+    const tag = plain[2] ? plain[2].toUpperCase() : null;
+    return { label: null, amount, discount, net: amount - discount, tag };
+  }
+
+  // "label trailing-amount"
+  const trailing = core.match(/^(.*\D)\s+₹?\s*([\d,]+(?:\.\d+)?)$/);
+  if (trailing) {
+    const amount = toNum(trailing[2]);
+    return { label: trailing[1].trim(), amount, discount, net: amount - discount, tag: null };
+  }
+
+  // Text only — no parseable amount
+  return { label: core || s, amount: null, discount: 0, net: null, tag: null };
 }
 
 export function sumEntries(values: string[]): number {
   let total = 0;
-  for (const v of values) total += parseEntry(v).amount ?? 0;
+  for (const v of values) total += parseEntry(v).net ?? 0;
   return total;
 }
 
@@ -116,9 +145,9 @@ function aggregate(input: ReportInput) {
       for (const raw of vals) {
         const p = parseEntry(raw);
         entries.push({ date: d, worker: w, p, raw });
-        const key = p.amount === null ? "Notes (no amount)" : p.label ?? "Amount only (no service name)";
+        const key = p.net === null ? "Notes (no amount)" : p.label ?? "Amount only (no service name)";
         const s = services.get(key) ?? { count: 0, total: 0, workers: new Set<string>() };
-        s.count += 1; s.total += p.amount ?? 0; s.workers.add(w.name);
+        s.count += 1; s.total += p.net ?? 0; s.workers.add(w.name);
         services.set(key, s);
       }
     }

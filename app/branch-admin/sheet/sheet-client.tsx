@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import {
-  ChevronLeft, ChevronRight, Eye, EyeOff, Filter, Plus, RotateCcw, Save, X,
+  ChevronLeft, ChevronRight, Eye, EyeOff, Filter, Plus, RotateCcw, Save, X, Layers,
 } from "lucide-react";
 import {
   REPORT_OPTIONS, displayDate, downloadCSV, downloadPDF, fromYMD, inr, money, parseEntry, sumEntries,
@@ -167,10 +167,11 @@ function CellInput({
               if (e.key === "Escape") setEditIdx(null);
             }}
             onBlur={commitEdit}
+            placeholder="e.g. Haircut 1199 -200 for discount"
             className="my-0.5 w-full rounded border border-blue-300 bg-white px-1.5 py-0.5 text-xs text-gray-800 focus:outline-none dark:border-blue-500"
           />
         ) : (
-          <div key={i} className="group/line -mx-1 flex items-center gap-1 rounded px-1 hover:bg-gray-100">
+          <div key={i} className="group/line -mx-1 flex items-center gap-1 rounded px-1 hover:bg-gray-100 dark:hover:bg-white/5">
             <button
               type="button"
               onClick={() => startEdit(i)}
@@ -179,19 +180,26 @@ function CellInput({
             >
               {p.label !== null && (
                 <span className={`min-w-0 flex-1 truncate ${
-                  p.amount === null
-                    ? "text-xs text-gray-700"
-                    : "text-[11px] text-gray-500"
+                  p.net === null
+                    ? "text-xs text-gray-700 dark:text-(--sa-text)"
+                    : "text-[11px] text-gray-500 dark:text-(--sa-text-2)"
                 }`}>
                   {p.label}
                 </span>
               )}
               {p.amount !== null && (
-                <span className="ml-auto whitespace-nowrap text-[13px] font-semibold tabular-nums text-gray-900">
-                  {inr.format(p.amount)}
-                  {p.tag && (
-                    <span className="ml-0.5 align-top text-[9px] font-bold text-emerald-600 dark:text-emerald-400">{p.tag}</span>
+                <span className="ml-auto flex items-baseline gap-1 whitespace-nowrap tabular-nums">
+                  {p.discount > 0 && (
+                    <span className="text-[11px] text-gray-400 line-through">{inr.format(p.amount)}</span>
                   )}
+                  <span className={`text-[13px] font-semibold ${
+                    p.discount > 0 ? "text-emerald-700 dark:text-emerald-400" : "text-gray-900 dark:text-(--sa-text)"
+                  }`}>
+                    {inr.format(p.net ?? p.amount)}
+                    {p.tag && (
+                      <span className="ml-0.5 align-top text-[9px] font-bold text-emerald-600 dark:text-emerald-400">{p.tag}</span>
+                    )}
+                  </span>
                 </span>
               )}
             </button>
@@ -218,7 +226,7 @@ function CellInput({
             if (e.key === "Escape") { setDraft(""); setAdding(false); }
           }}
           onBlur={() => commitAdd(true)}
-          placeholder="e.g. 200 ↵"
+          placeholder="e.g. 200  |  Haircut 500 -50 for discount ↵"
           className="my-0.5 w-full rounded border border-blue-300 bg-white px-1.5 py-0.5 text-xs text-gray-800 placeholder:text-gray-400 focus:outline-none dark:border-blue-500"
         />
       ) : (
@@ -232,11 +240,26 @@ function CellInput({
         </button>
       )}
 
-      {/* Subtotal — only worth showing when there's something to add up */}
+      {/* Subtotal + Combine button */}
       {priced > 1 && (
-        <div className="mt-auto flex items-baseline justify-between border-t border-dashed border-gray-300 pt-1">
-          <span className="text-[10px] uppercase tracking-wide text-gray-400">{values.length} entries</span>
-          <span className="text-xs font-bold tabular-nums text-gray-900">{money(total)}</span>
+        <div className="mt-auto flex items-center justify-between border-t border-dashed border-gray-300 pt-1">
+          <button
+            type="button"
+            title="Combine all entries into one line"
+            onClick={() => {
+              const labels = parsed
+                .filter((p) => p.net !== null)
+                .map((p) => p.label ?? inr.format(p.amount!));
+              const netTotal = parsed.reduce((sum, p) => sum + (p.net ?? 0), 0);
+              if (labels.length === 0) return;
+              onChange([`${labels.join(" + ")} · ₹${netTotal}`]);
+            }}
+            className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/5"
+          >
+            <Layers className="h-3 w-3" />
+            <span className="uppercase tracking-wide">{values.length} entries · combine</span>
+          </button>
+          <span className="text-xs font-bold tabular-nums text-gray-900 dark:text-(--sa-text)">{money(total)}</span>
         </div>
       )}
 
@@ -658,7 +681,7 @@ export function SheetClient({ initialWorkers, branchName }: Props) {
         {saving.size > 0 ? (
           <><Save className="h-3 w-3 animate-pulse text-blue-400" /> Saving {saving.size} cell{saving.size !== 1 ? "s" : ""}…</>
         ) : (
-          "All changes saved · Click a cell and type amounts (Enter adds the next one) · Click an entry to edit it"
+          "All changes saved · Click a cell and type amounts (Enter adds next) · Append -amount for discount e.g. \"Haircut 500 -50\" · Click entry to edit · Use Combine to merge multiple services into one line"
         )}
       </p>
     </div>
