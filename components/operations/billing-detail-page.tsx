@@ -6,6 +6,7 @@ import { operationsCapabilitiesFor } from "@/lib/operations";
 import { Badge, Card, CardHeader, CardTitle, CardBody } from "@/components/shared/ui";
 import { CollectPaymentForm } from "@/components/reception/collect-payment-form";
 import { InvoiceActions } from "@/components/operations/invoice-actions";
+import { InvoiceEditPanel } from "@/components/operations/invoice-edit-panel";
 import type { UserType } from "@/types/api";
 
 const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info"> = {
@@ -103,6 +104,14 @@ export async function BillingDetailPage({
           />
         </CardBody>
       </Card>
+
+      <InvoiceEditPanel
+        invoiceId={invoice.id}
+        invoiceStatus={invoice.status}
+        currentNotes={invoice.notes}
+        currentDiscount={Number(invoice.discountAmount)}
+        canVoid={authUser.userType === "BRANCH_ADMIN" || authUser.userType === "SUPER_ADMIN" || authUser.userType === "OWNER"}
+      />
 
       <Card>
         <CardHeader>

@@ -94,6 +94,7 @@ export const API = {
     billing:      `${BASE}/reception/billing`,
     bill:         (id: string) => `${BASE}/reception/billing/${id}`,
     payment:      (id: string) => `${BASE}/reception/billing/${id}/payment`,
+    editBill:     (id: string) => `${BASE}/reception/billing/${id}`,
     applyCoupon:  (id: string) => `${BASE}/reception/billing/${id}/coupon`,
     applyGiftCard: (id: string) => `${BASE}/reception/billing/${id}/gift-card`,
     attendance:   `${BASE}/reception/attendance`,
