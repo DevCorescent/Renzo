@@ -159,32 +159,19 @@ function CellInput({
   // ── Collapsed summary (default when cell has entries) ─────────────────────
   if (!cellOpen && values.length > 0) {
     return (
-      <div className="group flex h-full min-h-[36px] cursor-pointer items-center gap-1.5 px-2.5 py-1.5 hover:bg-gray-50 dark:hover:bg-white/5"
+      <div
+        className="group flex h-full min-h-[36px] cursor-pointer items-center justify-between gap-2 px-2.5 py-1.5 hover:bg-gray-50 dark:hover:bg-white/5"
         onClick={() => setCellOpen(true)}
       >
-        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-gray-600" />
-        <div className="min-w-0 flex-1">
-          {/* Show each entry (or group) as a single compact line */}
-          {parsed.map((p, i) => (
-            <div key={i} className="flex items-baseline justify-between gap-1">
-              <span className="min-w-0 truncate text-[11px] text-gray-500 dark:text-(--sa-text-2)">
-                {p.parts !== null
-                  ? p.parts.map((pt) => pt.label ?? inr.format(pt.amount ?? 0)).join(", ")
-                  : (p.label ?? (p.amount !== null ? "" : p.label ?? "—"))}
-              </span>
-              {p.net !== null && (
-                <span className="shrink-0 text-[12px] font-semibold tabular-nums text-gray-800 dark:text-(--sa-text)">
-                  {inr.format(p.net)}
-                </span>
-              )}
-            </div>
-          ))}
-          {/* Always show the cell total at the bottom */}
-          <div className="mt-0.5 flex items-baseline justify-between border-t border-dashed border-gray-200 pt-0.5 dark:border-(--sa-border)">
-            <span className="text-[10px] uppercase tracking-wide text-gray-400">{values.length} {values.length === 1 ? "entry" : "entries"}</span>
-            <span className="text-[13px] font-bold tabular-nums text-gray-900 dark:text-(--sa-text)">{money(total)}</span>
-          </div>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400 transition group-hover:text-gray-600" />
+          <span className="text-[11px] uppercase tracking-wide text-gray-400">
+            {values.length} {values.length === 1 ? "entry" : "entries"}
+          </span>
         </div>
+        <span className="shrink-0 text-[13px] font-bold tabular-nums text-gray-900 dark:text-(--sa-text)">
+          {money(total)}
+        </span>
         {isSaving && <Save className="h-2.5 w-2.5 animate-pulse shrink-0 text-blue-400" />}
       </div>
     );
