@@ -42,6 +42,7 @@ import {
 import { loadHealthReport, loadWorkerReadiness } from "@/lib/health-service";
 import { BillingWorkspace } from "@/components/operations/billing-workspace";
 import type { AuthUser, UserType } from "@/types/api";
+import type { Prisma } from "@prisma/client";
 
 /** Shared guard: role allowed, capability held, branch scope resolved. */
 async function guard(
@@ -472,22 +473,81 @@ export async function QualificationPage({
 // MANUAL BILLING — appointment invoices (the hub "Manual Billing" card)
 // ============================================================================
 
+/** URL filters for the invoice history: ?q=&from=YYYY-MM-DD&to=YYYY-MM-DD&page=N */
+export type BillingSearchParams = { q?: string; from?: string; to?: string; page?: string };
+
+const INVOICE_PAGE_SIZE = 50;
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+
 export async function BillingPage({
   allowedRoles,
   basePath,
+  searchParams = {},
 }: {
   allowedRoles: readonly UserType[];
   /** e.g. "/super-admin/billing" — invoice links stay inside this role's shell. */
   basePath: string;
+  searchParams?: BillingSearchParams;
 }) {
   const { branchId, isGlobal } = await guard(allowedRoles, "canBill");
 
-  const [invoices, unbilled, catalogueServices, catalogueProducts] =
+  // ── Invoice history filters ───────────────────────────────────────────────
+  // Searched on the SERVER across every invoice of the branch, not just the
+  // page on screen — otherwise anything older than the newest page is lost.
+  const q = (searchParams.q ?? "").trim().slice(0, 80);
+  const from = YMD.test(searchParams.from ?? "") ? searchParams.from! : "";
+  const to = YMD.test(searchParams.to ?? "") ? searchParams.to! : "";
+  const page = Math.min(1000, Math.max(1, Math.trunc(Number(searchParams.page)) || 1));
+
+  // Invoice has no customer relation, so a name/phone search resolves customers
+  // first. Every word must match the first name, last name or phone.
+  const words = q.split(/\s+/).filter(Boolean);
+  const matchedCustomerIds = words.length
+    ? (
+        await prisma.customer.findMany({
+          where: {
+            AND: words.map((w) => ({
+              OR: [
+                { firstName: { contains: w, mode: "insensitive" as const } },
+                { lastName: { contains: w, mode: "insensitive" as const } },
+                { phone: { contains: w } },
+              ],
+            })),
+          },
+          select: { id: true },
+          take: 500,
+        })
+      ).map((c) => c.id)
+    : [];
+
+  const invoiceWhere: Prisma.InvoiceWhereInput = {
+    ...(branchId ? { branchId } : {}),
+    ...(q
+      ? {
+          OR: [
+            { invoiceNo: { contains: q, mode: "insensitive" } },
+            ...(matchedCustomerIds.length ? [{ customerId: { in: matchedCustomerIds } }] : []),
+          ],
+        }
+      : {}),
+    // Whole salon days (IST): `to` is inclusive.
+    ...(from || to
+      ? {
+          createdAt: {
+            ...(from ? { gte: new Date(`${from}T00:00:00.000+05:30`) } : {}),
+            ...(to ? { lt: new Date(new Date(`${to}T00:00:00.000+05:30`).getTime() + 86_400_000) } : {}),
+          },
+        }
+      : {}),
+  };
+
+  const [invoices, invoiceCount, unbilled, catalogueServices, catalogueProducts] =
     await Promise.all([
       prisma.invoice.findMany({
-        where: branchId ? { branchId } : {},
+        where: invoiceWhere,
         orderBy: { createdAt: "desc" },
-        take: 50,
+        skip: (page - 1) * INVOICE_PAGE_SIZE,
+        take: INVOICE_PAGE_SIZE,
         include: {
           appointment: {
             select: {
@@ -498,6 +558,7 @@ export async function BillingPage({
           },
         },
       }),
+      prisma.invoice.count({ where: invoiceWhere }),
       prisma.appointment.findMany({
         where: {
           ...(branchId ? { branchId } : {}),
@@ -569,6 +630,7 @@ export async function BillingPage({
     <BillingWorkspace
       basePath={basePath}
       showBranch={isGlobal}
+      history={{ q, from, to, page, pageSize: INVOICE_PAGE_SIZE, total: invoiceCount }}
       catalogue={[
         ...catalogueServices.map((s) => ({
           id: s.id,
