@@ -15,7 +15,10 @@ import { salonNow } from "@/lib/branch-hours";
 // ROUTE  : /api/v1/public/slots
 //
 // METHOD
-// GET - Available Slots  (?branchId= &serviceId= &date= [&workerId=])
+// GET - Available Slots  (?branchId= &serviceId= &date= [&workerId=] [&extraServiceIds=])
+//   extraServiceIds — one id per EXTRA person having a service already listed
+//   (two haircuts = serviceIds=haircut&extraServiceIds=haircut), so the slot is
+//   long enough for everyone, exactly as the booking is sized.
 //
 // ACCESS
 // Public (No Authentication)
@@ -81,7 +84,15 @@ export async function GET(req: NextRequest) {
       return err("Service not found", 404);
     }
 
-    const totalDuration = serviceRows.reduce((sum, s) => sum + s.duration, 0);
+    // Extra people for a service already requested add its duration again.
+    const durationById = new Map(serviceRows.map((s) => [s.id, s.duration]));
+    const extraMinutes = (url.searchParams.get("extraServiceIds") ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => durationById.has(id))
+      .slice(0, 20)
+      .reduce((sum, id) => sum + durationById.get(id)!, 0);
+    const totalDuration = serviceRows.reduce((sum, s) => sum + s.duration, 0) + extraMinutes;
     // Shape kept for existing callers that read `data.service`.
     const service =
       serviceRows.length === 1

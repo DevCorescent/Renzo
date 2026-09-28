@@ -12,6 +12,7 @@
 // ============================================================================
 
 import prisma from "@/lib/db";
+import { invoiceBreakdown } from "@/lib/invoice-breakdown";
 import {
   generateInvoicePdf,
   type InvoicePdfData,
@@ -43,6 +44,8 @@ export type LoadedInvoice = {
   balanceDue: number;
   status: string;
   customerName: string;
+  /** For a greeting ("Hello Nazim"); "Customer" when no name is stored. */
+  customerFirstName: string;
   customerPhone: string | null;
   customerEmail: string | null;
   branchName: string;
@@ -62,13 +65,13 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
   const invoice = await prisma.invoice.findUnique({
     where: { id },
     include: {
-      items: { select: { name: true, quantity: true, total: true } },
+      items: { select: { type: true, refId: true, name: true, quantity: true, unitPrice: true, total: true } },
       payments: { select: { method: true, amount: true }, orderBy: { paidAt: "asc" } },
     },
   });
   if (!invoice) return null;
 
-  const [customer, branch] = await Promise.all([
+  const [customer, branch, appointment] = await Promise.all([
     prisma.customer.findUnique({
       where: { id: invoice.customerId },
       select: { firstName: true, lastName: true, phone: true, email: true },
@@ -93,7 +96,51 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
         },
       },
     }),
+    // Who did the work — the "Staff" box and each service line. Read live, so a
+    // stylist corrected after billing shows on the next print. Only appointment
+    // bills have one.
+    invoice.appointmentId
+      ? prisma.appointment.findUnique({
+          where: { id: invoice.appointmentId },
+          select: {
+            worker: { select: { firstName: true } },
+            services: {
+              select: { serviceId: true, price: true, worker: { select: { firstName: true } } },
+            },
+          },
+        })
+      : Promise.resolve(null),
   ]);
+
+  /** Distinct, capitalised first names — "Farhan, Riyaz", or just "Farhan". */
+  const names = (list: (string | null | undefined)[]) =>
+    [...new Set(list.map((n) => n?.trim()).filter((n): n is string => Boolean(n)).map(titleCase))].join(", ");
+
+  const staffNames = names([
+    ...(appointment?.services ?? []).map((s) => s.worker?.firstName),
+    appointment?.worker?.firstName,
+  ]);
+
+  /**
+   * Who performed one invoice line: the appointment's rows for that service at
+   * that price (a line groups one row per person), falling back to the service
+   * alone. Lines added at the desk, products and blank bills have no rows.
+   */
+  const lineStaff = (item: { type: string; refId: string | null; unitPrice: number }) => {
+    if (item.type !== "SERVICE" || !item.refId || !appointment) return undefined;
+    const rows = appointment.services.filter((s) => s.serviceId === item.refId);
+    const samePrice = rows.filter((s) => Number(s.price) === Number(item.unitPrice));
+    return names((samePrice.length ? samePrice : rows).map((s) => s.worker?.firstName)) || undefined;
+  };
+
+  // GST rate actually charged, and any tip — for the printed breakdown.
+  const money = invoiceBreakdown({
+    subtotal: Number(invoice.subtotal),
+    discountAmount: Number(invoice.discountAmount),
+    taxAmount: Number(invoice.taxAmount),
+    totalAmount: Number(invoice.totalAmount),
+    items: invoice.items.map((i) => ({ type: i.type, total: Number(i.total) })),
+  });
 
   const customerName =
     `${customer?.firstName ?? ""} ${customer?.lastName ?? ""}`.trim() || "Customer";
@@ -105,6 +152,18 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
     timeZone: "Asia/Kolkata",
   }).format(invoice.createdAt);
 
+  // "28 Sep 2026 • 11:40 AM" — the A4 invoice's Date & Time box. Month spelled
+  // out by hand: en-IN abbreviates September as "Sept".
+  const part = (type: string) =>
+    new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata", day: "2-digit", month: "numeric", year: "numeric",
+      hour: "2-digit", minute: "2-digit", hour12: true,
+    }).formatToParts(invoice.createdAt).find((p) => p.type === type)?.value ?? "";
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const dateTime =
+    `${part("day")} ${MONTHS[Number(part("month")) - 1]} ${part("year")} • ` +
+    `${part("hour")}:${part("minute")} ${part("dayPeriod").toUpperCase()}`;
+
   return {
     id: invoice.id,
     invoiceNo: invoice.invoiceNo,
@@ -115,6 +174,7 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
     balanceDue: Number(invoice.balanceDue),
     status: invoice.status,
     customerName,
+    customerFirstName: customer?.firstName?.trim() || "Customer",
     customerPhone: customer?.phone ?? null,
     customerEmail: customer?.email ?? null,
     branchName,
@@ -122,16 +182,24 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
     pdf: {
       invoiceNo: invoice.invoiceNo,
       date,
+      dateTime,
       branch: branchName,
+      staff: staffNames || undefined,
       customerName,
       customerPhone: customer?.phone ?? undefined,
       items: invoice.items.map((item) => ({
         label: `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
         amount: Number(item.total),
+        name: item.name,
+        quantity: item.quantity,
+        rate: Number(item.unitPrice),
+        staff: lineStaff(item),
       })),
       subtotal: Number(invoice.subtotal),
       discount: Number(invoice.discountAmount),
       tax: Number(invoice.taxAmount),
+      taxPercent: money.taxPercent,
+      tip: money.tip || undefined,
       total: Number(invoice.totalAmount),
       paid: Number(invoice.paidAmount),
       balance: Number(invoice.balanceDue),
@@ -175,66 +243,37 @@ export function invoiceFilename(invoiceNo: string): string {
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
+/** ₹2,999 — paise shown only when there are any, so ₹2,999.50 is not rounded away. */
+const amountPaid = (n: number) =>
+  `₹${n.toLocaleString("en-IN", Number.isInteger(n) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** "raghu" → "Raghu", "mary ann" → "Mary Ann" — for the greeting only; the stored name is untouched. */
+const titleCase = (name: string) =>
+  name.replace(/(^|\s)(\S)/g, (_, sp: string, c: string) => sp + c.toUpperCase());
+
 /**
- * The WhatsApp / SMS body.
+ * The WhatsApp body, carried in the `wa.me` deep link.
  *
- * Plain text on purpose: it is carried in a `wa.me` deep link, and formatting
- * markup would arrive as literal asterisks on some clients.
+ * Plain text on purpose: formatting markup would arrive as literal asterisks on
+ * some clients. A wa.me link cannot carry the PDF, so the invoice screens
+ * download it alongside (components/operations/whatsapp-invoice.ts) for the
+ * operator to attach.
  */
-export function invoiceMessage(invoice: LoadedInvoice, pdfUrl?: string): string {
-  const biz = invoice.pdf.businessName || "Renzo";
-  const lines = [
-    `*${biz}*`,
-    invoice.pdf.tagline ? `_${invoice.pdf.tagline}_` : `_Hair & Beauty Salon_`,
+export function invoiceMessage(invoice: LoadedInvoice): string {
+  return [
+    `Hello ${titleCase(invoice.customerFirstName)},`,
     ``,
-    `Hi *${invoice.customerName}*,`,
-    `Thank you for your visit! 🙏`,
+    `Thank you for visiting Renzo.`,
+    `Your invoice ${invoice.invoiceNo} has been generated.`,
     ``,
-    `*Invoice: ${invoice.invoiceNo}*`,
-    `Date: ${invoice.pdf.date}`,
+    `Amount Paid: ${amountPaid(invoice.paidAmount)}`,
+    // A part-paid customer must still be told what they owe.
+    ...(invoice.balanceDue > 0 ? [`Balance Due: ${amountPaid(invoice.balanceDue)}`] : []),
     ``,
-    `*Services:*`,
-    ...invoice.pdf.items.map((item) => `  • ${item.label}  ${inr(item.amount)}`),
-    ``,
-    `─────────────────`,
-  ];
-
-  if (invoice.pdf.discount > 0) {
-    lines.push(`Subtotal:  ${inr(invoice.pdf.subtotal)}`);
-    lines.push(`*Discount:  −${inr(invoice.pdf.discount)}*`);
-  }
-  if (invoice.pdf.tax > 0) {
-    lines.push(`${invoice.pdf.taxName || "Tax"}:  ${inr(invoice.pdf.tax)}`);
-  }
-  lines.push(`*Total:  ${inr(invoice.pdf.total)}*`);
-
-  if (invoice.pdf.payments && invoice.pdf.payments.length > 0) {
-    for (const p of invoice.pdf.payments) {
-      lines.push(`Paid (${p.method}):  ${inr(p.amount)}`);
-    }
-  }
-
-  if (invoice.balanceDue > 0) {
-    lines.push(``, `⚠️ *Balance Due:  ${inr(invoice.balanceDue)}*`);
-  } else {
-    lines.push(``, `✅ *Paid in Full*`);
-  }
-
-  lines.push(`─────────────────`);
-
-  if (pdfUrl) {
-    lines.push(``, `📄 Invoice: ${pdfUrl}`);
-  }
-
-  lines.push(
-    ``,
-    `We look forward to serving you again! ✨`,
-    `— *${biz}*${invoice.branchName ? `, ${invoice.branchName}` : ""}`,
-  );
-  if (invoice.pdf.phone) lines.push(`📞 ${invoice.pdf.phone}`);
-  if (invoice.pdf.website) lines.push(`🌐 ${invoice.pdf.website || "renzosalon.com"}`);
-
-  return lines.join("\n");
+    `We look forward to serving you again.`,
+    // The branch's invoice brand, upper-cased exactly as the PDF header prints it.
+    `— ${invoice.pdf.businessName ? invoice.pdf.businessName.toUpperCase() : "Renzo Hair & Beauty Studio"}`,
+  ].join("\n");
 }
 
 /** The email body. Kept close to the project's other transactional mail. */

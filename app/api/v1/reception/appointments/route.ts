@@ -229,6 +229,15 @@ export async function POST(req: NextRequest) {
                 )
               )
             : undefined,
+        // One entry per person — lets the same service repeat for a group.
+        serviceLines: Array.isArray(body.serviceLines)
+          ? (body.serviceLines as unknown[])
+              .filter(
+                (l): l is { serviceId: string; workerId?: unknown } =>
+                  !!l && typeof l === "object" && isNonEmptyString((l as { serviceId?: unknown }).serviceId)
+              )
+              .map((l) => ({ serviceId: l.serviceId, workerId: isNonEmptyString(l.workerId) ? l.workerId : null }))
+          : undefined,
         recordingVisit: body.recordingVisit === true,
       },
       {

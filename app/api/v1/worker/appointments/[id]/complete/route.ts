@@ -5,6 +5,8 @@ import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
 import { genCode } from "@/lib/codes";
 import { earnLoyaltyPoints } from "@/lib/loyalty";
+import { groupServiceLines } from "@/lib/appointment-lines";
+import { computeInvoiceTotals, isTotalsError } from "@/lib/billing-service";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -164,6 +166,14 @@ export async function POST(
 
     const now = new Date();
 
+    // GST is charged at invoice time from the branch's live rate — the same rule
+    // every other bill follows (lib/billing-service.ts). The appointment's own
+    // taxAmount is always 0, which is why this route used to bill with no GST.
+    const taxSetting = await prisma.branchSetting.findUnique({
+      where: { branchId: appointment.branchId },
+      select: { taxPercent: true },
+    });
+
     const updated = await prisma.$transaction(async (tx) => {
       const updatedAppointment = await tx.appointment.update({
         where: { id: appointment.id },
@@ -197,14 +207,9 @@ export async function POST(
 
       if (!appointment.invoice) {
         const items = [
-          ...appointment.services.map((s) => ({
-            type: "SERVICE",
-            refId: s.serviceId,
-            name: s.service.name,
-            quantity: 1,
-            unitPrice: s.price,
-            total: s.price,
-          })),
+          // One line per service + price; a service done for several people in a
+          // group booking is one line with that quantity (lib/appointment-lines.ts).
+          ...groupServiceLines(appointment.services),
           ...appointment.addOns.map((a) => ({
             type: "ADDON",
             refId: a.addOnId,
@@ -224,10 +229,15 @@ export async function POST(
         ];
 
         if (items.length > 0) {
-          const subtotal = items.reduce((sum, i) => sum + i.total, 0);
-          const taxAmount = appointment.taxAmount ?? 0;
-          const discountAmount = appointment.discountAmount ?? 0;
-          const totalAmount = Math.max(0, subtotal + taxAmount - discountAmount);
+          // The shared formula: discount off the subtotal, GST on what is left.
+          const gross = items.reduce((sum, i) => sum + i.total, 0);
+          const totals = computeInvoiceTotals({
+            lines: items,
+            discountAmount: Math.min(Math.max(0, appointment.discountAmount ?? 0), gross),
+            taxPercent: taxSetting?.taxPercent ?? 0,
+          });
+          if (isTotalsError(totals)) throw new Error(totals.error);
+          const { subtotal, taxAmount, discountAmount, totalAmount } = totals;
           const paidAmount = appointment.paidAmount ?? 0;
           const balanceDue = Math.max(0, totalAmount - paidAmount);
           const status: InvoiceStatus =

@@ -8,6 +8,7 @@ import { CollectPaymentForm } from "@/components/reception/collect-payment-form"
 import { InvoiceActions } from "@/components/operations/invoice-actions";
 import { InvoiceEditPanel } from "@/components/operations/invoice-edit-panel";
 import type { UserType } from "@/types/api";
+import { invoiceBreakdown, taxLabel } from "@/lib/invoice-breakdown";
 
 const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info"> = {
   UNPAID: "warning",
@@ -71,9 +72,20 @@ export async function BillingDetailPage({
     // The INVOICE's branch decides the printer format, not the viewer's.
     prisma.branchSetting.findUnique({
       where: { branchId: invoice.branchId },
-      select: { printFormat: true },
+      select: { printFormat: true, taxName: true },
     }),
   ]);
+
+  // Subtotal → discount → taxable → GST @ rate → tip → round-off → total, from
+  // the invoice's own figures (the rate is the one actually charged).
+  const money = invoiceBreakdown({
+    subtotal: Number(invoice.subtotal),
+    discountAmount: Number(invoice.discountAmount),
+    taxAmount: Number(invoice.taxAmount),
+    totalAmount: Number(invoice.totalAmount),
+    items: invoice.items.map((i) => ({ type: i.type, total: Number(i.total) })),
+  });
+  const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
   return (
     <div className="space-y-6">
@@ -112,6 +124,7 @@ export async function BillingDetailPage({
         invoiceStatus={invoice.status}
         currentNotes={invoice.notes}
         currentDiscount={Number(invoice.discountAmount)}
+        subtotal={Number(invoice.subtotal)}
         canVoid={authUser.userType === "BRANCH_ADMIN" || authUser.userType === "SUPER_ADMIN" || authUser.userType === "OWNER"}
         items={invoice.items.map((i) => ({
           id: i.id,
@@ -172,8 +185,7 @@ export async function BillingDetailPage({
                 <th className="px-4 py-2.5">Type</th>
                 <th className="px-4 py-2.5 text-right">Qty</th>
                 <th className="px-4 py-2.5 text-right">Unit Price</th>
-                <th className="px-4 py-2.5 text-right">Tax</th>
-                <th className="px-4 py-2.5 text-right">Total</th>
+                <th className="px-4 py-2.5 text-right">Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -183,7 +195,6 @@ export async function BillingDetailPage({
                   <td className="px-4 py-3 text-xs text-gray-400">{item.type}</td>
                   <td className="px-4 py-3 text-right text-gray-600">{item.quantity}</td>
                   <td className="px-4 py-3 text-right text-gray-700">₹{Number(item.unitPrice).toLocaleString("en-IN")}</td>
-                  <td className="px-4 py-3 text-right text-gray-500">₹{Number(item.taxAmount).toLocaleString("en-IN")}</td>
                   <td className="px-4 py-3 text-right font-medium text-gray-900">₹{Number(item.total).toLocaleString("en-IN")}</td>
                 </tr>
               ))}
@@ -192,18 +203,30 @@ export async function BillingDetailPage({
         </div>
         <div className="space-y-1 border-t border-gray-100 px-4 py-3">
           <div className="flex justify-between text-sm text-gray-600">
-            <span>Subtotal</span><span>₹{Number(invoice.subtotal).toLocaleString("en-IN")}</span>
+            <span>Subtotal</span><span>{inr(money.subtotal)}</span>
+          </div>
+          {/* Always shown (₹0 when nothing applies) — the same steps the bill was worked out in. */}
+          <div className={`flex justify-between text-sm ${money.discount > 0 ? "text-green-700" : "text-gray-600"}`}>
+            <span>Discount</span><span>{money.discount > 0 ? `− ${inr(money.discount)}` : inr(0)}</span>
           </div>
           <div className="flex justify-between text-sm text-gray-600">
-            <span>Tax</span><span>₹{Number(invoice.taxAmount).toLocaleString("en-IN")}</span>
+            <span>Taxable amount</span><span>{inr(money.taxable)}</span>
           </div>
-          {Number(invoice.discountAmount) > 0 && (
-            <div className="flex justify-between text-sm text-green-700">
-              <span>Discount</span><span>−₹{Number(invoice.discountAmount).toLocaleString("en-IN")}</span>
+          <div className="flex justify-between text-sm text-gray-600">
+            <span>{taxLabel(setting?.taxName, money.taxPercent)}</span><span>{money.tax > 0 ? `+ ${inr(money.tax)}` : inr(0)}</span>
+          </div>
+          {money.tip > 0 && (
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Tip</span><span>+ {inr(money.tip)}</span>
+            </div>
+          )}
+          {money.roundOff !== 0 && (
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Round off</span><span>{money.roundOff > 0 ? "+" : "−"} {inr(Math.abs(money.roundOff))}</span>
             </div>
           )}
           <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-semibold text-gray-900 dark:text-(--sa-text)">
-            <span>Total</span><span>₹{Number(invoice.totalAmount).toLocaleString("en-IN")}</span>
+            <span>Total</span><span>{inr(money.total)}</span>
           </div>
           <div className="flex justify-between text-sm text-green-700">
             <span>Paid</span><span>₹{Number(invoice.paidAmount).toLocaleString("en-IN")}</span>
