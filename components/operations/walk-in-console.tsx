@@ -39,6 +39,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
+import {
+  fetchInvoicePdf,
+  openWhatsAppChat,
+  saveInvoicePdf,
+  whatsAppPdfFilename,
+} from "@/components/operations/whatsapp-invoice";
 import { Card } from "@/components/shared/ui";
 import { formatMoney, labelise } from "@/lib/operations";
 import {
@@ -923,10 +929,17 @@ export function WalkInConsole({
 
   const send = (channel: "WHATSAPP" | "EMAIL") =>
     run(channel === "WHATSAPP" ? "WhatsApp" : "Email", async () => {
+      // WhatsApp: fetch the PDF FIRST, so a failure stops before the chat opens.
+      const pdf = channel === "WHATSAPP" ? await fetchInvoicePdf(invoice!.id) : null;
       const data = await post(`${API.reception.bill(invoice!.id)}/send`, { channel });
-      if (channel === "WHATSAPP" && data?.link) {
-        window.open(data.link, "_blank", "noopener,noreferrer");
-        setNote("WhatsApp opened with the invoice message.");
+      if (channel === "WHATSAPP" && data?.link && pdf) {
+        // wa.me carries text only, so the PDF is downloaded for the operator to attach.
+        const file = whatsAppPdfFilename(invoice!.invoiceNo);
+        saveInvoicePdf(pdf, invoice!.invoiceNo);
+        if (!openWhatsAppChat(data.link)) {
+          throw new Error(`${file} downloaded, but the browser blocked WhatsApp — allow pop-ups for this site and try again.`);
+        }
+        setNote(`${file} downloaded and WhatsApp opened — attach the PDF in the chat, then press send.`);
       } else {
         setNote("Invoice emailed with the PDF attached.");
       }

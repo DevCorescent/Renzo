@@ -32,6 +32,12 @@ import {
   thermalReceiptUrl,
   useReceiptScale,
 } from "@/components/operations/receipt-scale";
+import {
+  fetchInvoicePdf,
+  openWhatsAppChat,
+  saveInvoicePdf,
+  whatsAppPdfFilename,
+} from "@/components/operations/whatsapp-invoice";
 
 const btnGhost =
   "inline-flex items-center gap-1.5 rounded border border-gray-200 px-2.5 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-(--sa-border) dark:text-(--sa-text-2) dark:hover:bg-white/5";
@@ -102,6 +108,18 @@ export function InvoiceActions({
     setWaLink(null);
 
     try {
+      // WhatsApp: fetch the PDF FIRST, so a failure stops before the chat opens.
+      let pdf: Blob | null = null;
+      if (channel === "WHATSAPP") {
+        try {
+          pdf = await fetchInvoicePdf(invoiceId);
+        } catch (e) {
+          setBusy(false);
+          setNote({ tone: "err", text: e instanceof Error ? e.message : "Could not download the invoice PDF." });
+          return;
+        }
+      }
+
       const res = await fetch(`${API.reception.bill(invoiceId)}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -123,19 +141,23 @@ export function InvoiceActions({
 
       if (channel === "WHATSAPP") {
         const url: string | undefined = json.data.handoffUrl ?? json.data.link;
-        if (url) {
+        if (url && pdf) {
+          saveInvoicePdf(pdf, invoiceNo);
           setWaLink(url);
           // Opened straight away so the operator does not need a second click;
           // the link stays on screen in case the pop-up was blocked.
-          window.open(url, "_blank", "noopener,noreferrer");
+          const opened = openWhatsAppChat(url);
+          // Nothing has reached the customer yet — the operator still attaches
+          // the PDF and presses send, so this is a warning, never "Sent".
+          setNote({
+            tone: "warn",
+            text: opened
+              ? `${whatsAppPdfFilename(invoiceNo)} downloaded and WhatsApp opened — attach the PDF in the chat, then press send.`
+              : `${whatsAppPdfFilename(invoiceNo)} downloaded, but the browser blocked WhatsApp — use the link below, attach the PDF, then press send.`,
+          });
+        } else {
+          setNote({ tone: "warn", text: json.message });
         }
-        // The server's own words. With no WhatsApp Business API configured it
-        // says so plainly rather than claiming the invoice was delivered —
-        // "Sent" would be a claim nobody on this side can stand behind.
-        setNote({
-          tone: json.data.providerTransmits ? "ok" : "warn",
-          text: json.message,
-        });
       } else {
         setNote({ tone: "ok", text: json.message });
         setPanel("none");

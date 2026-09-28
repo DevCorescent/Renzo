@@ -43,6 +43,8 @@ export type LoadedInvoice = {
   balanceDue: number;
   status: string;
   customerName: string;
+  /** For a greeting ("Hello Nazim"); "Customer" when no name is stored. */
+  customerFirstName: string;
   customerPhone: string | null;
   customerEmail: string | null;
   branchName: string;
@@ -115,6 +117,7 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
     balanceDue: Number(invoice.balanceDue),
     status: invoice.status,
     customerName,
+    customerFirstName: customer?.firstName?.trim() || "Customer",
     customerPhone: customer?.phone ?? null,
     customerEmail: customer?.email ?? null,
     branchName,
@@ -175,66 +178,37 @@ export function invoiceFilename(invoiceNo: string): string {
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
+/** ₹2,999 — paise shown only when there are any, so ₹2,999.50 is not rounded away. */
+const amountPaid = (n: number) =>
+  `₹${n.toLocaleString("en-IN", Number.isInteger(n) ? {} : { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** "raghu" → "Raghu", "mary ann" → "Mary Ann" — for the greeting only; the stored name is untouched. */
+const titleCase = (name: string) =>
+  name.replace(/(^|\s)(\S)/g, (_, sp: string, c: string) => sp + c.toUpperCase());
+
 /**
- * The WhatsApp / SMS body.
+ * The WhatsApp body, carried in the `wa.me` deep link.
  *
- * Plain text on purpose: it is carried in a `wa.me` deep link, and formatting
- * markup would arrive as literal asterisks on some clients.
+ * Plain text on purpose: formatting markup would arrive as literal asterisks on
+ * some clients. A wa.me link cannot carry the PDF, so the invoice screens
+ * download it alongside (components/operations/whatsapp-invoice.ts) for the
+ * operator to attach.
  */
-export function invoiceMessage(invoice: LoadedInvoice, pdfUrl?: string): string {
-  const biz = invoice.pdf.businessName || "Renzo";
-  const lines = [
-    `*${biz}*`,
-    invoice.pdf.tagline ? `_${invoice.pdf.tagline}_` : `_Hair & Beauty Salon_`,
+export function invoiceMessage(invoice: LoadedInvoice): string {
+  return [
+    `Hello ${titleCase(invoice.customerFirstName)},`,
     ``,
-    `Hi *${invoice.customerName}*,`,
-    `Thank you for your visit! 🙏`,
+    `Thank you for visiting Renzo.`,
+    `Your invoice ${invoice.invoiceNo} has been generated.`,
     ``,
-    `*Invoice: ${invoice.invoiceNo}*`,
-    `Date: ${invoice.pdf.date}`,
+    `Amount Paid: ${amountPaid(invoice.paidAmount)}`,
+    // A part-paid customer must still be told what they owe.
+    ...(invoice.balanceDue > 0 ? [`Balance Due: ${amountPaid(invoice.balanceDue)}`] : []),
     ``,
-    `*Services:*`,
-    ...invoice.pdf.items.map((item) => `  • ${item.label}  ${inr(item.amount)}`),
-    ``,
-    `─────────────────`,
-  ];
-
-  if (invoice.pdf.discount > 0) {
-    lines.push(`Subtotal:  ${inr(invoice.pdf.subtotal)}`);
-    lines.push(`*Discount:  −${inr(invoice.pdf.discount)}*`);
-  }
-  if (invoice.pdf.tax > 0) {
-    lines.push(`${invoice.pdf.taxName || "Tax"}:  ${inr(invoice.pdf.tax)}`);
-  }
-  lines.push(`*Total:  ${inr(invoice.pdf.total)}*`);
-
-  if (invoice.pdf.payments && invoice.pdf.payments.length > 0) {
-    for (const p of invoice.pdf.payments) {
-      lines.push(`Paid (${p.method}):  ${inr(p.amount)}`);
-    }
-  }
-
-  if (invoice.balanceDue > 0) {
-    lines.push(``, `⚠️ *Balance Due:  ${inr(invoice.balanceDue)}*`);
-  } else {
-    lines.push(``, `✅ *Paid in Full*`);
-  }
-
-  lines.push(`─────────────────`);
-
-  if (pdfUrl) {
-    lines.push(``, `📄 Invoice: ${pdfUrl}`);
-  }
-
-  lines.push(
-    ``,
-    `We look forward to serving you again! ✨`,
-    `— *${biz}*${invoice.branchName ? `, ${invoice.branchName}` : ""}`,
-  );
-  if (invoice.pdf.phone) lines.push(`📞 ${invoice.pdf.phone}`);
-  if (invoice.pdf.website) lines.push(`🌐 ${invoice.pdf.website || "renzosalon.com"}`);
-
-  return lines.join("\n");
+    `We look forward to serving you again.`,
+    // The branch's invoice brand, upper-cased exactly as the PDF header prints it.
+    `— ${invoice.pdf.businessName ? invoice.pdf.businessName.toUpperCase() : "Renzo Hair & Beauty Studio"}`,
+  ].join("\n");
 }
 
 /** The email body. Kept close to the project's other transactional mail. */
