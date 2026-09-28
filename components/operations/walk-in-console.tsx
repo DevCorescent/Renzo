@@ -89,6 +89,13 @@ type LiveSession = {
   } | null;
 };
 
+/**
+ * A service that is not in the catalogue, typed in at the desk. Billed as the
+ * existing MISC invoice line (name × quantity @ amount); `workerId` credits the
+ * stylist on the Sheet once the billing route reads it.
+ */
+type CustomLine = { key: string; name: string; unitPrice: number; quantity: number; workerId: string };
+
 type DraftSession = {
   id: string;
   savedAt: string;
@@ -96,6 +103,8 @@ type DraftSession = {
   serviceIds: string[];
   /** Staff per service. Older drafts only have `workerId` (applied to all). */
   rows?: { serviceId: string; workerId: string }[];
+  /** Custom services typed in at the desk (not in the catalogue). */
+  customLines?: CustomLine[];
   workerId: string;
   assistantId: string;
   notes: string;
@@ -508,6 +517,13 @@ export function WalkInConsole({
   const [apptDate,    setApptDate]    = React.useState(todayIst);
   const [startTime,   setStartTime]   = React.useState(nowIstTime);
   const [notes,    setNotes]    = React.useState("");
+  const [customLines, setCustomLines] = React.useState<CustomLine[]>([]);
+  const [customOpen, setCustomOpen] = React.useState(false);
+  const [customName, setCustomName] = React.useState("");
+  const [customPrice, setCustomPrice] = React.useState("");
+  const [customQty, setCustomQty] = React.useState("1");
+  const [customWorker, setCustomWorker] = React.useState("");
+  const [customError, setCustomError] = React.useState<string | null>(null);
   const [discount, setDiscount] = React.useState("");
   const [discountMode, setDiscountMode] = React.useState<DiscountMode>("AMOUNT");
   const [showMore, setShowMore] = React.useState(false);
@@ -584,7 +600,15 @@ export function WalkInConsole({
 
   const visibleHits  = term.trim().length >= 2 ? hits : [];
   const chosen       = rows.map((r) => services.find((s) => s.id === r.serviceId)).filter(Boolean) as WalkInService[];
-  const subtotal     = chosen.reduce((sum, s) => sum + s.price, 0);
+  const customTotal  = customLines.reduce((sum, c) => sum + c.unitPrice * c.quantity, 0);
+  const subtotal     = chosen.reduce((sum, s) => sum + s.price, 0) + customTotal;
+  // The same service added again shows once with its quantity: "Haircut ×2".
+  const chosenGrouped = Object.values(
+    chosen.reduce<Record<string, { s: WalkInService; qty: number }>>((acc, s) => {
+      acc[s.id] = { s, qty: (acc[s.id]?.qty ?? 0) + 1 };
+      return acc;
+    }, {}),
+  );
   const duration     = chosen.reduce((sum, s) => sum + s.duration, 0);
   // ₹ or % of the subtotal — always sent to the server as a rupee amount.
   const discountVal  = discountFrom(discount, discountMode, subtotal);
@@ -622,6 +646,7 @@ export function WalkInConsole({
     setTerm(""); setHits([]); setCustomer(null);
     setNewName(""); setNewPhone(""); setNewEmail("");
     setRows([]); setSvcQuery(""); setSvcOpen(false); setAssistantId("");
+    setCustomLines([]); setCustomOpen(false); setCustomError(null);
     setChair(""); setRoom(""); setNotes(""); setDiscount(""); setDiscountMode("AMOUNT"); setShowMore(false);
     setStartTime(nowIstTime());
     setApptDate(todayIst());
@@ -658,6 +683,7 @@ export function WalkInConsole({
       customer,
       serviceIds: rows.map((r) => r.serviceId),
       rows,
+      customLines,
       workerId: rows.find((r) => r.workerId)?.workerId ?? "",
       assistantId,
       notes,
@@ -677,6 +703,7 @@ export function WalkInConsole({
     setQuickMode(false);
     setCustomer(draft.customer);
     setRows(draft.rows ?? draft.serviceIds.map((sid) => ({ serviceId: sid, workerId: draft.workerId })));
+    setCustomLines(draft.customLines ?? []);
     setShowMore(Boolean(draft.chair || draft.room || draft.assistantId || draft.notes));
     setAssistantId(draft.assistantId);
     setNotes(draft.notes);
@@ -819,6 +846,18 @@ export function WalkInConsole({
     const data = await post(API.reception.billing, {
       appointmentId: apptId,
       ...(discountVal > 0 ? { discountAmount: discountVal } : {}),
+      // Custom services ride on the existing MISC extra line (name × qty @ amount).
+      ...(customLines.length
+        ? {
+            extraLines: customLines.map((c) => ({
+              kind: "MISC",
+              name: c.name,
+              unitPrice: c.unitPrice,
+              quantity: c.quantity,
+              ...(c.workerId ? { workerId: c.workerId } : {}),
+            })),
+          }
+        : {}),
     });
     const inv: InvoiceState = {
       id: data.id, invoiceNo: data.invoiceNo,
@@ -1406,7 +1445,7 @@ export function WalkInConsole({
                       {rows.map((row, i) => {
                         const svc = services.find((s) => s.id === row.serviceId);
                         if (!svc) return null;
-                        // Same service for several people: "person 2 of 3".
+                        // The same service added again: "2 of 3".
                         const people = rows.filter((r) => r.serviceId === row.serviceId).length;
                         const person = rows.slice(0, i + 1).filter((r) => r.serviceId === row.serviceId).length;
                         return (
@@ -1414,7 +1453,7 @@ export function WalkInConsole({
                             <td className="px-4 py-2.5">
                               <span className="block font-medium text-gray-900 dark:text-(--sa-text)">{svc.name}</span>
                               <span className="block text-xs text-gray-400 dark:text-(--sa-muted)">
-                                {svc.duration} min{people > 1 && ` · person ${person} of ${people}`}
+                                {svc.duration} min{people > 1 && ` · ${person} of ${people}`}
                               </span>
                               {!appointment && (
                                 <button
@@ -1422,7 +1461,7 @@ export function WalkInConsole({
                                   onClick={() => setRows((prev) => [...prev.slice(0, i + 1), { serviceId: row.serviceId, workerId: "" }, ...prev.slice(i + 1)])}
                                   className="mt-1 text-xs font-medium text-gray-500 underline-offset-2 transition hover:text-gray-900 hover:underline dark:text-(--sa-text-2) dark:hover:text-(--sa-text)"
                                 >
-                                  + Another person
+                                  + Add again
                                 </button>
                               )}
                             </td>
@@ -1465,6 +1504,95 @@ export function WalkInConsole({
                       })}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {/* Custom services — anything not in the catalogue, until the bill is raised. */}
+              {!invoice && (
+                <div className="space-y-2">
+                  {customLines.length > 0 && (
+                    <ul className="divide-y divide-gray-100 rounded-md border border-gray-200 text-sm dark:divide-white/5 dark:border-(--sa-border)">
+                      {customLines.map((c) => (
+                        <li key={c.key} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-gray-900 dark:text-(--sa-text)">
+                              {c.name}{c.quantity > 1 ? ` ×${c.quantity}` : ""}
+                            </span>
+                            <span className="block text-xs text-gray-400 dark:text-(--sa-muted)">
+                              Custom · {formatMoney(c.unitPrice)} each
+                              {c.workerId ? ` · ${workers.find((w) => w.id === c.workerId)?.name ?? "Staff"}` : " · no stylist"}
+                            </span>
+                          </span>
+                          <span className="flex shrink-0 items-center gap-2">
+                            <span className="font-medium tabular-nums text-gray-900 dark:text-(--sa-text)">
+                              {formatMoney(c.unitPrice * c.quantity)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setCustomLines((prev) => prev.filter((x) => x.key !== c.key))}
+                              aria-label={`Remove ${c.name}`}
+                              className="inline-flex size-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                            >
+                              <X className="size-4" aria-hidden="true" />
+                            </button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {customOpen ? (
+                    <div className="space-y-2 rounded-md border border-dashed border-gray-300 p-3 dark:border-(--sa-border)">
+                      <div className="grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_5rem]">
+                        <input value={customName} onChange={(e) => setCustomName(e.target.value)} maxLength={80}
+                          placeholder="Service name, e.g. Head Massage" aria-label="Custom service name" className={inputCls} />
+                        <input type="number" min={0} step="0.01" value={customPrice} onChange={(e) => setCustomPrice(e.target.value)}
+                          placeholder="Amount ₹" aria-label="Custom service amount" className={inputCls} />
+                        <input type="number" min={1} max={99} step={1} value={customQty} onChange={(e) => setCustomQty(e.target.value)}
+                          placeholder="Qty" aria-label="Custom service quantity" className={inputCls} />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select value={customWorker} onChange={(e) => setCustomWorker(e.target.value)}
+                          aria-label="Stylist for the custom service" className={cn(inputCls, "h-9 w-auto min-w-44")}>
+                          <option value="">No stylist</option>
+                          {workers.map((w) => (
+                            <option key={w.id} value={w.id}>{w.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const name = customName.trim();
+                            const price = Number(customPrice);
+                            const qty = Math.trunc(Number(customQty));
+                            if (!name) return setCustomError("Enter the service name.");
+                            if (!Number.isFinite(price) || price <= 0) return setCustomError("Enter an amount above ₹0.");
+                            if (!Number.isFinite(qty) || qty < 1 || qty > 99) return setCustomError("Quantity must be 1–99.");
+                            setCustomLines((prev) => [
+                              ...prev,
+                              { key: `${Date.now()}-${prev.length}`, name, unitPrice: Math.round(price * 100) / 100, quantity: qty, workerId: customWorker },
+                            ]);
+                            setCustomName(""); setCustomPrice(""); setCustomQty("1"); setCustomWorker("");
+                            setCustomError(null); setCustomOpen(false);
+                          }}
+                          className={cn(btnPrimary, "h-9 px-3 text-xs")}
+                        >
+                          <Check className="size-3.5" aria-hidden="true" /> Add
+                        </button>
+                        <button type="button" onClick={() => { setCustomOpen(false); setCustomError(null); }} className={btnGhost}>
+                          Cancel
+                        </button>
+                      </div>
+                      {customError && <p className="text-xs text-red-600 dark:text-red-400">{customError}</p>}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCustomOpen(true)}
+                      className="text-xs font-medium text-gray-500 underline-offset-2 transition hover:text-gray-900 hover:underline dark:text-(--sa-text-2) dark:hover:text-(--sa-text)"
+                    >
+                      + Custom service
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1940,10 +2068,16 @@ export function WalkInConsole({
               </p>
             ) : (
               <dl className="space-y-2 text-sm">
-                {chosen.map((s) => (
+                {chosenGrouped.map(({ s, qty }) => (
                   <div key={s.id} className="flex justify-between gap-3">
-                    <dt className="text-gray-600 dark:text-(--sa-text-2)">{s.name}</dt>
-                    <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">{formatMoney(s.price)}</dd>
+                    <dt className="text-gray-600 dark:text-(--sa-text-2)">{s.name}{qty > 1 ? ` ×${qty}` : ""}</dt>
+                    <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">{formatMoney(s.price * qty)}</dd>
+                  </div>
+                ))}
+                {customLines.map((c) => (
+                  <div key={c.key} className="flex justify-between gap-3">
+                    <dt className="text-gray-600 dark:text-(--sa-text-2)">{c.name}{c.quantity > 1 ? ` ×${c.quantity}` : ""}</dt>
+                    <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">{formatMoney(c.unitPrice * c.quantity)}</dd>
                   </div>
                 ))}
                 <div className="flex justify-between border-t border-gray-100 pt-2 dark:border-(--sa-border)">
