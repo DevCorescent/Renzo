@@ -81,7 +81,7 @@ type LiveSession = {
   workerName: string | null;
   serviceNames: string;
   serviceCount: number;
-  services?: { serviceId: string; workerId: string | null }[];
+  services?: { id?: string; serviceId: string; workerId: string | null }[];
   invoice: {
     id: string; invoiceNo: string;
     totalAmount: number; balanceDue: number; status: string;
@@ -490,7 +490,11 @@ export function WalkInConsole({
 
   // ── Booking ───────────────────────────────────────────────────────────────
   // Each selected service carries its own assigned worker (empty = any available).
-  type ServiceRow = { serviceId: string; workerId: string };
+  // One row per PERSON: a service can repeat for a group (two haircuts, two
+  // stylists). `lineId` is the saved AppointmentService id, once booked.
+  type ServiceRow = { serviceId: string; workerId: string; lineId?: string };
+  /** Which saved line a row is — its id once booked, else the service. */
+  const staffKey = (r: ServiceRow) => r.lineId ?? r.serviceId;
   const [rows,        setRows]        = React.useState<ServiceRow[]>([]);
   const [svcQuery,    setSvcQuery]    = React.useState("");
   const [svcOpen,     setSvcOpen]     = React.useState(false);
@@ -582,14 +586,15 @@ export function WalkInConsole({
   const taxable      = Math.max(0, subtotal - discountVal);
   const taxValue     = Math.round(((taxable * taxPercent) / 100) * 100) / 100;
   const grandTotal   = Math.round((taxable + taxValue) * 100) / 100;
-  const availableToAdd = services.filter((s) => !rows.find((r) => r.serviceId === s.id));
+  // Every service stays addable: adding one again books it for another person.
+  const availableToAdd = services;
   const matchingToAdd  = availableToAdd.filter((s) => matchesService(s.name, svcQuery));
   const moreOpen = showMore;
   const totalSplitAmount = splits.reduce((s, r) => s + (Number(r.amount) || 0), 0);
   const amountInvalid = splits.some(s => s.amount.trim() !== "" && !(Number(s.amount) >= 0));
   // Staff is not required to bill — but until it is set, nobody gets credit.
   const unassignedCount = rows.filter((r) => !r.workerId).length;
-  const staffDirty = Boolean(appointment) && rows.some((r) => (savedStaff[r.serviceId] ?? "") !== r.workerId);
+  const staffDirty = Boolean(appointment) && rows.some((r) => (savedStaff[staffKey(r)] ?? "") !== r.workerId);
   const detailsDirty = Boolean(appointment) && (
     chair !== savedDetails.chair || room !== savedDetails.room ||
     assistantId !== savedDetails.assistantId || notes !== savedDetails.notes
@@ -694,8 +699,9 @@ export function WalkInConsole({
     setAppointment({ id: session.id, appointmentNo: session.appointmentNo });
     setApptStatus(session.status);
     // Restore what was booked so the services table and bill preview are filled.
-    setRows((session.services ?? []).map((s) => ({ serviceId: s.serviceId, workerId: s.workerId ?? "" })));
-    setSavedStaff(Object.fromEntries((session.services ?? []).map((s) => [s.serviceId, s.workerId ?? ""])));
+    const resumed = (session.services ?? []).map((s) => ({ serviceId: s.serviceId, workerId: s.workerId ?? "", lineId: s.id }));
+    setRows(resumed);
+    setSavedStaff(Object.fromEntries(resumed.map((r) => [staffKey(r), r.workerId])));
     if (session.appointmentDate) setApptDate(session.appointmentDate);
     setStartTime(session.startTime);
     setChair(session.chairCabinNo ?? "");
@@ -721,9 +727,6 @@ export function WalkInConsole({
 
   /** `recordingVisit`: billing now — the visit is happening, not a future reservation. */
   async function createAppointment(recordingVisit = false) {
-    const serviceWorkers: Record<string, string> = {};
-    rows.forEach((r) => { if (r.workerId) serviceWorkers[r.serviceId] = r.workerId; });
-    const hasPerService = Object.keys(serviceWorkers).length > 0;
     // The appointment-level workerId is the first explicitly assigned worker.
     const primaryWorkerId = rows.find((r) => r.workerId)?.workerId ?? "";
 
@@ -731,8 +734,9 @@ export function WalkInConsole({
       customerPhone: customer!.phone,
       customerName:  `${customer!.firstName} ${customer!.lastName ?? ""}`.trim(),
       serviceIds:    rows.map((r) => r.serviceId),
+      // One line per person, so a repeated service keeps each person's stylist.
+      serviceLines:  rows.map((r) => ({ serviceId: r.serviceId, workerId: r.workerId || null })),
       ...(primaryWorkerId ? { workerId: primaryWorkerId } : {}),
-      ...(hasPerService   ? { serviceWorkers }            : {}),
       ...(assistantId     ? { assistantWorkerId: assistantId } : {}),
       ...(chair.trim()    ? { chairCabinNo: chair.trim() }   : {}),
       ...(room.trim()     ? { roomNo: room.trim() }           : {}),
@@ -744,7 +748,14 @@ export function WalkInConsole({
     const appt = { id: data.id as string, appointmentNo: data.appointmentNo as string };
     const status = (data.status as string | undefined) ?? "CONFIRMED";
     setAppointment(appt);
-    setSavedStaff(Object.fromEntries(rows.map((r) => [r.serviceId, r.workerId])));
+    // Adopt the saved lines, so each row now carries its own line id.
+    const saved: ServiceRow[] = Array.isArray(data.services)
+      ? (data.services as { id: string; serviceId: string; workerId: string | null }[]).map((s) => ({
+          serviceId: s.serviceId, workerId: s.workerId ?? "", lineId: s.id,
+        }))
+      : rows;
+    setRows(saved);
+    setSavedStaff(Object.fromEntries(saved.map((r) => [staffKey(r), r.workerId])));
     setSavedDetails({ chair, room, assistantId, notes });
     setApptStatus(status);
     return { appt, status };
@@ -776,8 +787,12 @@ export function WalkInConsole({
   async function persistRecord(apptId: string): Promise<boolean> {
     const assignments = staffDirty
       ? rows
-          .filter((r) => (savedStaff[r.serviceId] ?? "") !== r.workerId)
-          .map((r) => ({ serviceId: r.serviceId, workerId: r.workerId || null }))
+          .filter((r) => (savedStaff[staffKey(r)] ?? "") !== r.workerId)
+          .map((r) => ({
+            serviceId: r.serviceId,
+            workerId: r.workerId || null,
+            ...(r.lineId ? { appointmentServiceId: r.lineId } : {}),
+          }))
       : [];
     const details = detailsDirty
       ? { chairCabinNo: chair, roomNo: room, notes, assistantWorkerId: assistantId || null }
@@ -788,7 +803,7 @@ export function WalkInConsole({
       { ...(assignments.length ? { assignments } : {}), ...(details ? { details } : {}) },
       "PATCH"
     );
-    setSavedStaff(Object.fromEntries(rows.map((r) => [r.serviceId, r.workerId])));
+    setSavedStaff(Object.fromEntries(rows.map((r) => [staffKey(r), r.workerId])));
     setSavedDetails({ chair, room, assistantId, notes });
     return true;
   }
@@ -904,7 +919,7 @@ export function WalkInConsole({
     });
 
   function undoRecord() {
-    setRows((prev) => prev.map((r) => ({ ...r, workerId: savedStaff[r.serviceId] ?? "" })));
+    setRows((prev) => prev.map((r) => ({ ...r, workerId: savedStaff[staffKey(r)] ?? "" })));
     setChair(savedDetails.chair);
     setRoom(savedDetails.room);
     setAssistantId(savedDetails.assistantId);
@@ -1384,11 +1399,25 @@ export function WalkInConsole({
                       {rows.map((row, i) => {
                         const svc = services.find((s) => s.id === row.serviceId);
                         if (!svc) return null;
+                        // Same service for several people: "person 2 of 3".
+                        const people = rows.filter((r) => r.serviceId === row.serviceId).length;
+                        const person = rows.slice(0, i + 1).filter((r) => r.serviceId === row.serviceId).length;
                         return (
-                          <tr key={row.serviceId} className="transition hover:bg-gray-50 dark:hover:bg-white/[0.03]">
+                          <tr key={row.lineId ?? `${row.serviceId}-${i}`} className="transition hover:bg-gray-50 dark:hover:bg-white/[0.03]">
                             <td className="px-4 py-2.5">
                               <span className="block font-medium text-gray-900 dark:text-(--sa-text)">{svc.name}</span>
-                              <span className="block text-xs text-gray-400 dark:text-(--sa-muted)">{svc.duration} min</span>
+                              <span className="block text-xs text-gray-400 dark:text-(--sa-muted)">
+                                {svc.duration} min{people > 1 && ` · person ${person} of ${people}`}
+                              </span>
+                              {!appointment && (
+                                <button
+                                  type="button"
+                                  onClick={() => setRows((prev) => [...prev.slice(0, i + 1), { serviceId: row.serviceId, workerId: "" }, ...prev.slice(i + 1)])}
+                                  className="mt-1 text-xs font-medium text-gray-500 underline-offset-2 transition hover:text-gray-900 hover:underline dark:text-(--sa-text-2) dark:hover:text-(--sa-text)"
+                                >
+                                  + Another person
+                                </button>
+                              )}
                             </td>
                             <td className="px-4 py-2.5">
                               <select

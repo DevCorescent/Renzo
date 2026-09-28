@@ -11,6 +11,7 @@ import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth-guard";
 import { ok, err } from "@/lib/response";
 import prisma from "@/lib/db";
+import { serviceSummary } from "@/lib/appointment-lines";
 
 const ROLES = ["BRANCH_ADMIN", "OWNER", "SUPER_ADMIN", "RECEPTIONIST"] as const;
 
@@ -48,6 +49,7 @@ export async function GET(req: NextRequest) {
       notes: true,
       assistantWorkerId: true,
       source: true,
+      isGroupBooking: true,
       customer: {
         select: {
           id: true, firstName: true, lastName: true,
@@ -59,11 +61,14 @@ export async function GET(req: NextRequest) {
       },
       services: {
         select: {
+          id: true,
           serviceId: true,
           workerId: true,
           price: true,
           duration: true,
           service: { select: { name: true } },
+          // Named in the board summary: "Haircut ×2 (Farhan, Riyaz)".
+          worker: { select: { firstName: true } },
         },
       },
       invoice: {
@@ -96,10 +101,13 @@ export async function GET(req: NextRequest) {
     },
     workerId: a.worker?.id ?? null,
     workerName: a.worker ? `${a.worker.firstName} ${a.worker.lastName}`.trim() : null,
-    serviceNames: a.services.map((s) => s.service.name).join(", ") || "—",
+    // "Haircut ×2 (Farhan, Riyaz), Facial" — how many people need each service, and who.
+    serviceNames: serviceSummary(a.services) || "—",
     serviceCount: a.services.length,
     // Lets the console restore the service rows (and bill preview) on resume.
-    services: a.services.map((s) => ({ serviceId: s.serviceId, workerId: s.workerId })),
+    // `id` identifies each person's line when a service repeats for a group.
+    services: a.services.map((s) => ({ id: s.id, serviceId: s.serviceId, workerId: s.workerId })),
+    isGroupBooking: a.isGroupBooking,
     invoice: a.invoice
       ? {
           id: a.invoice.id,

@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
 import { genCode } from "@/lib/codes";
 import { earnLoyaltyPoints } from "@/lib/loyalty";
+import { groupServiceLines } from "@/lib/appointment-lines";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -197,14 +198,9 @@ export async function POST(
 
       if (!appointment.invoice) {
         const items = [
-          ...appointment.services.map((s) => ({
-            type: "SERVICE",
-            refId: s.serviceId,
-            name: s.service.name,
-            quantity: 1,
-            unitPrice: s.price,
-            total: s.price,
-          })),
+          // One line per service + price; a service done for several people in a
+          // group booking is one line with that quantity (lib/appointment-lines.ts).
+          ...groupServiceLines(appointment.services),
           ...appointment.addOns.map((a) => ({
             type: "ADDON",
             refId: a.addOnId,

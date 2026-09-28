@@ -55,6 +55,14 @@ export type BookingInput = {
    */
   serviceWorkers?: Record<string, string>;
   /**
+   * Desk only: one entry PER PERSON, in order, so a service may repeat — two
+   * people having a haircut is two Haircut lines, each with its own stylist
+   * (lib/appointment-lines.ts groups them for the bill). When given, this
+   * replaces serviceIds + serviceWorkers. Online, every named stylist must offer
+   * their service and be free for the slot; the desk keeps its own rules.
+   */
+  serviceLines?: { serviceId: string; workerId?: string | null }[];
+  /**
    * Desk only: the visit is being recorded as it is billed (the customer is
    * here or has just been served), so worker/chair/room clash checks against
    * the slot are skipped. Ignored for any non-desk booking.
@@ -124,7 +132,22 @@ export async function createBooking(
   const name = input.customerName?.trim() ?? "";
   if (!name) return fail("Customer name is required", 422, { customerName: ["Required"] });
 
-  const serviceIds = [...new Set((input.serviceIds ?? []).filter(Boolean))];
+  // A staff member booking at the desk (see the booking-window note below).
+  const isDeskBooking =
+    context.source === BookingSource.WALK_IN && context.createdByUserId !== null;
+
+  const serviceLines =
+    input.serviceLines && input.serviceLines.length > 0
+      ? input.serviceLines.filter((l) => l && typeof l.serviceId === "string" && l.serviceId)
+      : null;
+  if (serviceLines && serviceLines.length > 50) {
+    return fail("Too many services in one booking", 422, { serviceLines: ["At most 50"] });
+  }
+
+  // Distinct services — what is validated, priced and qualification-checked.
+  const serviceIds = [
+    ...new Set((serviceLines ? serviceLines.map((l) => l.serviceId) : input.serviceIds ?? []).filter(Boolean)),
+  ];
   if (serviceIds.length === 0) {
     return fail("At least one service is required", 422, { serviceIds: ["Choose a service"] });
   }
@@ -170,12 +193,14 @@ export async function createBooking(
   // (or has just been served), so the online "minimum notice" rule does not
   // apply and a start time earlier today is legitimate. Only past DATES are
   // refused.
-  const isDeskBooking =
-    context.source === BookingSource.WALK_IN && context.createdByUserId !== null;
   const skipSlotClashes = isDeskBooking && input.recordingVisit === true;
   // An empty per-service map means "no per-service assignment", not "nobody".
   const serviceWorkers =
     input.serviceWorkers && Object.keys(input.serviceWorkers).length > 0 ? input.serviceWorkers : undefined;
+  // Per-person staff: same rule as the map — once anyone is named, an unnamed
+  // line stays unassigned instead of falling to the lead stylist.
+  const lineWorkers = serviceLines?.map((l) => l.workerId?.trim() || null) ?? null;
+  const hasLineWorkers = Boolean(lineWorkers?.some(Boolean));
 
   if (isDeskBooking) {
     const todayLocal = new Date(nowUtc.getTime() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -235,9 +260,14 @@ export async function createBooking(
     });
   }
 
+  // One row per person when the desk sent per-person lines; otherwise one per
+  // service, exactly as before. Duration still sums every row (unchanged rule).
+  const byId = new Map(dbServices.map((s) => [s.id, s]));
+  const instances = serviceLines ? serviceLines.map((l) => byId.get(l.serviceId)!) : dbServices;
+
   let totalDuration = 0;
   let subtotal = 0;
-  const serviceRows = dbServices.map((s) => {
+  const serviceRows = instances.map((s) => {
     const price = Number(s.branchPricings[0]?.price ?? s.basePrice);
     totalDuration += s.duration;
     subtotal += price;
@@ -269,7 +299,7 @@ export async function createBooking(
 
     // When per-service workers are provided each stylist is responsible for their
     // own service only, so the all-services qualification check does not apply.
-    if (!serviceWorkers) {
+    if (!serviceWorkers && !hasLineWorkers) {
       const qualified = await prisma.workerService.count({
         where: { workerId: worker.id, serviceId: { in: serviceIds }, isActive: true },
       });
@@ -300,7 +330,9 @@ export async function createBooking(
   // ── Per-service workers (optional) ───────────────────────────────────────
   // Whoever is named against a service gets the credit for it, so each one must
   // be a real, active worker at this branch.
-  const perServiceIds = [...new Set(Object.values(serviceWorkers ?? {}).filter(Boolean))];
+  const perServiceIds = [
+    ...new Set([...Object.values(serviceWorkers ?? {}), ...(lineWorkers ?? [])].filter((w): w is string => Boolean(w))),
+  ];
   if (perServiceIds.length > 0) {
     const valid = await prisma.workerProfile.count({
       where: {
@@ -313,6 +345,50 @@ export async function createBooking(
       return fail("One or more selected staff are not active at this branch", 422, {
         serviceWorkers: ["Choose staff who work at this branch"],
       });
+    }
+  }
+
+  // ── Per-person stylists, online ──────────────────────────────────────────
+  // A customer booking themselves can name a different stylist per person. Each
+  // must actually offer that person's service and be free for the whole slot —
+  // the same two rules the lead stylist is held to above. (The desk skips these,
+  // as it always has for per-service staff.)
+  if (!isDeskBooking && serviceLines && lineWorkers) {
+    const pairs = [
+      ...new Set(
+        serviceLines
+          .map((l, i) => (lineWorkers[i] ? `${lineWorkers[i]}|${l.serviceId}` : null))
+          .filter((p): p is string => Boolean(p))
+      ),
+    ].map((p) => p.split("|") as [string, string]);
+    if (pairs.length > 0) {
+      const offered = await prisma.workerService.findMany({
+        where: { isActive: true, OR: pairs.map(([workerId, serviceId]) => ({ workerId, serviceId })) },
+        select: { workerId: true, serviceId: true },
+      });
+      const ok = new Set(offered.map((o) => `${o.workerId}|${o.serviceId}`));
+      if (pairs.some(([w, sv]) => !ok.has(`${w}|${sv}`))) {
+        return fail("A chosen stylist does not offer that service", 422, {
+          serviceLines: ["Choose a stylist who offers this service"],
+        });
+      }
+    }
+    const others = [...new Set(lineWorkers.filter((w): w is string => Boolean(w) && w !== resolvedWorkerId))];
+    for (const workerId of others) {
+      const busy = await prisma.appointment.count({
+        where: {
+          appointmentDate: parsedDate,
+          status: { notIn: ["CANCELLED", "NO_SHOW"] },
+          startTime: { lt: endTime },
+          endTime: { gt: start },
+          OR: [{ workerId }, { services: { some: { workerId } } }],
+        },
+      });
+      if (busy > 0) {
+        return fail("A chosen stylist is not free at this time", 409, {
+          serviceLines: ["Pick another stylist or time"],
+        });
+      }
     }
   }
 
@@ -421,16 +497,20 @@ export async function createBooking(
         roomNo: input.roomNo ?? null,
         assistantWorkerId: resolvedAssistantId,
         notes: input.notes?.trim() || null,
+        // The same service booked for more than one person — a group visit.
+        isGroupBooking: serviceRows.length > serviceIds.length,
         services: {
-          create: serviceRows.map((r) => ({
+          create: serviceRows.map((r, i) => ({
             ...r,
             // With a per-service map, each line is credited only to the person named
             // for it — an unassigned line stays unassigned rather than silently
             // landing on the lead stylist. Without a map, the appointment worker
-            // does every service.
-            workerId: serviceWorkers
-              ? serviceWorkers[r.serviceId] || null
-              : resolvedWorkerId,
+            // does every service. Per-person lines follow the same rule.
+            workerId: lineWorkers
+              ? hasLineWorkers ? lineWorkers[i] : resolvedWorkerId
+              : serviceWorkers
+                ? serviceWorkers[r.serviceId] || null
+                : resolvedWorkerId,
           })),
         },
       },
