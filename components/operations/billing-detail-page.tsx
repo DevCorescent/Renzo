@@ -124,6 +124,7 @@ export async function BillingDetailPage({
         invoiceStatus={invoice.status}
         currentNotes={invoice.notes}
         currentDiscount={Number(invoice.discountAmount)}
+        subtotal={Number(invoice.subtotal)}
         canVoid={authUser.userType === "BRANCH_ADMIN" || authUser.userType === "SUPER_ADMIN" || authUser.userType === "OWNER"}
         items={invoice.items.map((i) => ({
           id: i.id,

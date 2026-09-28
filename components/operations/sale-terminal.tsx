@@ -16,6 +16,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Trash2, ShoppingBag, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DiscountInput, discountFrom, type DiscountMode } from "@/components/operations/discount-input";
 import { API } from "@/lib/endpoints";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/shared/ui";
 import { CustomerPicker, type PickedCustomer } from "@/components/operations/customer-picker";
@@ -71,6 +72,7 @@ export function SaleTerminal({
   const [customer, setCustomer] = React.useState<PickedCustomer | null>(null);
   const [lines, setLines] = React.useState<Line[]>([]);
   const [discount, setDiscount] = React.useState("");
+  const [discountMode, setDiscountMode] = React.useState<DiscountMode>("AMOUNT");
   const [tip, setTip] = React.useState("");
   const [payMethod, setPayMethod] = React.useState<string>("CASH");
   const [payAmount, setPayAmount] = React.useState("");
@@ -93,7 +95,8 @@ export function SaleTerminal({
   };
 
   const subtotal = round2(lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0));
-  const discountValue = Math.min(num(discount), subtotal);
+  // ₹ or % of the subtotal — always sent to the server as a rupee amount.
+  const discountValue = discountFrom(discount, discountMode, subtotal);
   const taxable = Math.max(0, subtotal - discountValue);
   // Same order the server uses: discount off the subtotal, tax on the remainder,
   // tip added afterwards untaxed. See computeInvoiceTotals in lib/billing-service.
@@ -223,6 +226,7 @@ export function SaleTerminal({
       setOkMessage(`Invoice ${json.data.invoiceNo} raised for ${formatMoney(json.data.totalAmount)}.`);
       setLines([]);
       setDiscount("");
+      setDiscountMode("AMOUNT");
       setTip("");
       setPayAmount("");
       setPayReference("");
@@ -443,11 +447,11 @@ export function SaleTerminal({
           )}
 
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className={labelCls} htmlFor="sale-discount">Discount ₹</label>
-              <input id="sale-discount" type="number" min={0} step="0.01" value={discount}
-                onChange={(e) => setDiscount(e.target.value)} className={inputCls} placeholder="0" />
-            </div>
+            <DiscountInput
+              id="sale-discount" raw={discount} mode={discountMode}
+              onRaw={setDiscount} onMode={setDiscountMode} subtotal={subtotal}
+              inputClassName={inputCls} labelClassName={labelCls}
+            />
             <div>
               <label className={labelCls} htmlFor="sale-tax">{taxName}</label>
               <input

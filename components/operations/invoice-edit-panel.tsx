@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Pencil, X, Loader2, AlertTriangle, Trash2, Plus } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/shared/ui";
 import { API } from "@/lib/endpoints";
+import { DiscountInput, discountFrom, type DiscountMode } from "@/components/operations/discount-input";
 
 const inputCls =
   "w-full rounded border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-900 outline-none transition focus:border-gray-400 focus:ring-1 focus:ring-gray-400 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text)";
@@ -23,6 +24,7 @@ export function InvoiceEditPanel({
   invoiceStatus,
   currentNotes,
   currentDiscount,
+  subtotal,
   canVoid,
   items = [],
   customerId,
@@ -32,6 +34,8 @@ export function InvoiceEditPanel({
   invoiceStatus: string;
   currentNotes: string | null;
   currentDiscount: number;
+  /** Pre-tax subtotal — what a % discount is taken of. */
+  subtotal: number;
   canVoid: boolean;
   items?: InvoiceItem[];
   customerId?: string;
@@ -43,6 +47,7 @@ export function InvoiceEditPanel({
 
   const [notes, setNotes] = React.useState(currentNotes ?? "");
   const [discount, setDiscount] = React.useState(String(currentDiscount));
+  const [discountMode, setDiscountMode] = React.useState<DiscountMode>("AMOUNT");
   const [voidReason, setVoidReason] = React.useState("");
 
   // new item form
@@ -92,12 +97,13 @@ export function InvoiceEditPanel({
   async function handleSave() {
     const body: Record<string, unknown> = { notes };
     if (canEditDiscount) {
-      const d = Number(discount);
+      const d = Number(discount || 0);
       if (!Number.isFinite(d) || d < 0) {
         setMsg({ tone: "err", text: "Discount must be a non-negative number." });
         return;
       }
-      body.discountAmount = d;
+      // ₹ or % — the server always receives the rupee amount.
+      body.discountAmount = discountFrom(discount, discountMode, subtotal);
     }
     const ok = await patch(body);
     if (ok) setOpen(false);
@@ -235,20 +241,13 @@ export function InvoiceEditPanel({
             <div className="space-y-3">
               {canEditDiscount && (
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-(--sa-text-2)">
-                    Discount (₹)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={discount}
-                    onChange={(e) => setDiscount(e.target.value)}
-                    className={inputCls}
-                    placeholder="0"
+                  <DiscountInput
+                    id="edit-discount" raw={discount} mode={discountMode}
+                    onRaw={setDiscount} onMode={setDiscountMode} subtotal={subtotal}
+                    inputClassName={inputCls}
                   />
                   <p className="mt-1 text-[11px] text-gray-400 dark:text-(--sa-muted)">
-                    Totals and balance are recalculated immediately.
+                    Taken off the subtotal before GST. Totals and balance are recalculated immediately.
                   </p>
                 </div>
               )}

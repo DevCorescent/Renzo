@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
+import { DiscountInput, discountFrom, type DiscountMode } from "@/components/operations/discount-input";
 import {
   fetchInvoicePdf,
   openWhatsAppChat,
@@ -99,6 +100,8 @@ type DraftSession = {
   assistantId: string;
   notes: string;
   discount: string;
+  /** ₹ or % — older drafts have none and were always ₹. */
+  discountMode?: DiscountMode;
   chair: string;
   room: string;
   startTime: string;
@@ -506,6 +509,7 @@ export function WalkInConsole({
   const [startTime,   setStartTime]   = React.useState(nowIstTime);
   const [notes,    setNotes]    = React.useState("");
   const [discount, setDiscount] = React.useState("");
+  const [discountMode, setDiscountMode] = React.useState<DiscountMode>("AMOUNT");
   const [showMore, setShowMore] = React.useState(false);
 
   const isFutureBooking = apptDate > todayIst();
@@ -582,7 +586,8 @@ export function WalkInConsole({
   const chosen       = rows.map((r) => services.find((s) => s.id === r.serviceId)).filter(Boolean) as WalkInService[];
   const subtotal     = chosen.reduce((sum, s) => sum + s.price, 0);
   const duration     = chosen.reduce((sum, s) => sum + s.duration, 0);
-  const discountVal  = Math.min(Number(discount) || 0, subtotal);
+  // ₹ or % of the subtotal — always sent to the server as a rupee amount.
+  const discountVal  = discountFrom(discount, discountMode, subtotal);
   const taxable      = Math.max(0, subtotal - discountVal);
   const taxValue     = Math.round(((taxable * taxPercent) / 100) * 100) / 100;
   const grandTotal   = Math.round((taxable + taxValue) * 100) / 100;
@@ -617,7 +622,7 @@ export function WalkInConsole({
     setTerm(""); setHits([]); setCustomer(null);
     setNewName(""); setNewPhone(""); setNewEmail("");
     setRows([]); setSvcQuery(""); setSvcOpen(false); setAssistantId("");
-    setChair(""); setRoom(""); setNotes(""); setDiscount(""); setShowMore(false);
+    setChair(""); setRoom(""); setNotes(""); setDiscount(""); setDiscountMode("AMOUNT"); setShowMore(false);
     setStartTime(nowIstTime());
     setApptDate(todayIst());
     setAppointment(null); setApptStatus(null); setInvoice(null); setSavedStaff({});
@@ -657,6 +662,7 @@ export function WalkInConsole({
       assistantId,
       notes,
       discount,
+      discountMode,
       chair,
       room,
       startTime,
@@ -675,6 +681,7 @@ export function WalkInConsole({
     setAssistantId(draft.assistantId);
     setNotes(draft.notes);
     setDiscount(draft.discount);
+    setDiscountMode(draft.discountMode ?? "AMOUNT");
     setChair(draft.chair);
     setRoom(draft.room);
     setStartTime(draft.startTime);
@@ -1564,11 +1571,11 @@ export function WalkInConsole({
                       <input id="wi-time" type="time" value={startTime}
                         onChange={(e) => setStartTime(e.target.value)} className={inputCls} />
                     </div>
-                    <div>
-                      <label className={labelCls} htmlFor="wi-disc">Discount (₹)</label>
-                      <input id="wi-disc" type="number" min={0} value={discount}
-                        onChange={(e) => setDiscount(e.target.value)} placeholder="0" className={inputCls} />
-                    </div>
+                    <DiscountInput
+                      id="wi-disc" raw={discount} mode={discountMode}
+                      onRaw={setDiscount} onMode={setDiscountMode} subtotal={subtotal}
+                      inputClassName={inputCls} labelClassName={labelCls}
+                    />
                   </div>
 
                   {detailsBlock}
@@ -1710,10 +1717,12 @@ export function WalkInConsole({
                     </p>
                   )}
 
-                  <div className="max-w-48">
-                    <label className={labelCls} htmlFor="wi-disc2">Discount (₹)</label>
-                    <input id="wi-disc2" type="number" min={0} value={discount}
-                      onChange={(e) => setDiscount(e.target.value)} placeholder="0" className={inputCls} />
+                  <div className="max-w-60">
+                    <DiscountInput
+                      id="wi-disc2" raw={discount} mode={discountMode}
+                      onRaw={setDiscount} onMode={setDiscountMode} subtotal={subtotal}
+                      inputClassName={inputCls} labelClassName={labelCls}
+                    />
                   </div>
 
                   <div className="flex flex-col gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:justify-end dark:border-(--sa-border)">
