@@ -1,131 +1,106 @@
 // Server-only — never import from client components.
 import { Document, Page, View, Text, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
 import { PDF_FONT } from "@/lib/pdf-fonts";
+import { taxLabel } from "@/lib/invoice-breakdown";
 
-// ── Palette — elegant rose / blush matching reference ──
-const ROSE       = "#D4687A";   // accent / headers
-const ROSE_LIGHT = "#FBE8EC";   // table header bg, total row bg
-const ROSE_MID   = "#F2D0D8";   // decorative circle fills
-const INK        = "#2B2B2B";
-const MUTED      = "#888888";
-const RULE       = "#EED8DC";
+// ── Palette — gold / beige "Tax Invoice / Bill" sheet ──
+const GOLD       = "#A8862B";   // brand name, rules
+const BEIGE      = "#F0E9D8";   // table header
+const BEIGE_SOFT = "#F7F2E6";   // grand-total bar
+const INK        = "#1F1F1F";
+const MUTED      = "#6B6B6B";
+const LINE       = "#CFCFCF";   // box / table borders
 const WHITE      = "#FFFFFF";
 
 const s = StyleSheet.create({
   page: {
-    fontFamily: PDF_FONT, fontSize: 10, color: INK,
-    backgroundColor: WHITE, paddingHorizontal: 52, paddingVertical: 44,
+    fontFamily: PDF_FONT, fontSize: 9.5, color: INK,
+    backgroundColor: WHITE, paddingHorizontal: 40, paddingTop: 44, paddingBottom: 40,
   },
 
-  /* ── decorative circles (top-right & bottom-left) ────────── */
-  decCircleTR: {
-    position: "absolute", top: -30, right: -30,
-    width: 150, height: 150, borderRadius: 75,
-    backgroundColor: ROSE_MID, opacity: 0.45,
-  },
-  decCircleBL: {
-    position: "absolute", bottom: -20, left: -20,
-    width: 110, height: 110, borderRadius: 55,
-    backgroundColor: ROSE_MID, opacity: 0.35,
-  },
+  /* ── brand block (centered) ──────────────────────────────── */
+  brandWrap: { alignItems: "center" },
+  brandName: { fontSize: 24, fontWeight: 700, color: GOLD, letterSpacing: 0.5, textTransform: "uppercase" },
+  brandSub:  { fontSize: 10, color: MUTED, marginTop: 3, textTransform: "uppercase", letterSpacing: 0.5 },
+  brandLine: { fontSize: 9, color: MUTED, marginTop: 2 },
+  goldRule:  { height: 1, backgroundColor: GOLD, marginTop: 10 },
 
-  /* ── logo block (centered) ───────────────────────────────── */
-  logoWrap:    { alignItems: "center", marginBottom: 8 },
-  logoCircle:  {
-    width: 52, height: 52, borderRadius: 26,
-    borderWidth: 1.5, borderColor: ROSE,
-    alignItems: "center", justifyContent: "center",
-    marginBottom: 6,
-  },
-  logoInitial: { fontSize: 18, fontWeight: 700, color: ROSE },
-  brandName:   { fontSize: 9, fontWeight: 700, letterSpacing: 3, color: INK, textTransform: "uppercase" },
-  tagline:     { fontSize: 7, color: MUTED, letterSpacing: 2, marginTop: 2, textTransform: "uppercase" },
+  /* ── title ───────────────────────────────────────────────── */
+  title: { fontSize: 15, fontWeight: 700, textAlign: "center", marginTop: 16, marginBottom: 12 },
 
-  /* ── "INVOICE" title ─────────────────────────────────────── */
-  invoiceTitle: {
-    fontSize: 34, fontWeight: 700, color: INK,
-    letterSpacing: 6, textAlign: "center", marginBottom: 4,
-  },
+  /* ── 3 × 2 details box ───────────────────────────────────── */
+  box:      { borderWidth: 1, borderColor: LINE },
+  boxRow:   { flexDirection: "row" },
+  boxRowTop:{ borderTopWidth: 1, borderTopColor: LINE },
+  cell:     { flex: 1, paddingVertical: 7, paddingHorizontal: 8 },
+  cellMid:  { borderLeftWidth: 1, borderRightWidth: 1, borderColor: LINE },
+  cellLbl:  { fontSize: 8.5, fontWeight: 700, marginBottom: 2 },
+  cellVal:  { fontSize: 8.5, color: INK },
 
-  /* ── thin decorative rule ────────────────────────────────── */
-  ruleWrap:    { marginVertical: 14 },
-  ruleLine:    { height: 1, backgroundColor: RULE },
+  /* ── services table ──────────────────────────────────────── */
+  table:   { borderWidth: 1, borderColor: LINE, marginTop: 14 },
+  thRow:   { flexDirection: "row", backgroundColor: BEIGE },
+  tdRow:   { flexDirection: "row", borderTopWidth: 1, borderTopColor: LINE },
+  th:      { fontSize: 8.5, fontWeight: 700, paddingVertical: 7, paddingHorizontal: 8 },
+  td:      { fontSize: 8.5, paddingVertical: 8, paddingHorizontal: 8 },
+  tdStaff: { fontSize: 7.5, color: MUTED, marginTop: 2 },
+  colNo:   { width: 32 },
+  colSvc:  { flex: 1, borderLeftWidth: 1, borderLeftColor: LINE },
+  colQty:  { width: 48, textAlign: "right", borderLeftWidth: 1, borderLeftColor: LINE },
+  colRate: { width: 96, textAlign: "right", borderLeftWidth: 1, borderLeftColor: LINE },
+  colAmt:  { width: 104, textAlign: "right", borderLeftWidth: 1, borderLeftColor: LINE },
 
-  /* ── info columns: INVOICE TO / INVOICE NO. / DATE ─────── */
-  infoRow:     { flexDirection: "row", justifyContent: "space-between", marginBottom: 22 },
-  infoBlock:   { flex: 1 },
-  infoBlockR:  { flex: 1, alignItems: "flex-end" },
-  infoLbl:     { fontSize: 7.5, fontWeight: 700, color: MUTED, letterSpacing: 1.5, marginBottom: 4, textTransform: "uppercase" },
-  infoVal:     { fontSize: 11, fontWeight: 700, color: INK },
-  infoSub:     { fontSize: 9, color: MUTED, marginTop: 2 },
-
-  /* ── table ───────────────────────────────────────────────── */
-  thRow:  {
-    flexDirection: "row",
-    backgroundColor: ROSE_LIGHT,
-    paddingVertical: 7, paddingHorizontal: 10,
-  },
-  th:      { fontSize: 7.5, fontWeight: 700, color: ROSE, letterSpacing: 1.2, textTransform: "uppercase" },
-  tdRow:   {
-    flexDirection: "row",
-    paddingVertical: 9, paddingHorizontal: 10,
-    borderBottomWidth: 1, borderBottomColor: RULE,
-  },
-  tdLast:  { borderBottomWidth: 0 },
-
-  /* column widths */
-  colDesc: { flex: 1 },
-  colQty:  { width: 36, textAlign: "center" },
-  colRate: { width: 72, textAlign: "right" },
-  colAmt:  { width: 72, textAlign: "right" },
-
-  tdText:  { fontSize: 9.5, color: INK },
-  tdMuted: { fontSize: 9.5, color: MUTED },
-
-  /* ── totals block ────────────────────────────────────────── */
-  totWrap: { marginTop: 14, marginLeft: "auto", width: 210 },
-  tRow:    { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
-  tLbl:    { fontSize: 9.5, color: MUTED },
-  tVal:    { fontSize: 9.5, color: INK },
-  tGreen:  { fontSize: 9.5, color: "#15803d" },
-
-  /* highlighted total row */
+  /* ── totals (right) ──────────────────────────────────────── */
+  totWrap:  { marginTop: 12, marginLeft: "auto", width: 260 },
+  tRow:     { flexDirection: "row", justifyContent: "flex-end", paddingVertical: 4 },
+  tLbl:     { fontSize: 8.5, textAlign: "right", flex: 1, paddingRight: 24 },
+  tLblBold: { fontSize: 8.5, fontWeight: 700, textAlign: "right", flex: 1, paddingRight: 24 },
+  tVal:     { fontSize: 8.5, textAlign: "right", width: 90, paddingRight: 8 },
+  tValBold: { fontSize: 8.5, fontWeight: 700, textAlign: "right", width: 90, paddingRight: 8 },
   grandRow: {
-    flexDirection: "row", justifyContent: "space-between",
-    paddingVertical: 8, paddingHorizontal: 8,
-    backgroundColor: ROSE_LIGHT, marginTop: 4,
+    flexDirection: "row", justifyContent: "flex-end", paddingVertical: 6, marginTop: 4,
+    borderTopWidth: 1, borderTopColor: GOLD, backgroundColor: BEIGE_SOFT,
   },
-  grandLbl: { fontSize: 11, fontWeight: 700, color: ROSE },
-  grandVal: { fontSize: 11, fontWeight: 700, color: ROSE },
-
-  paidRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
-  paidLbl: { fontSize: 9, color: "#15803d" },
-  paidVal: { fontSize: 9, fontWeight: 700, color: "#15803d" },
-
-  balRow:  { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
-  balLbl:  { fontSize: 9, fontWeight: 700, color: "#dc2626" },
-  balVal:  { fontSize: 9, fontWeight: 700, color: "#dc2626" },
+  paidVal:  { color: "#15803d" },
+  dueVal:   { color: "#dc2626" },
 
   /* ── footer ──────────────────────────────────────────────── */
-  footerRule:  { height: 1, backgroundColor: RULE, marginTop: 28, marginBottom: 16 },
-  footerRow:   { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
-  thankYou:    { fontSize: 22, fontWeight: 700, color: ROSE, letterSpacing: 1 },
-  ftBrand:     { fontSize: 8, fontWeight: 700, color: INK, letterSpacing: 1, marginBottom: 2 },
-  ftContact:   { fontSize: 7.5, color: MUTED, marginTop: 1 },
-  ftRight:     { alignItems: "flex-end" },
-  ftWebsite:   { fontSize: 7.5, color: MUTED },
+  footer:     { marginTop: 28, paddingTop: 12, borderTopWidth: 1, borderTopColor: LINE, alignItems: "center" },
+  ftNote:     { fontSize: 10, fontWeight: 700, color: GOLD, marginBottom: 4, textAlign: "center" },
+  ftLine:     { fontSize: 7.5, color: MUTED, marginTop: 1, textAlign: "center" },
 });
 
 export type InvoicePdfData = {
   invoiceNo: string;
   date: string;
+  /** "28 Sep 2026 • 11:40 AM" for the A4 Date & Time box; falls back to `date`. */
+  dateTime?: string;
   branch: string;
   customerName: string;
   customerPhone?: string;
-  items: { label: string; amount: number }[];
+  /** Who performed the services — the A4 "Staff" box. */
+  staff?: string;
+  /**
+   * `label` + `amount` are what every layout prints. `name`/`quantity`/`rate`
+   * fill the A4 Qty and Rate columns; without them a line prints as ×1 at its
+   * amount, as it always did.
+   */
+  items: {
+    label: string;
+    amount: number;
+    name?: string;
+    quantity?: number;
+    rate?: number;
+    /** Who performed this line — "Farhan, Riyaz" (two people) or "Farhan" (one). */
+    staff?: string;
+  }[];
   subtotal: number;
   discount: number;
   tax: number;
+  /** GST rate actually charged, e.g. 18 — printed as "GST @ 18%". */
+  taxPercent?: number;
+  /** A tip, added after GST and never discounted. */
+  tip?: number;
   total: number;
   paid: number;
   balance: number;
@@ -146,125 +121,150 @@ export type InvoicePdfData = {
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 
+/** "98XXXXXX21" — a 10-digit mobile with only the first and last two digits shown. */
+function maskMobile(phone?: string): string {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  const local = digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
+  if (local.length < 6) return local || "—";
+  return `${local.slice(0, 2)}${"X".repeat(local.length - 4)}${local.slice(-2)}`;
+}
+
+/** "UPI / Paid", "Cash + UPI / Partly paid", "— / Unpaid". */
+function paymentSummary(d: InvoicePdfData): string {
+  const methods = [...new Set((d.payments ?? []).map((p) => p.method))].join(" + ");
+  const state = d.balance <= 0 && d.total > 0 ? "Paid" : d.paid > 0 ? "Partly paid" : "Unpaid";
+  return `${methods || "—"} / ${state}`;
+}
+
 function InvoiceDoc({ d }: { d: InvoicePdfData }) {
   const bizName = d.businessName || "Renzo";
-  const initial = bizName.charAt(0).toUpperCase();
+  const contact = [d.address, d.phone, d.email, d.website].filter(Boolean).join("  •  ");
   return (
     <Document title={`Invoice ${d.invoiceNo} — ${bizName}`} author={bizName}>
       <Page size="A4" style={s.page}>
 
-        {/* Decorative background circles */}
-        <View style={s.decCircleTR} fixed />
-        <View style={s.decCircleBL} fixed />
-
-        {/* Centered logo + brand */}
-        <View style={s.logoWrap}>
-          <View style={s.logoCircle}>
-            <Text style={s.logoInitial}>{initial}</Text>
-          </View>
+        {/* Brand */}
+        <View style={s.brandWrap}>
           <Text style={s.brandName}>{bizName}</Text>
-          <Text style={s.tagline}>{d.tagline || "Hair & Beauty Salon"}</Text>
+          <Text style={s.brandSub}>{d.tagline || "Hair & Beauty Studio"}</Text>
+          <Text style={s.brandLine}>Professional Salon • Hair • Beauty • Grooming</Text>
         </View>
+        <View style={s.goldRule} />
 
-        {/* "INVOICE" heading */}
-        <Text style={s.invoiceTitle}>INVOICE</Text>
+        <Text style={s.title}>TAX INVOICE / BILL</Text>
 
-        {/* Thin rule */}
-        <View style={s.ruleWrap}>
-          <View style={s.ruleLine} />
-        </View>
-
-        {/* INVOICE TO / INVOICE NO. / DATE */}
-        <View style={s.infoRow}>
-          <View style={s.infoBlock}>
-            <Text style={s.infoLbl}>Invoice To</Text>
-            <Text style={s.infoVal}>{d.customerName}</Text>
-            {d.customerPhone && <Text style={s.infoSub}>{d.customerPhone}</Text>}
+        {/* Details: 3 × 2 */}
+        <View style={s.box}>
+          <View style={s.boxRow}>
+            <View style={s.cell}>
+              <Text style={s.cellLbl}>Invoice No.</Text>
+              <Text style={s.cellVal}>{d.invoiceNo}</Text>
+            </View>
+            <View style={[s.cell, s.cellMid]}>
+              <Text style={s.cellLbl}>Date &amp; Time</Text>
+              <Text style={s.cellVal}>{d.dateTime || d.date}</Text>
+            </View>
+            <View style={s.cell}>
+              <Text style={s.cellLbl}>Payment</Text>
+              <Text style={s.cellVal}>{paymentSummary(d)}</Text>
+            </View>
           </View>
-          <View style={s.infoBlockR}>
-            <Text style={s.infoLbl}>Invoice No.</Text>
-            <Text style={s.infoVal}>{d.invoiceNo}</Text>
-            <Text style={[s.infoLbl, { marginTop: 8 }]}>Date</Text>
-            <Text style={s.infoVal}>{d.date}</Text>
+          <View style={[s.boxRow, s.boxRowTop]}>
+            <View style={s.cell}>
+              <Text style={s.cellLbl}>Customer Name</Text>
+              <Text style={s.cellVal}>{d.customerName}</Text>
+            </View>
+            <View style={[s.cell, s.cellMid]}>
+              <Text style={s.cellLbl}>Mobile</Text>
+              <Text style={s.cellVal}>{maskMobile(d.customerPhone)}</Text>
+            </View>
+            <View style={s.cell}>
+              <Text style={s.cellLbl}>Staff</Text>
+              <Text style={s.cellVal}>{d.staff || "—"}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Table header */}
-        <View style={s.thRow}>
-          <Text style={[s.th, s.colDesc]}>Description</Text>
-          <Text style={[s.th, s.colQty]}>Qty</Text>
-          <Text style={[s.th, s.colRate]}>Rate</Text>
-          <Text style={[s.th, s.colAmt]}>Amount</Text>
-        </View>
-
-        {/* Table rows */}
-        {d.items.map((item, i) => (
-          <View key={i} style={[s.tdRow, i === d.items.length - 1 ? s.tdLast : {}]}>
-            <Text style={[s.tdText, s.colDesc]}>{item.label}</Text>
-            <Text style={[s.tdMuted, s.colQty]}>1</Text>
-            <Text style={[s.tdMuted, s.colRate]}>{inr(item.amount)}</Text>
-            <Text style={[s.tdText, s.colAmt]}>{inr(item.amount)}</Text>
+        {/* Services */}
+        <View style={s.table}>
+          <View style={s.thRow}>
+            <Text style={[s.th, s.colNo]}>#</Text>
+            <Text style={[s.th, s.colSvc]}>Service</Text>
+            <Text style={[s.th, s.colQty]}>Qty</Text>
+            <Text style={[s.th, s.colRate]}>Rate</Text>
+            <Text style={[s.th, s.colAmt]}>Amount</Text>
           </View>
-        ))}
+          {d.items.map((item, i) => (
+            <View key={i} style={s.tdRow} wrap={false}>
+              <Text style={[s.td, s.colNo]}>{i + 1}</Text>
+              <View style={[s.td, s.colSvc]}>
+                <Text>{item.name ?? item.label}</Text>
+                {item.staff ? <Text style={s.tdStaff}>By {item.staff}</Text> : null}
+              </View>
+              <Text style={[s.td, s.colQty]}>{item.quantity ?? 1}</Text>
+              <Text style={[s.td, s.colRate]}>{inr(item.rate ?? item.amount)}</Text>
+              <Text style={[s.td, s.colAmt]}>{inr(item.amount)}</Text>
+            </View>
+          ))}
+        </View>
 
         {/* Totals */}
-        <View style={s.totWrap}>
+        <View style={s.totWrap} wrap={false}>
           <View style={s.tRow}>
-            <Text style={s.tLbl}>Sub-Total</Text>
-            <Text style={s.tVal}>{inr(d.subtotal)}</Text>
+            <Text style={s.tLblBold}>Subtotal</Text>
+            <Text style={s.tValBold}>{inr(d.subtotal)}</Text>
           </View>
-          {d.discount > 0 && (
+          {/* Same order the bill was calculated in: discount first, GST on the rest. */}
+          {/* Always printed, ₹0 when nothing applies, so every bill shows the same steps. */}
+          <View style={s.tRow}>
+            <Text style={s.tLbl}>Discount</Text>
+            <Text style={s.tVal}>{d.discount > 0 ? `− ${inr(d.discount)}` : inr(0)}</Text>
+          </View>
+          <View style={s.tRow}>
+            <Text style={s.tLbl}>Taxable amount</Text>
+            <Text style={s.tVal}>{inr(d.subtotal - d.discount)}</Text>
+          </View>
+          <View style={s.tRow}>
+            <Text style={s.tLbl}>{taxLabel(d.taxName, d.taxPercent ?? 0)}</Text>
+            <Text style={s.tVal}>{d.tax > 0 ? `+ ${inr(d.tax)}` : inr(0)}</Text>
+          </View>
+          {(d.tip ?? 0) > 0 && (
             <View style={s.tRow}>
-              <Text style={s.tLbl}>Discount</Text>
-              <Text style={s.tGreen}>– {inr(d.discount)}</Text>
+              <Text style={s.tLbl}>Tip</Text>
+              <Text style={s.tVal}>+ {inr(d.tip!)}</Text>
             </View>
           )}
-          {d.tax > 0 && (
-            <View style={s.tRow}>
-              <Text style={s.tLbl}>{d.taxName || "Tax"}</Text>
-              <Text style={s.tVal}>{inr(d.tax)}</Text>
-            </View>
-          )}
-          <View style={s.grandRow}>
-            <Text style={s.grandLbl}>Total</Text>
-            <Text style={s.grandVal}>{inr(d.total)}</Text>
-          </View>
-          {(d.payments && d.payments.length > 0) ? (
-            d.payments.map((p, i) => (
-              <View key={i} style={s.paidRow}>
-                <Text style={s.paidLbl}>Paid — {p.method}</Text>
-                <Text style={s.paidVal}>{inr(p.amount)}</Text>
+          {(() => {
+            const roundOff = d.total - (d.subtotal - d.discount + d.tax + (d.tip ?? 0));
+            return Math.abs(roundOff) >= 0.5 ? (
+              <View style={s.tRow}>
+                <Text style={s.tLbl}>Round off</Text>
+                <Text style={s.tVal}>{roundOff > 0 ? "+" : "−"} {inr(Math.abs(roundOff))}</Text>
               </View>
-            ))
-          ) : (
-            <View style={s.paidRow}>
-              <Text style={s.paidLbl}>Paid</Text>
-              <Text style={s.paidVal}>{inr(d.paid)}</Text>
-            </View>
-          )}
+            ) : null;
+          })()}
+          <View style={s.grandRow}>
+            <Text style={s.tLblBold}>Grand Total</Text>
+            <Text style={s.tValBold}>{inr(d.total)}</Text>
+          </View>
+          <View style={s.tRow}>
+            <Text style={s.tLbl}>Amount Paid</Text>
+            <Text style={[s.tVal, s.paidVal]}>{inr(d.paid)}</Text>
+          </View>
           {d.balance > 0 && (
-            <View style={s.balRow}>
-              <Text style={s.balLbl}>Balance Due</Text>
-              <Text style={s.balVal}>{inr(d.balance)}</Text>
+            <View style={s.tRow}>
+              <Text style={s.tLblBold}>Balance Due</Text>
+              <Text style={[s.tValBold, s.dueVal]}>{inr(d.balance)}</Text>
             </View>
           )}
         </View>
 
         {/* Footer */}
-        <View style={s.footerRule} />
-        <View style={s.footerRow}>
-          <View>
-            <Text style={s.thankYou}>{d.footerNote || "Thank You!"}</Text>
-            <Text style={[s.ftBrand, { marginTop: 6 }]}>{d.businessName || "Renzo Hair & Beauty Salon"}</Text>
-            {d.branch ? <Text style={s.ftContact}>{d.branch}</Text> : null}
-            {d.address ? <Text style={s.ftContact}>{d.address}</Text> : null}
-            {d.phone ? <Text style={s.ftContact}>{d.phone}</Text> : null}
-            {d.email ? <Text style={s.ftContact}>{d.email}</Text> : null}
-            {d.taxNumber ? <Text style={s.ftContact}>GST: {d.taxNumber}</Text> : null}
-          </View>
-          <View style={s.ftRight}>
-            <Text style={s.ftWebsite}>{d.website || "renzosalon.com"}</Text>
-          </View>
+        <View style={s.footer} wrap={false}>
+          <Text style={s.ftNote}>{d.footerNote || "Thank you for visiting!"}</Text>
+          {d.branch ? <Text style={s.ftLine}>{d.branch}</Text> : null}
+          {contact ? <Text style={s.ftLine}>{contact}</Text> : null}
+          {d.taxNumber ? <Text style={s.ftLine}>{d.taxName || "GST"}IN: {d.taxNumber}</Text> : null}
         </View>
 
       </Page>
@@ -314,6 +314,7 @@ function thermalStyles(kind: "THERMAL_80" | "THERMAL_58") {
     itemName: { flex: 1, paddingRight: 3 },
     amount: { minWidth: 38, textAlign: "right" },
     bold: { fontWeight: 700 },
+    staff: { fontSize: font - 1, color: MUTED, marginTop: -1, marginBottom: 2 },
     total: { fontSize: font + 2, fontWeight: 700 },
     footer: { fontSize: font - 1, textAlign: "center", color: MUTED, marginTop: 4 },
   });
@@ -327,7 +328,7 @@ function ThermalDoc({ d, kind }: { d: InvoicePdfData; kind: "THERMAL_80" | "THER
   return (
     <Document title={`Invoice ${d.invoiceNo} — ${bizName}`} author={bizName}>
       {/* Height grows with the content: a roll has no page break. */}
-      <Page size={{ width, height: 400 + d.items.length * 14 }} style={t.page}>
+      <Page size={{ width, height: 400 + d.items.length * 14 + d.items.filter((i) => i.staff).length * 9 }} style={t.page}>
         <Text style={t.brand}>{bizName}</Text>
         <Text style={t.tagline}>{d.tagline || "Hair & Beauty Salon"}</Text>
         {d.branch ? <Text style={t.meta}>{d.branch}</Text> : null}
@@ -358,9 +359,12 @@ function ThermalDoc({ d, kind }: { d: InvoicePdfData; kind: "THERMAL_80" | "THER
         <View style={t.hr} />
 
         {d.items.map((item, i) => (
-          <View key={`${item.label}-${i}`} style={t.row}>
-            <Text style={t.itemName}>{item.label}</Text>
-            <Text style={t.amount}>{inr(item.amount)}</Text>
+          <View key={`${item.label}-${i}`}>
+            <View style={t.row}>
+              <Text style={t.itemName}>{item.label}</Text>
+              <Text style={t.amount}>{inr(item.amount)}</Text>
+            </View>
+            {item.staff ? <Text style={t.staff}>by {item.staff}</Text> : null}
           </View>
         ))}
 
@@ -370,18 +374,14 @@ function ThermalDoc({ d, kind }: { d: InvoicePdfData; kind: "THERMAL_80" | "THER
           <Text>Subtotal</Text>
           <Text style={t.amount}>{inr(d.subtotal)}</Text>
         </View>
-        {d.discount > 0 ? (
-          <View style={t.row}>
-            <Text>Discount</Text>
-            <Text style={t.amount}>- {inr(d.discount)}</Text>
-          </View>
-        ) : null}
-        {d.tax > 0 ? (
-          <View style={t.row}>
-            <Text>{d.taxName || "Tax"}</Text>
-            <Text style={t.amount}>{inr(d.tax)}</Text>
-          </View>
-        ) : null}
+        <View style={t.row}>
+          <Text>Discount</Text>
+          <Text style={t.amount}>{d.discount > 0 ? `- ${inr(d.discount)}` : inr(0)}</Text>
+        </View>
+        <View style={t.row}>
+          <Text>{taxLabel(d.taxName, d.taxPercent ?? 0)}</Text>
+          <Text style={t.amount}>{inr(d.tax)}</Text>
+        </View>
 
         <View style={t.hr} />
 

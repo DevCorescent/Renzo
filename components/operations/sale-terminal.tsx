@@ -478,8 +478,8 @@ export function SaleTerminal({
 
           <dl className="space-y-1 border-t border-gray-100 pt-2 text-xs dark:border-(--sa-border)">
             <div className="flex justify-between"><dt className="text-gray-500 dark:text-(--sa-text-2)">Subtotal</dt><dd className="text-gray-800 dark:text-(--sa-text)">{formatMoney(subtotal)}</dd></div>
-            {discountValue > 0 && <div className="flex justify-between"><dt className="text-gray-500 dark:text-(--sa-text-2)">Discount</dt><dd className="text-gray-800 dark:text-(--sa-text)">− {formatMoney(discountValue)}</dd></div>}
-            {taxValue > 0 && <div className="flex justify-between"><dt className="text-gray-500 dark:text-(--sa-text-2)">{taxName} ({taxPercent}%)</dt><dd className="text-gray-800 dark:text-(--sa-text)">{formatMoney(taxValue)}</dd></div>}
+            <div className="flex justify-between"><dt className="text-gray-500 dark:text-(--sa-text-2)">Discount</dt><dd className="text-gray-800 dark:text-(--sa-text)">{discountValue > 0 ? `− ${formatMoney(discountValue)}` : formatMoney(0)}</dd></div>
+            <div className="flex justify-between"><dt className="text-gray-500 dark:text-(--sa-text-2)">{taxName} ({taxPercent}%)</dt><dd className="text-gray-800 dark:text-(--sa-text)">{formatMoney(taxValue)}</dd></div>
             {num(tip) > 0 && <div className="flex justify-between"><dt className="text-gray-500 dark:text-(--sa-text-2)">Tip</dt><dd className="text-gray-800 dark:text-(--sa-text)">{formatMoney(num(tip))}</dd></div>}
             <div className="flex justify-between border-t border-gray-100 pt-1 text-sm font-semibold dark:border-(--sa-border)">
               <dt className="text-gray-700 dark:text-(--sa-text)">Total</dt>

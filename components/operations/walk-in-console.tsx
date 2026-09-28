@@ -1941,12 +1941,10 @@ export function WalkInConsole({
                   <dt className="text-gray-500 dark:text-(--sa-text-2)">Subtotal</dt>
                   <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">{formatMoney(subtotal)}</dd>
                 </div>
-                {discountVal > 0 && (
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500 dark:text-(--sa-text-2)">Discount</dt>
-                    <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">− {formatMoney(discountVal)}</dd>
-                  </div>
-                )}
+                <div className="flex justify-between">
+                  <dt className="text-gray-500 dark:text-(--sa-text-2)">Discount</dt>
+                  <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">{discountVal > 0 ? `− ${formatMoney(discountVal)}` : formatMoney(0)}</dd>
+                </div>
                 <div className="flex justify-between">
                   <dt className="text-gray-500 dark:text-(--sa-text-2)">{taxName} ({taxPercent}%)</dt>
                   <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">{formatMoney(taxValue)}</dd>

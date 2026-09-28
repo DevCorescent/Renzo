@@ -12,6 +12,7 @@
 // ============================================================================
 
 import prisma from "@/lib/db";
+import { invoiceBreakdown } from "@/lib/invoice-breakdown";
 import {
   generateInvoicePdf,
   type InvoicePdfData,
@@ -64,13 +65,13 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
   const invoice = await prisma.invoice.findUnique({
     where: { id },
     include: {
-      items: { select: { name: true, quantity: true, total: true } },
+      items: { select: { type: true, refId: true, name: true, quantity: true, unitPrice: true, total: true } },
       payments: { select: { method: true, amount: true }, orderBy: { paidAt: "asc" } },
     },
   });
   if (!invoice) return null;
 
-  const [customer, branch] = await Promise.all([
+  const [customer, branch, appointment] = await Promise.all([
     prisma.customer.findUnique({
       where: { id: invoice.customerId },
       select: { firstName: true, lastName: true, phone: true, email: true },
@@ -95,7 +96,51 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
         },
       },
     }),
+    // Who did the work — the "Staff" box and each service line. Read live, so a
+    // stylist corrected after billing shows on the next print. Only appointment
+    // bills have one.
+    invoice.appointmentId
+      ? prisma.appointment.findUnique({
+          where: { id: invoice.appointmentId },
+          select: {
+            worker: { select: { firstName: true } },
+            services: {
+              select: { serviceId: true, price: true, worker: { select: { firstName: true } } },
+            },
+          },
+        })
+      : Promise.resolve(null),
   ]);
+
+  /** Distinct, capitalised first names — "Farhan, Riyaz", or just "Farhan". */
+  const names = (list: (string | null | undefined)[]) =>
+    [...new Set(list.map((n) => n?.trim()).filter((n): n is string => Boolean(n)).map(titleCase))].join(", ");
+
+  const staffNames = names([
+    ...(appointment?.services ?? []).map((s) => s.worker?.firstName),
+    appointment?.worker?.firstName,
+  ]);
+
+  /**
+   * Who performed one invoice line: the appointment's rows for that service at
+   * that price (a line groups one row per person), falling back to the service
+   * alone. Lines added at the desk, products and blank bills have no rows.
+   */
+  const lineStaff = (item: { type: string; refId: string | null; unitPrice: number }) => {
+    if (item.type !== "SERVICE" || !item.refId || !appointment) return undefined;
+    const rows = appointment.services.filter((s) => s.serviceId === item.refId);
+    const samePrice = rows.filter((s) => Number(s.price) === Number(item.unitPrice));
+    return names((samePrice.length ? samePrice : rows).map((s) => s.worker?.firstName)) || undefined;
+  };
+
+  // GST rate actually charged, and any tip — for the printed breakdown.
+  const money = invoiceBreakdown({
+    subtotal: Number(invoice.subtotal),
+    discountAmount: Number(invoice.discountAmount),
+    taxAmount: Number(invoice.taxAmount),
+    totalAmount: Number(invoice.totalAmount),
+    items: invoice.items.map((i) => ({ type: i.type, total: Number(i.total) })),
+  });
 
   const customerName =
     `${customer?.firstName ?? ""} ${customer?.lastName ?? ""}`.trim() || "Customer";
@@ -106,6 +151,18 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
     timeStyle: "short",
     timeZone: "Asia/Kolkata",
   }).format(invoice.createdAt);
+
+  // "28 Sep 2026 • 11:40 AM" — the A4 invoice's Date & Time box. Month spelled
+  // out by hand: en-IN abbreviates September as "Sept".
+  const part = (type: string) =>
+    new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata", day: "2-digit", month: "numeric", year: "numeric",
+      hour: "2-digit", minute: "2-digit", hour12: true,
+    }).formatToParts(invoice.createdAt).find((p) => p.type === type)?.value ?? "";
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const dateTime =
+    `${part("day")} ${MONTHS[Number(part("month")) - 1]} ${part("year")} • ` +
+    `${part("hour")}:${part("minute")} ${part("dayPeriod").toUpperCase()}`;
 
   return {
     id: invoice.id,
@@ -125,16 +182,24 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
     pdf: {
       invoiceNo: invoice.invoiceNo,
       date,
+      dateTime,
       branch: branchName,
+      staff: staffNames || undefined,
       customerName,
       customerPhone: customer?.phone ?? undefined,
       items: invoice.items.map((item) => ({
         label: `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
         amount: Number(item.total),
+        name: item.name,
+        quantity: item.quantity,
+        rate: Number(item.unitPrice),
+        staff: lineStaff(item),
       })),
       subtotal: Number(invoice.subtotal),
       discount: Number(invoice.discountAmount),
       tax: Number(invoice.taxAmount),
+      taxPercent: money.taxPercent,
+      tip: money.tip || undefined,
       total: Number(invoice.totalAmount),
       paid: Number(invoice.paidAmount),
       balance: Number(invoice.balanceDue),
