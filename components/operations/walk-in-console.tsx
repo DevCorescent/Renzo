@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
+import { printInvoicePdf } from "@/components/operations/print-pdf";
 import { DiscountInput, discountFrom, type DiscountMode } from "@/components/operations/discount-input";
 import {
   fetchInvoicePdf,
@@ -413,7 +414,11 @@ function SessionCard({
           )}
           <button
             type="button"
-            onClick={() => window.open(invoicePrintUrl(session.invoice!, printSize ?? "A4"), "_blank", "noopener,noreferrer")}
+            onClick={() =>
+              (printSize ?? "A4") === "A4"
+                ? printInvoicePdf(session.invoice!.id)
+                : window.open(invoicePrintUrl(session.invoice!, printSize!), "_blank", "noopener,noreferrer")
+            }
             className={cn(btnGhost, "px-2.5")}
             aria-label="Print invoice"
             title={`Print (${PRINT_LABELS[printSize ?? "A4"]})`}
@@ -465,7 +470,8 @@ export function WalkInConsole({
   workers,
   taxPercent,
   taxName,
-  defaultPrintFormat = "A4",
+  // Kept for callers; Print defaults to the A4 invoice (same as Preview) and the
+  // 80/58 mm till receipt stays one click away on the size buttons.
   billingBasePath,
 }: {
   services: WalkInService[];
@@ -484,7 +490,7 @@ export function WalkInConsole({
   const [busyLabel, setBusyLabel] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [note,  setNote]  = React.useState<string | null>(null);
-  const [printSize, setPrintSize] = React.useState<PrintFormat>(defaultPrintFormat);
+  const [printSize, setPrintSize] = React.useState<PrintFormat>("A4");
 
   // ── Sessions board state ──────────────────────────────────────────────────
   const [liveSessions,    setLiveSessions]    = React.useState<LiveSession[]>([]);
@@ -1018,7 +1024,9 @@ export function WalkInConsole({
   };
 
   const openPdf = (fmt?: PrintFormat) =>
-    window.open(printUrl(fmt ?? printSize), "_blank", "noopener,noreferrer");
+    (fmt ?? printSize) === "A4"
+      ? printInvoicePdf(invoice!.id) // the same A4 invoice as Preview
+      : window.open(printUrl(fmt ?? printSize), "_blank", "noopener,noreferrer");
 
   const downloadPdf = () => {
     // A4 PDF download only (thermal is HTML, not a saveable PDF).
