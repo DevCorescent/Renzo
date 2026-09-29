@@ -27,11 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
-import {
-  ReceiptScaleControl,
-  thermalReceiptUrl,
-  useReceiptScale,
-} from "@/components/operations/receipt-scale";
+import { printInvoicePdf } from "@/components/operations/print-pdf";
 import {
   fetchInvoicePdf,
   openWhatsAppChat,
@@ -51,15 +47,12 @@ type Panel = "none" | "email" | "whatsapp" | "reprint";
 /** Mirrors PrintFormat in lib/invoice-pdf.tsx (a server module this client file cannot import). */
 export type InvoicePrintFormat = "A4" | "THERMAL_80" | "THERMAL_58";
 
-const ROLL_MM: Partial<Record<InvoicePrintFormat, 58 | 80>> = { THERMAL_80: 80, THERMAL_58: 58 };
-
 export function InvoiceActions({
   invoiceId,
   invoiceNo,
   customerPhone,
   customerEmail,
   canReprint,
-  printFormat = "A4",
 }: {
   invoiceId: string;
   invoiceNo: string;
@@ -67,12 +60,13 @@ export function InvoiceActions({
   customerEmail: string | null;
   /** Reception may reprint; a worker viewing an invoice may not. */
   canReprint: boolean;
-  /** The branch's BranchSetting.printFormat — decides what Print sends to the printer. */
+  /**
+   * The branch's till paper. Kept for callers; Print now always sends the A4
+   * invoice (the till receipt is still on the walk-in screen's 80/58 mm buttons).
+   */
   printFormat?: InvoicePrintFormat;
 }) {
   const pdfUrl = `${API.reception.bill(invoiceId)}/pdf`;
-  const rollMm = ROLL_MM[printFormat];
-  const [receiptScale] = useReceiptScale();
 
   const [panel, setPanel] = React.useState<Panel>("none");
   const [busy, setBusy] = React.useState(false);
@@ -84,21 +78,14 @@ export function InvoiceActions({
   const [waLink, setWaLink] = React.useState<string | null>(null);
 
   function openPdf(inline: boolean) {
-    window.open(`${pdfUrl}${inline ? "?inline=true" : ""}`, "_blank", "noopener,noreferrer");
+    // Always the A4 invoice: without `format` the PDF follows the branch's till
+    // paper, so a 58/80 mm branch previewed/downloaded the narrow receipt.
+    window.open(`${pdfUrl}?format=A4${inline ? "&inline=true" : ""}`, "_blank", "noopener,noreferrer");
   }
 
-  /**
-   * A thermal branch prints the receipt page, which sizes itself to the roll and
-   * opens the print dialog on its own — the browser's PDF viewer assumes A4 and
-   * made staff change the paper size and scale by hand every time. An A4 branch
-   * keeps printing the PDF, which already is an A4 page.
-   */
+  /** Print (and Reprint) send the same A4 invoice that Preview shows. */
   function print() {
-    if (rollMm) {
-      window.open(thermalReceiptUrl(invoiceId, rollMm, receiptScale), "_blank", "noopener,noreferrer");
-    } else {
-      openPdf(true);
-    }
+    printInvoicePdf(invoiceId);
   }
 
   async function send(channel: "EMAIL" | "WHATSAPP") {
@@ -210,10 +197,9 @@ export function InvoiceActions({
         </button>
         <span className="inline-flex flex-wrap items-center gap-2">
           <button type="button" onClick={print} className={btnGhost}>
-            <Printer className="size-3.5" aria-hidden="true" /> Print{rollMm ? ` (${rollMm}mm)` : ""}
+            <Printer className="size-3.5" aria-hidden="true" /> Print
           </button>
           {/* Receipt text size only applies to the thermal receipt, not the A4 PDF. */}
-          {rollMm && <ReceiptScaleControl />}
         </span>
         <button type="button" onClick={() => openPdf(false)} className={btnGhost}>
           <Download className="size-3.5" aria-hidden="true" /> Download PDF

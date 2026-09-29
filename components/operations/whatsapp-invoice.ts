@@ -50,17 +50,33 @@ export async function fetchInvoicePdf(invoiceId: string): Promise<Blob> {
   return blob;
 }
 
+/**
+ * The object URL of the last PDF handed to the browser. Kept alive until the
+ * next download replaces it or the page is left: a browser gives no signal when
+ * an <a download> has finished writing the file, and phones write it in the
+ * background — revoking it after a fixed second left them with an empty,
+ * unopenable file. At most one small PDF is held.
+ */
+let lastPdfUrl: string | null = null;
+
+function releaseLastPdf() {
+  if (lastPdfUrl) URL.revokeObjectURL(lastPdfUrl);
+  lastPdfUrl = null;
+}
+
+if (typeof window !== "undefined") window.addEventListener("pagehide", releaseLastPdf);
+
 /** Save the PDF to the operator's downloads under the WhatsApp filename. */
 export function saveInvoicePdf(pdf: Blob, invoiceNo: string): void {
+  releaseLastPdf(); // the previous download has long since finished
   const url = URL.createObjectURL(pdf);
+  lastPdfUrl = url;
   const a = document.createElement("a");
   a.href = url;
   a.download = whatsAppPdfFilename(invoiceNo);
   document.body.appendChild(a);
   a.click();
   a.remove();
-  // Revoked after a second, so the download has started before the URL goes.
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /**

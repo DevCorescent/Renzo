@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
+import { printInvoicePdf } from "@/components/operations/print-pdf";
 import { DiscountInput, discountFrom, type DiscountMode } from "@/components/operations/discount-input";
 import {
   fetchInvoicePdf,
@@ -337,7 +338,9 @@ function SessionCard({
   const invoicePrintUrl = (inv: NonNullable<LiveSession["invoice"]>, fmt: PrintFormat) => {
     if (fmt === "THERMAL_80") return thermalReceiptUrl(inv.id, 80, receiptScale);
     if (fmt === "THERMAL_58") return thermalReceiptUrl(inv.id, 58, receiptScale);
-    return `${API.reception.bill(inv.id)}/pdf?inline=true`;
+    // A4 asked for explicitly — without it the PDF follows the branch's till
+    // paper, and a 58/80 mm branch got the narrow receipt instead of the invoice.
+    return `${API.reception.bill(inv.id)}/pdf?format=A4&inline=true`;
   };
 
   return (
@@ -411,7 +414,11 @@ function SessionCard({
           )}
           <button
             type="button"
-            onClick={() => window.open(invoicePrintUrl(session.invoice!, printSize ?? "A4"), "_blank", "noopener,noreferrer")}
+            onClick={() =>
+              (printSize ?? "A4") === "A4"
+                ? printInvoicePdf(session.invoice!.id)
+                : window.open(invoicePrintUrl(session.invoice!, printSize!), "_blank", "noopener,noreferrer")
+            }
             className={cn(btnGhost, "px-2.5")}
             aria-label="Print invoice"
             title={`Print (${PRINT_LABELS[printSize ?? "A4"]})`}
@@ -463,7 +470,8 @@ export function WalkInConsole({
   workers,
   taxPercent,
   taxName,
-  defaultPrintFormat = "A4",
+  // Kept for callers; Print defaults to the A4 invoice (same as Preview) and the
+  // 80/58 mm till receipt stays one click away on the size buttons.
   billingBasePath,
 }: {
   services: WalkInService[];
@@ -482,7 +490,7 @@ export function WalkInConsole({
   const [busyLabel, setBusyLabel] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [note,  setNote]  = React.useState<string | null>(null);
-  const [printSize, setPrintSize] = React.useState<PrintFormat>(defaultPrintFormat);
+  const [printSize, setPrintSize] = React.useState<PrintFormat>("A4");
 
   // ── Sessions board state ──────────────────────────────────────────────────
   const [liveSessions,    setLiveSessions]    = React.useState<LiveSession[]>([]);
@@ -1012,23 +1020,25 @@ export function WalkInConsole({
     const billId = invoice!.id;
     if (fmt === "THERMAL_80") return thermalReceiptUrl(billId, 80, receiptScale);
     if (fmt === "THERMAL_58") return thermalReceiptUrl(billId, 58, receiptScale);
-    return `${API.reception.bill(billId)}/pdf?inline=true`;
+    return `${API.reception.bill(billId)}/pdf?format=A4&inline=true`;
   };
 
   const openPdf = (fmt?: PrintFormat) =>
-    window.open(printUrl(fmt ?? printSize), "_blank", "noopener,noreferrer");
+    (fmt ?? printSize) === "A4"
+      ? printInvoicePdf(invoice!.id) // the same A4 invoice as Preview
+      : window.open(printUrl(fmt ?? printSize), "_blank", "noopener,noreferrer");
 
   const downloadPdf = () => {
     // A4 PDF download only (thermal is HTML, not a saveable PDF).
     const a = document.createElement("a");
-    a.href = `${API.reception.bill(invoice!.id)}/pdf`;
+    a.href = `${API.reception.bill(invoice!.id)}/pdf?format=A4`;
     a.download = "";
     a.click();
   };
 
   const [copied, setCopied] = React.useState(false);
   const copyLink = async () => {
-    const url = `${window.location.origin}${API.reception.bill(invoice!.id)}/pdf?inline=true`;
+    const url = `${window.location.origin}${API.reception.bill(invoice!.id)}/pdf?format=A4&inline=true`;
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

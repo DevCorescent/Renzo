@@ -53,7 +53,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     );
     const inline = url.searchParams.get("inline") === "true";
 
-    return new NextResponse(buffer.buffer as ArrayBuffer, {
+    // Exactly the PDF's bytes. `buffer.buffer` is the whole memory block the
+    // Buffer sits in: where Node shares one block between small buffers, that
+    // sent other data alongside (or instead of) the PDF and the browser could
+    // not open it. `new Uint8Array(buffer)` copies just these bytes.
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
@@ -61,6 +65,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           invoice.invoiceNo
         )}"`,
         "Content-Length": String(buffer.length),
+        // A customer's invoice: never cached by a CDN or shared proxy, and never
+        // re-sniffed as anything but a PDF.
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (e) {
