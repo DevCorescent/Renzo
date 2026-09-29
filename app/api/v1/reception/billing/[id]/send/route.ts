@@ -157,7 +157,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return err("Validation failed", 422, { to: ["Enter a valid email address"] });
     }
 
-    const pdf = await renderInvoicePdf(invoice);
+    // The A4 invoice — the same PDF as Download / Preview / WhatsApp. (Without a
+    // format it followed the branch's till paper and emailed a 58 mm receipt.)
+    const pdf = await renderInvoicePdf(invoice, "A4");
 
     try {
       await sendMail({

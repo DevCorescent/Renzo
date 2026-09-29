@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { created, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
 import prisma from "@/lib/db";
@@ -7,7 +7,7 @@ import { giftCardUsableReason, redeemGiftCard } from "@/lib/gift-cards";
 import { earnLoyaltyPoints } from "@/lib/loyalty";
 import { sendMail } from "@/lib/mailer";
 import { invoiceEmail } from "@/lib/email-templates";
-import { generateInvoicePdf } from "@/lib/invoice-pdf";
+import { invoiceFilename, loadInvoiceForDelivery, renderInvoicePdf } from "@/lib/invoice-delivery";
 import type { PaymentMethod, InvoiceStatus, PaymentStatus } from "@prisma/client";
 
 const METHODS: PaymentMethod[] = [
@@ -162,62 +162,52 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       };
     });
 
-    // Send receipt email when invoice is fully paid (non-blocking — fire and forget).
+    // Receipt email when the invoice is fully paid. Runs after the response via
+    // after(), so a serverless function is not frozen mid-send. The attachment is
+    // the SAME A4 invoice as Download / Preview / WhatsApp (loadInvoiceForDelivery
+    // + renderInvoicePdf) — it used to build its own older copy with no staff,
+    // Qty/Rate or GST breakdown. The email body is unchanged.
     if (result.invoice.status === "PAID") {
-      Promise.all([
-        prisma.customer.findUnique({
-          where: { id: invoice.customerId },
-          select: { firstName: true, lastName: true, email: true },
-        }),
-        prisma.branch.findUnique({
-          where: { id: invoice.branchId },
-          select: { name: true },
-        }),
-      ]).then(async ([customer, branch]) => {
-        if (!customer?.email) return;
+      after(async () => {
+        try {
+          const loaded = await loadInvoiceForDelivery(invoice.id);
+          if (!loaded?.customerEmail) return;
 
-        const emailDate = new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(new Date());
-        const customerName = `${customer.firstName} ${customer.lastName ?? ""}`.trim();
-        const branchName = branch?.name ?? "";
-        const pdfMethod = method.replace(/_/g, " ");
+          const emailDate = new Intl.DateTimeFormat("en-IN", { dateStyle: "long" }).format(new Date());
+          const pdfMethod = method.replace(/_/g, " ");
+          const items = loaded.pdf.items.map((i) => ({ label: i.label, amount: i.amount }));
 
-        const invoiceItems = invoice.items.map((item) => ({
-          label: `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
-          amount: Number(item.total),
-        }));
+          const { subject, html, text } = invoiceEmail({
+            name: loaded.customerName,
+            invoiceNo: loaded.invoiceNo,
+            date: emailDate,
+            branch: loaded.branchName,
+            items,
+            subtotal: loaded.pdf.subtotal,
+            discount: loaded.pdf.discount,
+            tax: loaded.pdf.tax,
+            total: loaded.pdf.total,
+            paid: loaded.paidAmount,
+            balance: loaded.balanceDue,
+            method: pdfMethod,
+          });
+          const pdfBuffer = await renderInvoicePdf(loaded, "A4");
 
-        const pdfData = {
-          invoiceNo: invoice.invoiceNo,
-          date: emailDate,
-          branch: branchName,
-          customerName,
-          items: invoiceItems,
-          subtotal: Number(invoice.subtotal),
-          discount: Number(invoice.discountAmount),
-          tax: Number(invoice.taxAmount),
-          total: Number(invoice.totalAmount),
-          paid: Number(result.invoice.paidAmount),
-          balance: Number(result.invoice.balanceDue),
-          method: pdfMethod,
-        };
-
-        const [{ subject, html, text }, pdfBuffer] = await Promise.all([
-          Promise.resolve(invoiceEmail({ name: customerName, invoiceNo: invoice.invoiceNo, date: emailDate, branch: branchName, items: invoiceItems, subtotal: pdfData.subtotal, discount: pdfData.discount, tax: pdfData.tax, total: pdfData.total, paid: pdfData.paid, balance: pdfData.balance, method: pdfMethod })),
-          generateInvoicePdf(pdfData),
-        ]);
-
-        return sendMail({
-          to: customer.email,
-          subject,
-          html,
-          text,
-          attachments: [{
-            filename: `Invoice-${invoice.invoiceNo}.pdf`,
-            content: pdfBuffer,
-            contentType: "application/pdf",
-          }],
-        });
-      }).catch((e) => console.error("[Mailer] Receipt email failed:", e));
+          await sendMail({
+            to: loaded.customerEmail,
+            subject,
+            html,
+            text,
+            attachments: [{
+              filename: invoiceFilename(loaded.invoiceNo),
+              content: pdfBuffer,
+              contentType: "application/pdf",
+            }],
+          });
+        } catch (e) {
+          console.error("[Mailer] Receipt email failed:", e);
+        }
+      });
     }
 
     return created(result, "Payment recorded");

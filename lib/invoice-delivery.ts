@@ -233,8 +233,9 @@ export async function renderInvoicePdf(
 export { PRINT_FORMATS, toPrintFormat };
 export type { PrintFormat };
 
+/** "INV-6S3P7JCGM.pdf" — the same name on download, preview, email and WhatsApp. */
 export function invoiceFilename(invoiceNo: string): string {
-  return `Invoice-${invoiceNo}.pdf`;
+  return `${invoiceNo}.pdf`;
 }
 
 // ============================================================================

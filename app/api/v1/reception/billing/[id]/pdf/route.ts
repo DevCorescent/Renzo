@@ -65,6 +65,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           invoice.invoiceNo
         )}"`,
         "Content-Length": String(buffer.length),
+        // A customer's invoice: never cached by a CDN or shared proxy, and never
+        // re-sniffed as anything but a PDF.
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (e) {
