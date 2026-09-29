@@ -337,7 +337,9 @@ function SessionCard({
   const invoicePrintUrl = (inv: NonNullable<LiveSession["invoice"]>, fmt: PrintFormat) => {
     if (fmt === "THERMAL_80") return thermalReceiptUrl(inv.id, 80, receiptScale);
     if (fmt === "THERMAL_58") return thermalReceiptUrl(inv.id, 58, receiptScale);
-    return `${API.reception.bill(inv.id)}/pdf?inline=true`;
+    // A4 asked for explicitly — without it the PDF follows the branch's till
+    // paper, and a 58/80 mm branch got the narrow receipt instead of the invoice.
+    return `${API.reception.bill(inv.id)}/pdf?format=A4&inline=true`;
   };
 
   return (
@@ -1012,7 +1014,7 @@ export function WalkInConsole({
     const billId = invoice!.id;
     if (fmt === "THERMAL_80") return thermalReceiptUrl(billId, 80, receiptScale);
     if (fmt === "THERMAL_58") return thermalReceiptUrl(billId, 58, receiptScale);
-    return `${API.reception.bill(billId)}/pdf?inline=true`;
+    return `${API.reception.bill(billId)}/pdf?format=A4&inline=true`;
   };
 
   const openPdf = (fmt?: PrintFormat) =>
@@ -1021,14 +1023,14 @@ export function WalkInConsole({
   const downloadPdf = () => {
     // A4 PDF download only (thermal is HTML, not a saveable PDF).
     const a = document.createElement("a");
-    a.href = `${API.reception.bill(invoice!.id)}/pdf`;
+    a.href = `${API.reception.bill(invoice!.id)}/pdf?format=A4`;
     a.download = "";
     a.click();
   };
 
   const [copied, setCopied] = React.useState(false);
   const copyLink = async () => {
-    const url = `${window.location.origin}${API.reception.bill(invoice!.id)}/pdf?inline=true`;
+    const url = `${window.location.origin}${API.reception.bill(invoice!.id)}/pdf?format=A4&inline=true`;
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

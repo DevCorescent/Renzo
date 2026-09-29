@@ -84,7 +84,10 @@ export function InvoiceActions({
   const [waLink, setWaLink] = React.useState<string | null>(null);
 
   function openPdf(inline: boolean) {
-    window.open(`${pdfUrl}${inline ? "?inline=true" : ""}`, "_blank", "noopener,noreferrer");
+    // Always the A4 invoice: without `format` the PDF follows the branch's till
+    // paper, so a 58/80 mm branch previewed/downloaded the narrow receipt.
+    // Till printing has its own receipt page (see print()).
+    window.open(`${pdfUrl}?format=A4${inline ? "&inline=true" : ""}`, "_blank", "noopener,noreferrer");
   }
 
   /**
