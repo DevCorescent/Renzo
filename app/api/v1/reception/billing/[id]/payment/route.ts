@@ -5,7 +5,7 @@ import prisma from "@/lib/db";
 import { getOrCreateWallet, debitWallet } from "@/lib/wallet";
 import { giftCardUsableReason, redeemGiftCard } from "@/lib/gift-cards";
 import { earnLoyaltyPoints } from "@/lib/loyalty";
-import { sendMail } from "@/lib/mailer";
+import { sendMailChecked } from "@/lib/mailer";
 import { invoiceEmail } from "@/lib/email-templates";
 import { invoiceFilename, loadInvoiceForDelivery, renderInvoicePdf } from "@/lib/invoice-delivery";
 import type { PaymentMethod, InvoiceStatus, PaymentStatus } from "@prisma/client";
@@ -193,19 +193,42 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           });
           const pdfBuffer = await renderInvoicePdf(loaded, "A4");
 
-          await sendMail({
-            to: loaded.customerEmail,
-            subject,
-            html,
-            text,
-            attachments: [{
-              filename: invoiceFilename(loaded.invoiceNo),
-              content: pdfBuffer,
-              contentType: "application/pdf",
-            }],
-          });
+          const log = (status: "SENT" | "FAILED", error?: string) =>
+            prisma.notificationLog
+              .create({
+                data: {
+                  customerId: loaded.customerId,
+                  channel: "EMAIL",
+                  trigger: "INVOICE_RECEIPT_AUTO",
+                  message: `Receipt ${loaded.invoiceNo} to ${loaded.customerEmail}`,
+                  status,
+                  ...(error ? { error: error.slice(0, 400) } : {}),
+                  refId: loaded.id,
+                },
+              })
+              .catch(() => undefined);
+
+          // Checked send, recorded either way — a failed receipt is visible in the
+          // notification log instead of vanishing into a console line.
+          try {
+            await sendMailChecked({
+              to: loaded.customerEmail,
+              subject,
+              html,
+              text,
+              attachments: [{
+                filename: invoiceFilename(loaded.invoiceNo),
+                content: pdfBuffer,
+                contentType: "application/pdf",
+              }],
+            });
+            await log("SENT");
+          } catch (mailErr) {
+            await log("FAILED", mailErr instanceof Error ? mailErr.message : "Unknown error");
+            throw mailErr;
+          }
         } catch (e) {
-          console.error("[Mailer] Receipt email failed:", e);
+          console.error("[Mailer] Receipt email failed:", e instanceof Error ? e.message : e);
         }
       });
     }

@@ -28,7 +28,7 @@ import { requireBranchScope } from "@/lib/branch-scope";
 import { validate, readJson } from "@/lib/validate";
 import { writeAudit } from "@/lib/audit";
 import prisma from "@/lib/db";
-import { sendMail } from "@/lib/mailer";
+import { MailError, sendMailChecked } from "@/lib/mailer";
 import { PHONE_RE } from "@/lib/customer-schema";
 import {
   invoiceEmailHtml,
@@ -161,8 +161,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // format it followed the branch's till paper and emailed a 58 mm receipt.)
     const pdf = await renderInvoicePdf(invoice, "A4");
 
+    // sendMailChecked THROWS on any failure (not configured, server error,
+    // recipient refused) — "emailed" is only reported when the mail server
+    // actually accepted the message.
     try {
-      await sendMail({
+      await sendMailChecked({
         to: address,
         subject: `Your Renzo Invoice ${invoice.invoiceNo}`,
         html: invoiceEmailHtml(invoice),
@@ -188,7 +191,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           refId: invoice.id,
         },
       });
-      return err("Could not send the email — check the address and try again", 502);
+      return err(
+        mailError instanceof MailError && mailError.reason === "NOT_CONFIGURED"
+          ? "Email is not set up on the server — ask the admin to configure SMTP"
+          : mailError instanceof MailError && mailError.reason === "REJECTED"
+            ? `The mail server refused ${address} — check the address and try again`
+            : "Could not send the email right now — please try again in a moment",
+        mailError instanceof MailError && mailError.reason === "NOT_CONFIGURED" ? 503 : 502
+      );
     }
 
     await prisma.notificationLog.create({
