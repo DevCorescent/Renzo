@@ -24,6 +24,7 @@ import type { InvoiceStatus, Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
 import type { BranchScope } from "@/lib/branch-scope";
 import type { UserType } from "@/types/api";
+import { invoiceBreakdown } from "@/lib/invoice-breakdown";
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -233,6 +234,68 @@ export function isTotalsError(
   value: InvoiceTotals | { error: string; field: string }
 ): value is { error: string; field: string } {
   return "error" in value;
+}
+
+/**
+ * Totals for an invoice that ALREADY EXISTS, after its lines or discount change.
+ *
+ * Re-runs computeInvoiceTotals over the stored lines while keeping what the
+ * original bill had and the edit did not touch:
+ *   • the tip (its own TIP line, never discounted or taxed),
+ *   • the operator's round-off (not stored on its own — derived from the totals),
+ *   • the GST rate actually charged on this bill, not today's branch rate. Only
+ *     when nothing was taxable (e.g. a 100% discount) is the rate unknown, and
+ *     the branch rate is used.
+ *
+ * `netPaid` is money collected minus money refunded — the same figure
+ * Invoice.paidAmount holds (the payment route adds to it, the refund route
+ * takes from it). Like computeInvoiceTotals, this errors when netPaid exceeds
+ * the new total; a caller that can settle the excess passes netPaid: 0 first to
+ * learn the new total (see the discount edit in billing/[id]/route.ts).
+ */
+export function recomputeExistingInvoice(params: {
+  /** The invoice as stored BEFORE the edit, with its original lines. */
+  invoice: {
+    subtotal: number;
+    discountAmount: number;
+    taxAmount: number;
+    totalAmount: number;
+    items: { type: string; total: number }[];
+  };
+  /** Every line after the edit, TIP rows included. */
+  items: { type: string; name: string; quantity: number; unitPrice: number; total: number }[];
+  discountAmount: number;
+  branchTaxPercent: number;
+  netPaid: number;
+}): InvoiceTotals | { error: string; field: string } {
+  const before = invoiceBreakdown({
+    subtotal: Number(params.invoice.subtotal),
+    discountAmount: Number(params.invoice.discountAmount),
+    taxAmount: Number(params.invoice.taxAmount),
+    totalAmount: Number(params.invoice.totalAmount),
+    items: params.invoice.items.map((i) => ({ type: i.type, total: Number(i.total) })),
+  });
+  const tipAmount = round2(
+    params.items.filter((i) => i.type === "TIP").reduce((sum, i) => sum + Number(i.total), 0)
+  );
+
+  return computeInvoiceTotals({
+    lines: params.items
+      .filter((i) => i.type !== "TIP")
+      .map((i) => ({
+        type: i.type,
+        refId: null,
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: round2(Number(i.unitPrice)),
+        total: round2(Number(i.unitPrice) * i.quantity),
+      })),
+    discountAmount: params.discountAmount,
+    taxPercent: before.taxable > 0 ? before.taxPercent : params.branchTaxPercent,
+    tipAmount,
+    roundOff: before.roundOff,
+    payments: params.netPaid > 0 ? [{ amount: round2(params.netPaid) }] : [],
+  });
 }
 
 /** The invoice line rows, including the tip line when there is one. */

@@ -41,6 +41,10 @@ import { resolveWhatsAppProvider, toLogStatus } from "@/lib/messaging/provider";
 
 const MODULE = "INVOICE";
 
+// The email attaches a freshly rendered PDF — same cold-start budget as /pdf.
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 const SendSchema = z.object({
   channel: z.enum(["EMAIL", "WHATSAPP"]),
   /** Overrides the customer's stored address/number for this send only. */

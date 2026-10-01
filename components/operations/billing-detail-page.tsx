@@ -9,6 +9,7 @@ import { InvoiceActions } from "@/components/operations/invoice-actions";
 import { InvoiceEditPanel } from "@/components/operations/invoice-edit-panel";
 import type { UserType } from "@/types/api";
 import { invoiceBreakdown, taxLabel } from "@/lib/invoice-breakdown";
+import { billingCapabilitiesFor } from "@/lib/billing-service";
 
 const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" | "info"> = {
   UNPAID: "warning",
@@ -125,7 +126,9 @@ export async function BillingDetailPage({
         currentNotes={invoice.notes}
         currentDiscount={Number(invoice.discountAmount)}
         subtotal={Number(invoice.subtotal)}
+        paidAmount={Number(invoice.paidAmount)}
         canVoid={authUser.userType === "BRANCH_ADMIN" || authUser.userType === "SUPER_ADMIN" || authUser.userType === "OWNER"}
+        canCorrectPaid={billingCapabilitiesFor(authUser.userType).canRefund}
         items={invoice.items.map((i) => ({
           id: i.id,
           name: i.name,

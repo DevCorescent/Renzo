@@ -35,13 +35,14 @@ import {
   Loader2, Search, UserPlus, CalendarPlus, Play, Check, Receipt,
   Wallet, Printer, MessageCircle, Mail, X, CircleCheck, CircleAlert,
   ArrowLeft, LayoutGrid, Clock, PlusCircle, Pencil, RefreshCw, Download, Share2,
-  Zap, ChevronDown, CalendarClock, ExternalLink,
+  Zap, ChevronDown, CalendarClock, ExternalLink, Pin, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
 import { printInvoicePdf } from "@/components/operations/print-pdf";
 import { DiscountInput, discountFrom, type DiscountMode } from "@/components/operations/discount-input";
 import {
+  downloadInvoicePdf,
   fetchInvoicePdf,
   openWhatsAppChat,
   saveInvoicePdf,
@@ -146,6 +147,26 @@ function matchesService(name: string, query: string): boolean {
   const n = name.toLowerCase();
   const norm = (v: string) => v.replace(/[^a-z0-9]/gi, "").toLowerCase();
   return n.includes(q) || norm(n).includes(norm(q)) || q.split(/\s+/).every((w) => n.includes(w));
+}
+
+// The desk's most-rung services, shown as one-tap buttons above the search so
+// they never have to be searched for. Matched by NAME — case, spaces and
+// punctuation ignored, so "Hair Cut" finds "Haircut" / "HAIR-CUT" — never by
+// database id, so the pins survive re-seeding and work in every branch. A pin
+// takes the service with exactly that name; where none exists, every service
+// whose name starts with it ("Beard" → "Beard Styling", "Beard Color").
+const PINNED_SERVICE_NAMES = ["Hair Cut", "Beard"];
+
+const normName = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+export function pinnedServices<T extends { id: string; name: string }>(services: T[]): T[] {
+  const pinned = new Map<string, T>();
+  for (const key of PINNED_SERVICE_NAMES.map(normName)) {
+    const exact = services.filter((s) => normName(s.name) === key);
+    const hits = exact.length > 0 ? exact : services.filter((s) => normName(s.name).startsWith(key));
+    for (const s of hits) pinned.set(s.id, s);
+  }
+  return [...pinned.values()];
 }
 
 const EPSILON = 0.009;
@@ -625,7 +646,14 @@ export function WalkInConsole({
   const grandTotal   = Math.round((taxable + taxValue) * 100) / 100;
   // Every service stays addable: adding one again books it for another person.
   const availableToAdd = services;
-  const matchingToAdd  = availableToAdd.filter((s) => matchesService(s.name, svcQuery));
+  const pinned         = React.useMemo(() => pinnedServices(services), [services]);
+  // Pinned first while nothing is typed; a search ranks every service alike.
+  const matchingToAdd  = (svcQuery.trim()
+    ? availableToAdd
+    : [...pinned, ...availableToAdd.filter((s) => !pinned.includes(s))]
+  ).filter((s) => matchesService(s.name, svcQuery));
+  const addService = (serviceId: string) =>
+    setRows((prev) => [...prev, { serviceId, workerId: "" }]);
   const moreOpen = showMore;
   const totalSplitAmount = splits.reduce((s, r) => s + (Number(r.amount) || 0), 0);
   const amountInvalid = splits.some(s => s.amount.trim() !== "" && !(Number(s.amount) >= 0));
@@ -1028,13 +1056,14 @@ export function WalkInConsole({
       ? printInvoicePdf(invoice!.id) // the same A4 invoice as Preview
       : window.open(printUrl(fmt ?? printSize), "_blank", "noopener,noreferrer");
 
-  const downloadPdf = () => {
-    // A4 PDF download only (thermal is HTML, not a saveable PDF).
-    const a = document.createElement("a");
-    a.href = `${API.reception.bill(invoice!.id)}/pdf?format=A4`;
-    a.download = "";
-    a.click();
-  };
+  // A4 PDF download only (thermal is HTML, not a saveable PDF). Fetched and
+  // saved from a Blob so a server failure shows as an error here instead of a
+  // silently broken download.
+  const downloadPdf = () =>
+    run("Download", async () => {
+      await downloadInvoicePdf(invoice!.id, invoice!.invoiceNo);
+      setNote(`${whatsAppPdfFilename(invoice!.invoiceNo)} downloaded.`);
+    });
 
   const [copied, setCopied] = React.useState(false);
   const copyLink = async () => {
@@ -1639,6 +1668,28 @@ export function WalkInConsole({
 
               {!appointment && (
                 <>
+                  {/* Pinned services — one tap, no search */}
+                  {pinned.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Pinned services">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-(--sa-muted)">
+                        <Pin className="size-3.5" aria-hidden="true" /> Quick add
+                      </span>
+                      {pinned.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => addService(s.id)}
+                          aria-label={`Add ${s.name}, ${formatMoney(s.price)}`}
+                          className={btnGhost}
+                        >
+                          <Plus className="size-3.5" aria-hidden="true" />
+                          {s.name}
+                          <span className="text-gray-500 dark:text-(--sa-muted)">{formatMoney(s.price)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Searchable service picker */}
                   <div className="relative">
                     <div className="relative">
@@ -1664,13 +1715,18 @@ export function WalkInConsole({
                               type="button"
                               onMouseDown={(e) => e.preventDefault()}
                               onClick={() => {
-                                setRows((prev) => [...prev, { serviceId: s.id, workerId: "" }]);
+                                addService(s.id);
                                 setSvcQuery("");
                                 setSvcOpen(false);
                               }}
                               className="flex w-full items-center justify-between gap-4 px-4 py-2.5 text-left text-sm transition hover:bg-gray-100 dark:hover:bg-(--sa-hover)"
                             >
-                              <span className="text-gray-900 dark:text-(--sa-text)">{s.name}</span>
+                              <span className="inline-flex items-center gap-1.5 text-gray-900 dark:text-(--sa-text)">
+                                {!svcQuery.trim() && pinned.includes(s) && (
+                                  <Pin className="size-3 text-gray-400" aria-label="Pinned" />
+                                )}
+                                {s.name}
+                              </span>
                               <span className="shrink-0 text-xs text-gray-500 dark:text-(--sa-muted)">
                                 {s.duration} min · <span className="font-medium text-gray-700 dark:text-(--sa-text-2)">{formatMoney(s.price)}</span>
                               </span>

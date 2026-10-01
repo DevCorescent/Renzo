@@ -106,6 +106,8 @@ export type InvoicePdfData = {
   balance: number;
   /** Per-method payment breakdown. Replaces the old single `method` string. */
   payments?: { method: string; amount: number }[];
+  /** Money handed back (refund route, or a corrected discount) — `paid` is already net of it. */
+  refunds?: { method: string; amount: number }[];
   // Invoice display fields — configured once per branch in Branch Settings.
   // All optional; renderers fall back to hardcoded defaults when absent.
   businessName?: string;   // header brand name
@@ -247,10 +249,30 @@ function InvoiceDoc({ d }: { d: InvoicePdfData }) {
             <Text style={s.tLblBold}>Grand Total</Text>
             <Text style={s.tValBold}>{inr(d.total)}</Text>
           </View>
-          <View style={s.tRow}>
-            <Text style={s.tLbl}>Amount Paid</Text>
-            <Text style={[s.tVal, s.paidVal]}>{inr(d.paid)}</Text>
-          </View>
+          {(d.refunds ?? []).length > 0 ? (
+            // `paid` is net of refunds: show what was collected, what went back, and the net.
+            <>
+              <View style={s.tRow}>
+                <Text style={s.tLbl}>Amount Collected</Text>
+                <Text style={s.tVal}>{inr(d.paid + d.refunds!.reduce((sum, r) => sum + r.amount, 0))}</Text>
+              </View>
+              {d.refunds!.map((r, i) => (
+                <View key={`r${i}`} style={s.tRow}>
+                  <Text style={s.tLbl}>Refunded ({r.method})</Text>
+                  <Text style={s.tVal}>− {inr(r.amount)}</Text>
+                </View>
+              ))}
+              <View style={s.tRow}>
+                <Text style={s.tLblBold}>Net Paid</Text>
+                <Text style={[s.tValBold, s.paidVal]}>{inr(d.paid)}</Text>
+              </View>
+            </>
+          ) : (
+            <View style={s.tRow}>
+              <Text style={s.tLbl}>Amount Paid</Text>
+              <Text style={[s.tVal, s.paidVal]}>{inr(d.paid)}</Text>
+            </View>
+          )}
           {d.balance > 0 && (
             <View style={s.tRow}>
               <Text style={s.tLblBold}>Balance Due</Text>
@@ -403,6 +425,12 @@ function ThermalDoc({ d, kind }: { d: InvoicePdfData; kind: "THERMAL_80" | "THER
             <Text style={t.amount}>{inr(d.paid)}</Text>
           </View>
         ) : null}
+        {(d.refunds ?? []).map((r, i) => (
+          <View key={`r${i}`} style={t.row}>
+            <Text>Refunded ({r.method})</Text>
+            <Text style={t.amount}>− {inr(r.amount)}</Text>
+          </View>
+        ))}
         {d.balance > 0 ? (
           <View style={t.row}>
             <Text style={t.bold}>Balance Due</Text>
