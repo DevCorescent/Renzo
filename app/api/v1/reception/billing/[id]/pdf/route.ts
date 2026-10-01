@@ -17,6 +17,14 @@ import {
 // built by the SAME function, so the two can never drift into different documents.
 // `?inline=true` renders it in the browser's viewer instead of downloading —
 // that is the Preview and Print path, which needs no second endpoint.
+//
+// Node runtime and a 60 s ceiling, as on the reports PDF route: a cold start
+// loads @react-pdf's layout engine and fonts before rendering, which can outrun
+// a serverless platform's short default limit — the request then dies with a
+// timeout and the download never arrives.
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireAuth(
     req,

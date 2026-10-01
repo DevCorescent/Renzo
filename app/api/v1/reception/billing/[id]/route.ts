@@ -1,8 +1,17 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import type { InvoiceStatus, PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 import { ok, err } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope } from "@/lib/branch-scope";
 import { writeAudit } from "@/lib/audit";
-import { computeInvoiceTotals, isTotalsError, round2 } from "@/lib/billing-service";
+import {
+  billingCapabilitiesFor,
+  isTotalsError,
+  recomputeExistingInvoice,
+  round2,
+  type InvoiceTotals,
+} from "@/lib/billing-service";
+import { creditWallet } from "@/lib/wallet";
 import prisma from "@/lib/db";
 
 // OWNER: Shalmon | MODULE: Reception Billing
@@ -45,18 +54,99 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
+
 // ============================================================================
 // PATCH /api/v1/reception/billing/[id]
 //
 // Allowed updates:
 //   • notes          — any status
-//   • discountAmount — only UNPAID / PARTIAL (recalculates totals)
+//   • discountAmount — UNPAID / PARTIAL; on a PAID bill, BRANCH_ADMIN and above
+//                      only (recalculates totals — see "Correcting a paid bill")
+//   • addItem / removeItemId — UNPAID / PARTIAL only
 //   • void (status → CANCELLED) — BRANCH_ADMIN / SUPER_ADMIN / OWNER only,
 //     requires a voidReason
 //
-// A PAID invoice is intentionally immutable beyond notes. Discount changes
-// on a paid bill would require a credit note / refund, not an in-place edit.
+// CORRECTING A PAID BILL
+// ----------------------
+// A discount keyed in wrong is found after the customer has paid. Payment rows
+// are NEVER edited or deleted. When the corrected total falls below what has
+// been collected, the excess goes back through the existing refund model — a
+// Refund row, exactly as POST /admin/invoices/:id/refund writes, with
+// paidAmount reduced by it — so paid, due and status stay true and the history
+// shows both the original payment and the refund. A WALLET refund is credited
+// to the customer's wallet (store credit) through lib/wallet.ts.
+//
+// Money only leaves with an explicit confirmation of the exact amount: the
+// first request answers 409 with `data.refundRequired`, and the client resends
+// with `refund: { method, amount }`. Only roles that may refund (BRANCH_ADMIN
+// and above) can do this — the same rule as the refund route.
+//
+// Every recalculation keeps the bill's tip, round-off and the GST rate it was
+// charged at (recomputeExistingInvoice), and each edit is one transaction that
+// fails if the invoice changed underneath it (e.g. a payment landed meanwhile).
 // ============================================================================
+
+/** How the excess on a corrected bill can be handed back. */
+const REFUND_METHODS: PaymentMethod[] = ["CASH", "UPI", "CARD", "ONLINE", "WALLET"];
+const METHOD_LABEL: Record<string, string> = {
+  CASH: "cash", UPI: "UPI", CARD: "card", ONLINE: "online", WALLET: "wallet credit",
+};
+
+/** Below a paisa is float noise, not money. */
+const EPSILON = 0.01;
+
+const APPOINTMENT_PAYMENT_STATUS: Record<InvoiceStatus, PaymentStatus> = {
+  UNPAID: "PENDING",
+  PARTIAL: "PARTIAL",
+  PAID: "PAID",
+  REFUNDED: "REFUNDED",
+  CANCELLED: "CANCELLED",
+};
+
+const inr = (n: number) => `₹${round2(n).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+
+/** The Invoice columns a recalculation writes (tip / round-off live in the lines). */
+function totalsData(t: InvoiceTotals) {
+  return {
+    subtotal: t.subtotal,
+    discountAmount: t.discountAmount,
+    taxAmount: t.taxAmount,
+    totalAmount: t.totalAmount,
+    paidAmount: t.paidAmount,
+    balanceDue: t.balanceDue,
+    status: t.status,
+  };
+}
+
+class StaleInvoiceError extends Error {}
+
+/**
+ * Claim the invoice for this edit: succeeds only if it is unchanged since it
+ * was read, so a payment or another edit in between cannot be overwritten with
+ * totals worked out from stale figures.
+ */
+async function claimInvoice(tx: Prisma.TransactionClient, id: string, updatedAt: Date) {
+  const { count } = await tx.invoice.updateMany({
+    where: { id, updatedAt },
+    data: { updatedAt: new Date() },
+  });
+  if (count === 0) throw new StaleInvoiceError();
+}
+
+/** Keep the source appointment's paid figure and status in step with its invoice. */
+async function syncAppointment(
+  tx: Prisma.TransactionClient,
+  appointmentId: string | null,
+  paidAmount: number,
+  status: InvoiceStatus
+) {
+  if (!appointmentId) return;
+  await tx.appointment.update({
+    where: { id: appointmentId },
+    data: { paidAmount, paymentStatus: APPOINTMENT_PAYMENT_STATUS[status] },
+  });
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireAuth(req, "BRANCH_ADMIN", "SUPER_ADMIN", "OWNER", "RECEPTIONIST");
   if (error) return error;
@@ -68,12 +158,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const invoice = await prisma.invoice.findUnique({
       where: { id },
-      include: { items: true, payments: true },
+      include: { items: true },
     });
     if (!invoice) return err("Invoice not found", 404);
 
-    const branchScoped = user.userType === "RECEPTIONIST" || user.userType === "BRANCH_ADMIN";
-    if (branchScoped && user.branchId && invoice.branchId !== user.branchId) {
+    // requireBranchScope, as the refund route uses: an edit can now move money,
+    // so a branch-scoped account with no branch on it is refused rather than
+    // skipping the check.
+    const { scope, error: scopeError } = requireBranchScope(user);
+    if (scopeError) return scopeError;
+    if (!scope.isGlobal && invoice.branchId !== scope.branchId) {
       return err("Forbidden — invoice belongs to another branch", 403);
     }
 
@@ -109,6 +203,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return ok(updated, "Invoice voided");
     }
 
+    // Collected minus refunded. Invoice.paidAmount is the one figure every path
+    // maintains (payments add, refunds subtract, an appointment's advance is
+    // carried in at billing) — summing Payment rows alone would miss the advance.
+    const netPaid = round2(Number(invoice.paidAmount));
+    const branchTaxPercent = async () =>
+      Number(
+        (await prisma.branchSetting.findUnique({
+          where: { branchId: invoice.branchId },
+          select: { taxPercent: true },
+        }))?.taxPercent ?? 0
+      );
+
     // ── Remove a line item (UNPAID / PARTIAL only) ─────────────────────────
     if ("removeItemId" in body) {
       if (invoice.status !== "UNPAID" && invoice.status !== "PARTIAL") {
@@ -119,44 +225,32 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
       const item = invoice.items.find((i) => i.id === itemId);
       if (!item) return err("Invoice item not found", 404);
-      if (invoice.items.filter((i) => i.type !== "TIP").length <= 1) {
+      if (item.type !== "TIP" && invoice.items.filter((i) => i.type !== "TIP").length <= 1) {
         return err("Cannot remove the last service item — void the invoice instead", 409);
       }
 
-      await prisma.invoiceItem.delete({ where: { id: itemId } });
-
-      const remainingItems = invoice.items.filter((i) => i.id !== itemId && i.type !== "TIP");
-      const taxSetting = await prisma.branchSetting.findUnique({
-        where: { branchId: invoice.branchId },
-        select: { taxPercent: true },
-      });
-
-      const totals = computeInvoiceTotals({
-        lines: remainingItems.map((i) => ({
-          type: i.type as "SERVICE" | "ADDON" | "PACKAGE" | "PRODUCT" | "MISC",
-          refId: null,
-          name: i.name,
-          quantity: i.quantity,
-          unitPrice: round2(Number(i.unitPrice)),
-          total: round2(Number(i.unitPrice) * i.quantity),
-        })),
+      // Totals are settled BEFORE anything is written, so a rejected change
+      // (e.g. the discount would now exceed the subtotal) leaves the bill intact.
+      const totals = recomputeExistingInvoice({
+        invoice,
+        items: invoice.items.filter((i) => i.id !== itemId),
         discountAmount: Number(invoice.discountAmount),
-        taxPercent: Number(taxSetting?.taxPercent ?? 0),
-        payments: invoice.payments.map((p) => ({ amount: Number(p.amount) })),
+        branchTaxPercent: await branchTaxPercent(),
+        netPaid,
       });
-
       if (isTotalsError(totals)) {
         return err("Validation failed", 422, { [totals.field]: [totals.error] });
       }
 
-      const updated = await prisma.invoice.update({
-        where: { id },
-        data: { ...totals },
-        include: { items: true },
+      const updated = await prisma.$transaction(async (tx) => {
+        await claimInvoice(tx, id, invoice.updatedAt);
+        await tx.invoiceItem.delete({ where: { id: itemId } });
+        await syncAppointment(tx, invoice.appointmentId, totals.paidAmount, totals.status);
+        return tx.invoice.update({ where: { id }, data: totalsData(totals), include: { items: true } });
       });
       await writeAudit(user, {
         action: "UPDATE", module: "BILLING", refId: id, refType: "Invoice",
-        newValue: { removedItemId: itemId } as Record<string, string | number | boolean | null>,
+        newValue: { removedItemId: itemId, totalAmount: totals.totalAmount } as Record<string, string | number | boolean | null>,
       });
       return ok(updated, "Item removed");
     }
@@ -171,8 +265,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (!name) return err("Validation failed", 422, { name: ["Item name is required"] });
       const quantity = Number(ai?.quantity ?? 1);
       const unitPrice = Number(ai?.unitPrice ?? 0);
-      if (!Number.isFinite(quantity) || quantity < 1) {
-        return err("Validation failed", 422, { quantity: ["Quantity must be at least 1"] });
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        return err("Validation failed", 422, { quantity: ["Quantity must be a whole number of at least 1"] });
       }
       if (!Number.isFinite(unitPrice) || unitPrice < 0) {
         return err("Validation failed", 422, { unitPrice: ["Price must be non-negative"] });
@@ -180,62 +274,56 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       const allowedTypes = ["SERVICE", "ADDON", "PACKAGE", "PRODUCT", "MISC"];
       const type = (typeof ai?.type === "string" && allowedTypes.includes(ai.type)) ? ai.type : "SERVICE";
 
-      const taxSetting = await prisma.branchSetting.findUnique({
-        where: { branchId: invoice.branchId },
-        select: { taxPercent: true },
-      });
-      const taxPercent = Number(taxSetting?.taxPercent ?? 0);
+      const taxPercent = await branchTaxPercent();
       const itemTotal = round2(unitPrice * quantity);
-      const itemTaxAmount = round2(itemTotal * (taxPercent / 100));
-
-      await prisma.invoiceItem.create({
-        data: {
-          invoiceId: id,
-          type,
-          name,
-          quantity,
-          unitPrice,
-          taxPercent,
-          taxAmount: itemTaxAmount,
-          total: itemTotal,
-        },
-      });
-
-      const allItems = [...invoice.items.filter((i) => i.type !== "TIP"), { type, name, quantity, unitPrice, total: itemTotal }];
-      const totals = computeInvoiceTotals({
-        lines: allItems.map((i) => ({
-          type: i.type as "SERVICE" | "ADDON" | "PACKAGE" | "PRODUCT" | "MISC",
-          refId: null,
-          name: i.name,
-          quantity: i.quantity,
-          unitPrice: round2(Number(i.unitPrice)),
-          total: round2(Number(i.unitPrice) * i.quantity),
-        })),
-        discountAmount: Number(invoice.discountAmount),
+      const newItem = {
+        invoiceId: id,
+        type,
+        name,
+        quantity,
+        unitPrice: round2(unitPrice),
         taxPercent,
-        payments: invoice.payments.map((p) => ({ amount: Number(p.amount) })),
-      });
+        taxAmount: round2(itemTotal * (taxPercent / 100)),
+        total: itemTotal,
+      };
 
+      const totals = recomputeExistingInvoice({
+        invoice,
+        items: [...invoice.items, newItem],
+        discountAmount: Number(invoice.discountAmount),
+        branchTaxPercent: taxPercent,
+        netPaid,
+      });
       if (isTotalsError(totals)) {
         return err("Validation failed", 422, { [totals.field]: [totals.error] });
       }
 
-      const updated = await prisma.invoice.update({
-        where: { id },
-        data: { ...totals },
-        include: { items: true },
+      const updated = await prisma.$transaction(async (tx) => {
+        await claimInvoice(tx, id, invoice.updatedAt);
+        await tx.invoiceItem.create({ data: newItem });
+        await syncAppointment(tx, invoice.appointmentId, totals.paidAmount, totals.status);
+        return tx.invoice.update({ where: { id }, data: totalsData(totals), include: { items: true } });
       });
       await writeAudit(user, {
         action: "UPDATE", module: "BILLING", refId: id, refType: "Invoice",
-        newValue: { addedItem: name } as Record<string, string | number | boolean | null>,
+        newValue: { addedItem: name, totalAmount: totals.totalAmount } as Record<string, string | number | boolean | null>,
       });
       return ok(updated, "Item added");
     }
 
-    // Discount — only for unpaid/partial invoices
-    if ("discountAmount" in body) {
-      if (invoice.status !== "UNPAID" && invoice.status !== "PARTIAL") {
-        return err("Discount can only be changed on an unpaid or partially paid invoice", 409);
+    // ── Discount ────────────────────────────────────────────────────────────
+    // An unchanged discount (the edit form always sends it) is a notes-only save:
+    // re-deriving the same totals could only introduce rounding drift.
+    const discountChanged =
+      "discountAmount" in body && round2(Number(body.discountAmount)) !== round2(Number(invoice.discountAmount));
+
+    if (discountChanged) {
+      if (invoice.status !== "UNPAID" && invoice.status !== "PARTIAL" && invoice.status !== "PAID") {
+        return err("Discount cannot be changed on a cancelled or refunded invoice", 409);
+      }
+      const canRefund = billingCapabilitiesFor(user.userType).canRefund;
+      if (invoice.status === "PAID" && !canRefund) {
+        return err("Only a Branch Admin or higher can change the discount on a paid invoice", 403);
       }
 
       const newDiscount = Number(body.discountAmount);
@@ -243,41 +331,134 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         return err("Validation failed", 422, { discountAmount: ["Must be a non-negative number"] });
       }
 
-      const taxSetting = await prisma.branchSetting.findUnique({
-        where: { branchId: invoice.branchId },
-        select: { taxPercent: true },
-      });
-
-      const lines = invoice.items
-        .filter((item) => item.type !== "TIP")
-        .map((item) => ({
-          type: item.type as "SERVICE" | "ADDON" | "PACKAGE" | "PRODUCT" | "MISC",
-          refId: null,
-          name: item.name,
-          quantity: item.quantity,
-          unitPrice: round2(Number(item.unitPrice)),
-          total: round2(Number(item.unitPrice) * item.quantity),
-        }));
-
-      const totals = computeInvoiceTotals({
-        lines,
+      const base = {
+        invoice,
+        items: invoice.items,
         discountAmount: newDiscount,
-        taxPercent: Number(taxSetting?.taxPercent ?? 0),
-        payments: invoice.payments.map((p) => ({ amount: Number(p.amount) })),
-      });
+        branchTaxPercent: await branchTaxPercent(),
+      };
+      // First the new total with nothing collected — rejects a discount above
+      // the subtotal — then compare it with what the customer has paid.
+      const fresh = recomputeExistingInvoice({ ...base, netPaid: 0 });
+      if (isTotalsError(fresh)) {
+        return err("Validation failed", 422, { [fresh.field]: [fresh.error] });
+      }
 
+      const excess = round2(netPaid - fresh.totalAmount);
+      const needsRefund = excess >= EPSILON;
+      let refundMethod: PaymentMethod | null = null;
+
+      if (needsRefund) {
+        if (!canRefund) {
+          return err(
+            `${inr(netPaid)} has already been collected, more than the new total of ${inr(fresh.totalAmount)}. ` +
+              "Only a Branch Admin or higher can refund the difference.",
+            403
+          );
+        }
+        const refund = body.refund as { method?: unknown; amount?: unknown } | undefined;
+        // The client must confirm THIS amount. A missing or different figure (the
+        // bill changed since it asked) gets the current one back to confirm.
+        if (!refund || Math.abs(Number(refund.amount) - excess) >= EPSILON) {
+          return NextResponse.json(
+            {
+              success: false,
+              message:
+                `The new total is ${inr(fresh.totalAmount)} but ${inr(netPaid)} has already been collected. ` +
+                `Confirm a refund of ${inr(excess)} to the customer to save this discount.`,
+              data: { refundRequired: excess, newTotal: fresh.totalAmount, paidAmount: netPaid },
+            },
+            { status: 409 }
+          );
+        }
+        if (!REFUND_METHODS.includes(refund.method as PaymentMethod)) {
+          return err("Validation failed", 422, { refundMethod: ["Choose how the refund is paid out"] });
+        }
+        refundMethod = refund.method as PaymentMethod;
+      }
+
+      // Once the excess is refunded the customer has paid exactly the new total.
+      const totals = recomputeExistingInvoice({
+        ...base,
+        netPaid: needsRefund ? fresh.totalAmount : netPaid,
+      });
       if (isTotalsError(totals)) {
         return err("Validation failed", 422, { [totals.field]: [totals.error] });
       }
+      // A bill discounted to nothing whose money all went back is REFUNDED — the
+      // refund route's rule (paid ≤ 0 after a refund ⇒ REFUNDED).
+      const status: InvoiceStatus = needsRefund && totals.totalAmount <= 0 ? "REFUNDED" : totals.status;
+      const reason =
+        `Discount corrected on ${invoice.invoiceNo}: ${inr(Number(invoice.discountAmount))} → ${inr(totals.discountAmount)}`;
 
-      Object.assign(updates, {
-        discountAmount: totals.discountAmount,
-        taxAmount: totals.taxAmount,
-        totalAmount: totals.totalAmount,
-        paidAmount: totals.paidAmount,
-        balanceDue: totals.balanceDue,
-        status: totals.status,
+      const updated = await prisma.$transaction(async (tx) => {
+        await claimInvoice(tx, id, invoice.updatedAt);
+
+        if (needsRefund && refundMethod) {
+          await tx.refund.create({
+            data: {
+              invoiceId: id,
+              amount: excess,
+              reason,
+              method: refundMethod,
+              processedBy: user.userId,
+              notes: "Excess over the corrected total, refunded on a discount edit",
+            },
+          });
+          if (refundMethod === "WALLET") {
+            await creditWallet(tx, invoice.customerId, excess, "REFUND", {
+              refId: id,
+              description: `Refund on invoice ${invoice.invoiceNo} (discount corrected)`,
+            });
+          }
+          // The payment route adds collected money to lifetime spend; money
+          // handed back comes off it again. Floored at 0: not every path that
+          // takes money (e.g. an appointment advance) added to it.
+          const customer = await tx.customer.findUnique({
+            where: { id: invoice.customerId },
+            select: { totalSpend: true },
+          });
+          if (customer) {
+            await tx.customer.update({
+              where: { id: invoice.customerId },
+              data: { totalSpend: Math.max(0, round2(Number(customer.totalSpend) - excess)) },
+            });
+          }
+        }
+
+        await syncAppointment(tx, invoice.appointmentId, totals.paidAmount, status);
+        return tx.invoice.update({
+          where: { id },
+          data: { ...updates, ...totalsData(totals), status },
+        });
       });
+
+      await writeAudit(user, {
+        action: "UPDATE",
+        module: "BILLING",
+        refId: id,
+        refType: "Invoice",
+        oldValue: {
+          discountAmount: Number(invoice.discountAmount),
+          totalAmount: Number(invoice.totalAmount),
+          paidAmount: netPaid,
+          balanceDue: Number(invoice.balanceDue),
+          status: invoice.status,
+        },
+        newValue: {
+          ...updates,
+          ...totalsData(totals),
+          status,
+          ...(needsRefund ? { refundAmount: excess, refundMethod } : {}),
+        } as Record<string, string | number | boolean | null>,
+      });
+
+      return ok(
+        updated,
+        needsRefund
+          ? `Discount updated — ${inr(excess)} refunded by ${METHOD_LABEL[refundMethod ?? ""] ?? refundMethod}`
+          : "Invoice updated"
+      );
     }
 
     if (Object.keys(updates).length === 0) {
@@ -293,7 +474,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       newValue: updates as Record<string, string | number | boolean | null>,
     });
     return ok(updated, "Invoice updated");
-  } catch {
+  } catch (e) {
+    if (e instanceof StaleInvoiceError) {
+      return err("This invoice changed while you were editing it — reload and try again", 409);
+    }
     return err("Internal server error", 500);
   }
 }

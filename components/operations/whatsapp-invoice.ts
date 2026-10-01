@@ -21,33 +21,61 @@ export function whatsAppPdfFilename(invoiceNo: string): string {
 }
 
 /**
- * Fetch the invoice PDF. Throws an Error whose message is fit to show the
- * operator — this runs BEFORE WhatsApp opens, so a failed PDF never leaves a
- * message-only send looking like a complete one.
+ * Fetch the A4 invoice PDF with the operator's session cookie. Throws an Error
+ * whose message is fit to show the operator; `afterFailure` is appended to it
+ * (e.g. "WhatsApp was not opened.").
+ *
+ * Always a fresh render from the database (`no-store`), so a bill edited a
+ * moment ago downloads with its new figures.
  */
-export async function fetchInvoicePdf(invoiceId: string): Promise<Blob> {
+async function requestInvoicePdf(invoiceId: string, afterFailure = ""): Promise<Blob> {
+  const tail = afterFailure ? ` ${afterFailure}` : "";
   let res: Response;
   try {
-    res = await fetch(`${API.reception.bill(invoiceId)}/pdf?format=A4`);
+    res = await fetch(`${API.reception.bill(invoiceId)}/pdf?format=A4`, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
   } catch {
-    throw new Error("Network error — could not download the invoice PDF. WhatsApp was not opened.");
+    throw new Error(`Network error — could not download the invoice PDF.${tail}`);
   }
 
   if (res.status === 401) {
-    throw new Error("Your session has expired — log in again to send the invoice.");
+    throw new Error(`Your session has expired — log in again and retry.${tail}`);
   }
   if (!res.ok) {
     const json = await res.json().catch(() => null);
-    throw new Error(
-      `${json?.message ?? "Could not generate the invoice PDF"}. WhatsApp was not opened.`
-    );
+    // A platform timeout / gateway error has no JSON body — say what happened.
+    const reason =
+      json?.message ??
+      (res.status === 504 || res.status === 502
+        ? "The server took too long to build the invoice PDF — please try again"
+        : `Could not generate the invoice PDF (error ${res.status})`);
+    throw new Error(`${reason}.${tail}`);
   }
 
   const blob = await res.blob();
   if (blob.size === 0 || !(res.headers.get("content-type") ?? "").includes("application/pdf")) {
-    throw new Error("The server did not return a valid invoice PDF. WhatsApp was not opened.");
+    throw new Error(`The server did not return a valid invoice PDF.${tail}`);
   }
   return blob;
+}
+
+/**
+ * The PDF for the WhatsApp hand-off — fetched BEFORE WhatsApp opens, so a
+ * failed PDF never leaves a message-only send looking like a complete one.
+ */
+export function fetchInvoicePdf(invoiceId: string): Promise<Blob> {
+  return requestInvoicePdf(invoiceId, "WhatsApp was not opened.");
+}
+
+/**
+ * Download PDF. Fetched first and saved from a Blob — not a navigation to the
+ * endpoint — so a failure (expired session, server error, timeout) is reported
+ * to the operator instead of opening a tab of raw JSON or saving a broken file.
+ */
+export async function downloadInvoicePdf(invoiceId: string, invoiceNo: string): Promise<void> {
+  saveInvoicePdf(await requestInvoicePdf(invoiceId), invoiceNo);
 }
 
 /**
@@ -66,7 +94,7 @@ function releaseLastPdf() {
 
 if (typeof window !== "undefined") window.addEventListener("pagehide", releaseLastPdf);
 
-/** Save the PDF to the operator's downloads under the WhatsApp filename. */
+/** Save the PDF to the operator's downloads as INV-<no>.pdf. */
 export function saveInvoicePdf(pdf: Blob, invoiceNo: string): void {
   releaseLastPdf(); // the previous download has long since finished
   const url = URL.createObjectURL(pdf);

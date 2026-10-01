@@ -67,6 +67,7 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
     include: {
       items: { select: { type: true, refId: true, name: true, quantity: true, unitPrice: true, total: true } },
       payments: { select: { method: true, amount: true }, orderBy: { paidAt: "asc" } },
+      refunds: { select: { method: true, amount: true }, orderBy: { processedAt: "asc" } },
     },
   });
   if (!invoice) return null;
@@ -204,6 +205,7 @@ export async function loadInvoiceForDelivery(id: string): Promise<LoadedInvoice 
       paid: Number(invoice.paidAmount),
       balance: Number(invoice.balanceDue),
       payments: invoice.payments.map(p => ({ method: fmtMethod(p.method), amount: Number(p.amount) })),
+      refunds: invoice.refunds.map((r) => ({ method: fmtMethod(r.method), amount: Number(r.amount) })),
       businessName: branch?.setting?.invoiceBusinessName ?? undefined,
       tagline: branch?.setting?.invoiceTagline ?? undefined,
       address: branch?.setting?.invoiceAddress ?? undefined,

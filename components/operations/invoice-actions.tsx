@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
 import { printInvoicePdf } from "@/components/operations/print-pdf";
 import {
+  downloadInvoicePdf,
   fetchInvoicePdf,
   openWhatsAppChat,
   saveInvoicePdf,
@@ -77,10 +78,29 @@ export function InvoiceActions({
   const [reason, setReason] = React.useState("");
   const [waLink, setWaLink] = React.useState<string | null>(null);
 
-  function openPdf(inline: boolean) {
+  function previewPdf() {
     // Always the A4 invoice: without `format` the PDF follows the branch's till
-    // paper, so a 58/80 mm branch previewed/downloaded the narrow receipt.
-    window.open(`${pdfUrl}?format=A4${inline ? "&inline=true" : ""}`, "_blank", "noopener,noreferrer");
+    // paper, so a 58/80 mm branch previewed the narrow receipt.
+    window.open(`${pdfUrl}?format=A4&inline=true`, "_blank", "noopener,noreferrer");
+  }
+
+  /**
+   * Fetched and saved as a file rather than opened in a tab: a tab pointed at
+   * the endpoint showed raw JSON (or saved an unopenable file) whenever the
+   * server failed, and the operator was never told why.
+   */
+  async function downloadPdf() {
+    if (busy) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      await downloadInvoicePdf(invoiceId, invoiceNo);
+      setNote({ tone: "ok", text: `${whatsAppPdfFilename(invoiceNo)} downloaded.` });
+    } catch (e) {
+      setNote({ tone: "err", text: e instanceof Error ? e.message : "Could not download the invoice PDF." });
+    } finally {
+      setBusy(false);
+    }
   }
 
   /** Print (and Reprint) send the same A4 invoice that Preview shows. */
@@ -192,7 +212,7 @@ export function InvoiceActions({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => openPdf(true)} className={btnGhost}>
+        <button type="button" onClick={previewPdf} className={btnGhost}>
           <Eye className="size-3.5" aria-hidden="true" /> Preview
         </button>
         <span className="inline-flex flex-wrap items-center gap-2">
@@ -201,8 +221,8 @@ export function InvoiceActions({
           </button>
           {/* Receipt text size only applies to the thermal receipt, not the A4 PDF. */}
         </span>
-        <button type="button" onClick={() => openPdf(false)} className={btnGhost}>
-          <Download className="size-3.5" aria-hidden="true" /> Download PDF
+        <button type="button" onClick={() => void downloadPdf()} disabled={busy} className={btnGhost}>
+          {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Download className="size-3.5" aria-hidden="true" />} Download PDF
         </button>
         <button
           type="button"

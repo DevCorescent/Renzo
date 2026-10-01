@@ -25,7 +25,9 @@ export function InvoiceEditPanel({
   currentNotes,
   currentDiscount,
   subtotal,
+  paidAmount = 0,
   canVoid,
+  canCorrectPaid = false,
   items = [],
   customerId,
   customerBasePath,
@@ -36,7 +38,14 @@ export function InvoiceEditPanel({
   currentDiscount: number;
   /** Pre-tax subtotal — what a % discount is taken of. */
   subtotal: number;
+  /** Collected minus refunded — the figure a corrected total is checked against. */
+  paidAmount?: number;
   canVoid: boolean;
+  /**
+   * May change the discount on a PAID bill. The server refunds any excess over
+   * the corrected total, so this is the roles that may refund (Branch Admin+).
+   */
+  canCorrectPaid?: boolean;
   items?: InvoiceItem[];
   customerId?: string;
   customerBasePath?: string;
@@ -59,8 +68,14 @@ export function InvoiceEditPanel({
   const [busy, setBusy] = React.useState(false);
   const [removingId, setRemovingId] = React.useState<string | null>(null);
   const [msg, setMsg] = React.useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  // Set when the server says the corrected total is below what was collected:
+  // the exact refund it will record, for the operator to confirm.
+  const [refundDue, setRefundDue] = React.useState<{ amount: number; newTotal: number } | null>(null);
+  const [refundMethod, setRefundMethod] = React.useState("CASH");
 
-  const canEditDiscount = invoiceStatus === "UNPAID" || invoiceStatus === "PARTIAL";
+  const isPaid = invoiceStatus === "PAID";
+  const canEditDiscount =
+    invoiceStatus === "UNPAID" || invoiceStatus === "PARTIAL" || (isPaid && canCorrectPaid);
   const canEditItems = invoiceStatus === "UNPAID" || invoiceStatus === "PARTIAL";
   const isVoided = invoiceStatus === "CANCELLED";
 
@@ -77,6 +92,11 @@ export function InvoiceEditPanel({
       });
       const json = await res.json().catch(() => null);
       setBusy(false);
+      if (res.status === 409 && typeof json?.data?.refundRequired === "number") {
+        setRefundDue({ amount: json.data.refundRequired, newTotal: json.data.newTotal });
+        setMsg({ tone: "err", text: json.message });
+        return false;
+      }
       if (!res.ok || !json?.success) {
         const fieldErrors = json?.errors
           ? Object.values(json.errors as Record<string, string[]>).flat().join(" · ")
@@ -94,7 +114,7 @@ export function InvoiceEditPanel({
     }
   }
 
-  async function handleSave() {
+  async function handleSave(confirmRefund = false) {
     const body: Record<string, unknown> = { notes };
     if (canEditDiscount) {
       const d = Number(discount || 0);
@@ -102,11 +122,23 @@ export function InvoiceEditPanel({
         setMsg({ tone: "err", text: "Discount must be a non-negative number." });
         return;
       }
+      // discountFrom quietly caps at the subtotal (fine while raising a bill);
+      // a correction to a saved one — possibly refunding money — is refused instead.
+      if (discountMode === "PERCENT" ? d > 100 : d > subtotal) {
+        setMsg({ tone: "err", text: "Discount cannot exceed the subtotal." });
+        return;
+      }
       // ₹ or % — the server always receives the rupee amount.
       body.discountAmount = discountFrom(discount, discountMode, subtotal);
     }
+    if (confirmRefund && refundDue) {
+      body.refund = { method: refundMethod, amount: refundDue.amount };
+    }
     const ok = await patch(body);
-    if (ok) setOpen(false);
+    if (ok) {
+      setRefundDue(null);
+      setOpen(false);
+    }
   }
 
   async function handleRemoveItem(itemId: string) {
@@ -187,7 +219,7 @@ export function InvoiceEditPanel({
           )}
           <button
             type="button"
-            onClick={() => { setOpen((v) => !v); setMsg(null); }}
+            onClick={() => { setOpen((v) => !v); setMsg(null); setRefundDue(null); }}
             className="inline-flex items-center gap-1.5 rounded border border-gray-200 px-2.5 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 dark:border-(--sa-border) dark:text-(--sa-text-2) dark:hover:bg-white/5"
           >
             {open ? <X className="size-3.5" /> : <Pencil className="size-3.5" />}
@@ -201,7 +233,9 @@ export function InvoiceEditPanel({
           <p className="text-xs text-gray-500 dark:text-(--sa-text-2)">
             {canEditItems
               ? "Edit services, discount, notes, or void this invoice."
-              : "Update notes or void this invoice. Services and discount cannot be changed on a paid invoice."}
+              : isPaid && canCorrectPaid
+                ? "Correct the discount, update notes, or void this invoice. Services cannot be changed on a paid invoice."
+                : "Update notes or void this invoice. Services and discount cannot be changed on a paid invoice."}
           </p>
         </CardBody>
       )}
@@ -243,12 +277,57 @@ export function InvoiceEditPanel({
                 <div>
                   <DiscountInput
                     id="edit-discount" raw={discount} mode={discountMode}
-                    onRaw={setDiscount} onMode={setDiscountMode} subtotal={subtotal}
+                    onRaw={(v) => { setDiscount(v); setRefundDue(null); }}
+                    onMode={(m) => { setDiscountMode(m); setRefundDue(null); }}
+                    subtotal={subtotal}
                     inputClassName={inputCls}
                   />
                   <p className="mt-1 text-[11px] text-gray-400 dark:text-(--sa-muted)">
                     Taken off the subtotal before GST. Totals and balance are recalculated immediately.
                   </p>
+                  {isPaid && (
+                    <p className="mt-2 rounded border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300">
+                      This invoice is paid (₹{paidAmount.toLocaleString("en-IN")} collected). If the corrected total is
+                      lower, you will be asked to confirm a refund of the difference. Payments already recorded are kept.
+                    </p>
+                  )}
+                </div>
+              )}
+              {refundDue && (
+                <div className="space-y-2 rounded border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                  <p className="text-xs text-amber-900 dark:text-amber-200">
+                    New total <strong>₹{refundDue.newTotal.toLocaleString("en-IN")}</strong>. Refund{" "}
+                    <strong>₹{refundDue.amount.toLocaleString("en-IN")}</strong> to the customer — it is recorded
+                    against this invoice and the paid amount drops by it.
+                  </p>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <span className="min-w-40">
+                      <label htmlFor="edit-refund-method" className="mb-1 block text-[11px] font-medium text-amber-900 dark:text-amber-200">
+                        Refund by
+                      </label>
+                      <select
+                        id="edit-refund-method"
+                        value={refundMethod}
+                        onChange={(e) => setRefundMethod(e.target.value)}
+                        className={inputCls}
+                      >
+                        <option value="CASH">Cash</option>
+                        <option value="UPI">UPI</option>
+                        <option value="CARD">Card</option>
+                        <option value="ONLINE">Online</option>
+                        <option value="WALLET">Wallet credit</option>
+                      </select>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void handleSave(true)}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1.5 rounded bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                    >
+                      {busy && <Loader2 className="size-3.5 animate-spin" />}
+                      Confirm refund &amp; save
+                    </button>
+                  </div>
                 </div>
               )}
               <div>
@@ -265,8 +344,8 @@ export function InvoiceEditPanel({
               </div>
               <button
                 type="button"
-                onClick={handleSave}
-                disabled={busy}
+                onClick={() => void handleSave()}
+                disabled={busy || refundDue !== null}
                 className="inline-flex items-center gap-1.5 rounded bg-gray-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50 dark:bg-white dark:text-gray-900"
               >
                 {busy && <Loader2 className="size-3.5 animate-spin" />}
