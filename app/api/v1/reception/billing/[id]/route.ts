@@ -12,6 +12,7 @@ import {
   type InvoiceTotals,
 } from "@/lib/billing-service";
 import { creditWallet } from "@/lib/wallet";
+import { applyStockMovement, InsufficientStockError } from "@/lib/stock";
 import prisma from "@/lib/db";
 
 // OWNER: Shalmon | MODULE: Reception Billing
@@ -60,15 +61,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 //
 // Allowed updates:
 //   • notes          — any status
-//   • discountAmount — UNPAID / PARTIAL; on a PAID bill, BRANCH_ADMIN and above
-//                      only (recalculates totals — see "Correcting a paid bill")
+//   • discountAmount, or `edit: { discountAmount?, items?: [{ id, quantity?,
+//     unitPrice? }], tipAmount? }` — UNPAID / PARTIAL; on a PAID bill,
+//     BRANCH_ADMIN and above only (recalculates totals — see "Correcting a paid
+//     bill"). `dryRun: true` returns the figures the edit would produce and
+//     writes nothing. A retail product's stock follows its corrected quantity.
 //   • addItem / removeItemId — UNPAID / PARTIAL only
+//   • NOT editable: customer, payments, invoice number, date, GST rate
 //   • void (status → CANCELLED) — BRANCH_ADMIN / SUPER_ADMIN / OWNER only,
 //     requires a voidReason
 //
 // CORRECTING A PAID BILL
 // ----------------------
-// A discount keyed in wrong is found after the customer has paid. Payment rows
+// A discount, quantity, price or tip keyed in wrong is found after the customer
+// has paid. Payment rows
 // are NEVER edited or deleted. When the corrected total falls below what has
 // been collected, the excess goes back through the existing refund model — a
 // Refund row, exactly as POST /admin/invoices/:id/refund writes, with
@@ -311,29 +317,92 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return ok(updated, "Item added");
     }
 
-    // ── Discount ────────────────────────────────────────────────────────────
-    // An unchanged discount (the edit form always sends it) is a notes-only save:
-    // re-deriving the same totals could only introduce rounding drift.
-    const discountChanged =
-      "discountAmount" in body && round2(Number(body.discountAmount)) !== round2(Number(invoice.discountAmount));
+    // ── Bill correction: discount, line quantity / unit price, tip ─────────────
+    // Two doors, one path. The original `discountAmount` request still works; the
+    // edit form sends `edit: { discountAmount?, items?: [{ id, quantity?,
+    // unitPrice? }], tipAmount? }`, optionally with `dryRun: true` for a preview.
+    // Customer, payments, invoice number, date and GST rate are not editable here.
+    const editBody =
+      body.edit && typeof body.edit === "object" ? (body.edit as Record<string, unknown>) : null;
+    const dryRun = body.dryRun === true;
+    const currentTip = round2(
+      invoice.items.filter((i) => i.type === "TIP").reduce((sum, i) => sum + Number(i.total), 0)
+    );
 
-    if (discountChanged) {
+    // What was asked for — validated before anything is computed.
+    const discountInput = editBody && "discountAmount" in editBody ? editBody.discountAmount : body.discountAmount;
+    const hasDiscount = (editBody ? "discountAmount" in editBody : false) || "discountAmount" in body;
+    const newDiscount = hasDiscount ? Number(discountInput) : Number(invoice.discountAmount);
+    if (hasDiscount && (!Number.isFinite(newDiscount) || newDiscount < 0)) {
+      return err("Validation failed", 422, { discountAmount: ["Must be a non-negative number"] });
+    }
+
+    const hasTip = Boolean(editBody && "tipAmount" in editBody);
+    const newTip = hasTip ? Number(editBody!.tipAmount) : currentTip;
+    if (hasTip && (!Number.isFinite(newTip) || newTip < 0)) {
+      return err("Validation failed", 422, { tipAmount: ["Tip must be a non-negative number"] });
+    }
+
+    const lineEdits = new Map<string, { quantity: number; unitPrice: number }>();
+    if (editBody && "items" in editBody) {
+      if (!Array.isArray(editBody.items)) {
+        return err("Validation failed", 422, { items: ["items must be a list"] });
+      }
+      for (const raw of editBody.items as Record<string, unknown>[]) {
+        const item = invoice.items.find((i) => i.id === raw?.id);
+        if (!item) return err("Invoice item not found", 404);
+        if (item.type === "TIP") {
+          return err("Validation failed", 422, { items: ["Change the tip with tipAmount, not as a line"] });
+        }
+        const quantity = raw.quantity === undefined ? item.quantity : Number(raw.quantity);
+        const unitPrice = raw.unitPrice === undefined ? Number(item.unitPrice) : Number(raw.unitPrice);
+        if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) {
+          return err("Validation failed", 422, { quantity: [`${item.name}: quantity must be a whole number from 1 to 999`] });
+        }
+        if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+          return err("Validation failed", 422, { unitPrice: [`${item.name}: price must be a non-negative number`] });
+        }
+        if (quantity !== item.quantity || round2(unitPrice) !== round2(Number(item.unitPrice))) {
+          lineEdits.set(item.id, { quantity, unitPrice: round2(unitPrice) });
+        }
+      }
+    }
+
+    // An unchanged value (the edit form always sends the discount) is not a
+    // change: re-deriving the same totals could only introduce rounding drift.
+    const discountChanged = round2(newDiscount) !== round2(Number(invoice.discountAmount));
+    const tipChanged = round2(newTip) !== currentTip;
+    const figuresChanged = discountChanged || tipChanged || lineEdits.size > 0;
+
+    if (figuresChanged || dryRun) {
       if (invoice.status !== "UNPAID" && invoice.status !== "PARTIAL" && invoice.status !== "PAID") {
-        return err("Discount cannot be changed on a cancelled or refunded invoice", 409);
+        return err("A cancelled or refunded invoice cannot be changed", 409);
       }
       const canRefund = billingCapabilitiesFor(user.userType).canRefund;
-      if (invoice.status === "PAID" && !canRefund) {
-        return err("Only a Branch Admin or higher can change the discount on a paid invoice", 403);
+      if (invoice.status === "PAID" && figuresChanged && !canRefund && !dryRun) {
+        return err("Only a Branch Admin or higher can change the figures on a paid invoice", 403);
       }
 
-      const newDiscount = Number(body.discountAmount);
-      if (!Number.isFinite(newDiscount) || newDiscount < 0) {
-        return err("Validation failed", 422, { discountAmount: ["Must be a non-negative number"] });
-      }
+      // The lines as they will be: edited quantity / price, and the tip as one
+      // TIP line (dropped at ₹0). Untouched lines keep their stored values.
+      const tipRow = invoice.items.find((i) => i.type === "TIP");
+      const nextItems = [
+        ...invoice.items
+          .filter((i) => i.type !== "TIP")
+          .map((i) => {
+            const e = lineEdits.get(i.id);
+            return e
+              ? { ...i, quantity: e.quantity, unitPrice: e.unitPrice, total: round2(e.unitPrice * e.quantity) }
+              : i;
+          }),
+        ...(round2(newTip) > 0
+          ? [{ ...(tipRow ?? { id: "", type: "TIP", name: "Tip", quantity: 1 }), unitPrice: round2(newTip), total: round2(newTip) }]
+          : []),
+      ];
 
       const base = {
         invoice,
-        items: invoice.items,
+        items: nextItems,
         discountAmount: newDiscount,
         branchTaxPercent: await branchTaxPercent(),
       };
@@ -346,8 +415,36 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
       const excess = round2(netPaid - fresh.totalAmount);
       const needsRefund = excess >= EPSILON;
-      let refundMethod: PaymentMethod | null = null;
+      // Once the excess is refunded the customer has paid exactly the new total.
+      const totals = recomputeExistingInvoice({
+        ...base,
+        netPaid: needsRefund ? fresh.totalAmount : netPaid,
+      });
+      if (isTotalsError(totals)) {
+        return err("Validation failed", 422, { [totals.field]: [totals.error] });
+      }
+      // A bill corrected to nothing whose money all went back is REFUNDED — the
+      // refund route's rule (paid ≤ 0 after a refund ⇒ REFUNDED).
+      const status: InvoiceStatus = needsRefund && totals.totalAmount <= 0 ? "REFUNDED" : totals.status;
 
+      // Preview: the figures this edit would produce. Nothing is written.
+      if (dryRun) {
+        return ok(
+          {
+            ...totalsData(totals),
+            status,
+            tipAmount: totals.tipAmount,
+            roundOff: totals.roundOff,
+            refundRequired: needsRefund ? excess : 0,
+            /** True when saving needs a role that may refund / change a paid bill. */
+            requiresAdmin: !canRefund && (needsRefund || (invoice.status === "PAID" && figuresChanged)),
+            changed: figuresChanged,
+          },
+          "Preview"
+        );
+      }
+
+      let refundMethod: PaymentMethod | null = null;
       if (needsRefund) {
         if (!canRefund) {
           return err(
@@ -365,7 +462,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
               success: false,
               message:
                 `The new total is ${inr(fresh.totalAmount)} but ${inr(netPaid)} has already been collected. ` +
-                `Confirm a refund of ${inr(excess)} to the customer to save this discount.`,
+                `Confirm a refund of ${inr(excess)} to the customer to save this change.`,
               data: { refundRequired: excess, newTotal: fresh.totalAmount, paidAmount: netPaid },
             },
             { status: 409 }
@@ -377,22 +474,61 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         refundMethod = refund.method as PaymentMethod;
       }
 
-      // Once the excess is refunded the customer has paid exactly the new total.
-      const totals = recomputeExistingInvoice({
-        ...base,
-        netPaid: needsRefund ? fresh.totalAmount : netPaid,
-      });
-      if (isTotalsError(totals)) {
-        return err("Validation failed", 422, { [totals.field]: [totals.error] });
-      }
-      // A bill discounted to nothing whose money all went back is REFUNDED — the
-      // refund route's rule (paid ≤ 0 after a refund ⇒ REFUNDED).
-      const status: InvoiceStatus = needsRefund && totals.totalAmount <= 0 ? "REFUNDED" : totals.status;
-      const reason =
-        `Discount corrected on ${invoice.invoiceNo}: ${inr(Number(invoice.discountAmount))} → ${inr(totals.discountAmount)}`;
+      const changes = [
+        discountChanged && `discount ${inr(Number(invoice.discountAmount))} → ${inr(totals.discountAmount)}`,
+        tipChanged && `tip ${inr(currentTip)} → ${inr(newTip)}`,
+        ...[...lineEdits].map(([itemId, e]) => {
+          const item = invoice.items.find((i) => i.id === itemId)!;
+          return `${item.name} ${item.quantity} × ${inr(Number(item.unitPrice))} → ${e.quantity} × ${inr(e.unitPrice)}`;
+        }),
+      ].filter(Boolean) as string[];
+      const reason = `Bill corrected on ${invoice.invoiceNo}: ${changes.join("; ")}`;
 
       const updated = await prisma.$transaction(async (tx) => {
         await claimInvoice(tx, id, invoice.updatedAt);
+
+        for (const [itemId, e] of lineEdits) {
+          const item = invoice.items.find((i) => i.id === itemId)!;
+          const total = round2(e.unitPrice * e.quantity);
+          await tx.invoiceItem.update({
+            where: { id: itemId },
+            data: {
+              quantity: e.quantity,
+              unitPrice: e.unitPrice,
+              total,
+              taxAmount: round2(total * (Number(item.taxPercent) / 100)),
+            },
+          });
+          // A retail product's stock follows its corrected quantity — the bill
+          // took `quantity` off the shelf when it was raised (billing/blank).
+          const delta = item.quantity - e.quantity;
+          if (item.type === "PRODUCT" && item.refId && delta !== 0) {
+            await applyStockMovement(tx, {
+              productId: item.refId,
+              branchId: invoice.branchId,
+              delta,
+              type: "RETAIL_SALE",
+              performedBy: user.userId,
+              refId: id,
+              notes: `Bill ${invoice.invoiceNo} corrected: quantity ${item.quantity} → ${e.quantity}`,
+            });
+          }
+        }
+
+        if (tipChanged) {
+          if (round2(newTip) <= 0) {
+            await tx.invoiceItem.deleteMany({ where: { invoiceId: id, type: "TIP" } });
+          } else if (tipRow) {
+            await tx.invoiceItem.update({
+              where: { id: tipRow.id },
+              data: { unitPrice: round2(newTip), total: round2(newTip), quantity: 1 },
+            });
+          } else {
+            await tx.invoiceItem.create({
+              data: { invoiceId: id, type: "TIP", name: "Tip", quantity: 1, unitPrice: round2(newTip), total: round2(newTip) },
+            });
+          }
+        }
 
         if (needsRefund && refundMethod) {
           await tx.refund.create({
@@ -402,13 +538,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
               reason,
               method: refundMethod,
               processedBy: user.userId,
-              notes: "Excess over the corrected total, refunded on a discount edit",
+              notes: "Excess over the corrected total, refunded on a bill edit",
             },
           });
           if (refundMethod === "WALLET") {
             await creditWallet(tx, invoice.customerId, excess, "REFUND", {
               refId: id,
-              description: `Refund on invoice ${invoice.invoiceNo} (discount corrected)`,
+              description: `Refund on invoice ${invoice.invoiceNo} (bill corrected)`,
             });
           }
           // The payment route adds collected money to lifetime spend; money
@@ -430,6 +566,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         return tx.invoice.update({
           where: { id },
           data: { ...updates, ...totalsData(totals), status },
+          include: { items: true },
         });
       });
 
@@ -439,7 +576,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         refId: id,
         refType: "Invoice",
         oldValue: {
+          subtotal: Number(invoice.subtotal),
           discountAmount: Number(invoice.discountAmount),
+          tipAmount: currentTip,
           totalAmount: Number(invoice.totalAmount),
           paidAmount: netPaid,
           balanceDue: Number(invoice.balanceDue),
@@ -448,7 +587,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         newValue: {
           ...updates,
           ...totalsData(totals),
+          tipAmount: totals.tipAmount,
           status,
+          changes: changes.join("; "),
           ...(needsRefund ? { refundAmount: excess, refundMethod } : {}),
         } as Record<string, string | number | boolean | null>,
       });
@@ -456,7 +597,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return ok(
         updated,
         needsRefund
-          ? `Discount updated — ${inr(excess)} refunded by ${METHOD_LABEL[refundMethod ?? ""] ?? refundMethod}`
+          ? `Bill updated — ${inr(excess)} refunded by ${METHOD_LABEL[refundMethod ?? ""] ?? refundMethod}`
           : "Invoice updated"
       );
     }
@@ -477,6 +618,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   } catch (e) {
     if (e instanceof StaleInvoiceError) {
       return err("This invoice changed while you were editing it — reload and try again", 409);
+    }
+    if (e instanceof InsufficientStockError) {
+      return err(`Not enough stock for the higher quantity (${e.available} left) — nothing was changed`, 409);
     }
     return err("Internal server error", 500);
   }

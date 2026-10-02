@@ -1,5 +1,6 @@
 import prisma from "@/lib/db";
 import type { AuthUser } from "@/types/api";
+import { attendanceDateKey, breakOverMinutes, formatDateKey } from "@/lib/attendance";
 
 // ============================================================================
 // OWNER  : Gauransh
@@ -25,9 +26,13 @@ import type { AuthUser } from "@/types/api";
 //   whether the worker exists elsewhere.
 // ============================================================================
 
-/** Current-month window, UTC-pinned like every other date in the codebase. */
-function monthStartUTC(now: Date): Date {
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+/**
+ * First day of the salon's (IST) current calendar month, as a date key. The UTC
+ * month used before was still last month until 05:30 IST on the 1st.
+ */
+function attendanceMonthStart(now: Date): Date {
+  const today = attendanceDateKey(now);
+  return new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
 }
 
 const GLOBAL_ROLES = ["SUPER_ADMIN", "OWNER"];
@@ -55,7 +60,7 @@ export async function getWorkerWorkspace(workerId: string, user: AuthUser) {
   }
 
   const now = new Date();
-  const monthStart = monthStartUTC(now);
+  const monthStart = attendanceMonthStart(now);
   const year = now.getUTCFullYear();
 
   const [worker, attendance, leaves, leaveGroups, leaveBalances, apptByStatus, revenue, repeatGroups, portfolioItems, requestGroups, activity, recentAppointments] =
@@ -83,7 +88,10 @@ export async function getWorkerWorkspace(workerId: string, user: AuthUser) {
       // Attendance — current month
       prisma.attendance.findMany({
         where: { workerId, date: { gte: monthStart } },
-        select: { date: true, status: true, lateMinutes: true, overtimeMinutes: true, workingMinutes: true },
+        select: {
+          date: true, status: true, lateMinutes: true, overtimeMinutes: true, workingMinutes: true,
+          breakStart: true, breakEnd: true, breakMinutes: true,
+        },
         orderBy: { date: "desc" },
       }),
       // Leaves — recent history
@@ -151,8 +159,8 @@ export async function getWorkerWorkspace(workerId: string, user: AuthUser) {
   const pct = (num: number, den: number) => (den > 0 ? Number(((num / den) * 100).toFixed(1)) : 0);
 
   // Attendance snapshot (this month)
-  let attended = 0, lateCount = 0, workingMinutes = 0, overtimeMinutes = 0;
-  const todayIso = now.toISOString().slice(0, 10);
+  let attended = 0, lateCount = 0, workingMinutes = 0, overtimeMinutes = 0, longBreaks = 0;
+  const todayIso = formatDateKey(attendanceDateKey(now));
   let todayStatus = "Not marked";
   for (const r of attendance) {
     if (r.status === "PRESENT" || r.status === "LATE") attended += 1;
@@ -160,6 +168,7 @@ export async function getWorkerWorkspace(workerId: string, user: AuthUser) {
     if (r.status === "LATE" || r.lateMinutes > 0) lateCount += 1;
     workingMinutes += r.workingMinutes;
     overtimeMinutes += r.overtimeMinutes;
+    if (r.breakEnd && breakOverMinutes(r.breakMinutes) > 0) longBreaks += 1;
     if (r.date.toISOString().slice(0, 10) === todayIso) todayStatus = r.status;
   }
   const attendancePct = attendance.length > 0 ? Math.round((attended / attendance.length) * 100) : null;
@@ -200,6 +209,8 @@ export async function getWorkerWorkspace(workerId: string, user: AuthUser) {
       workingHours: Math.round((workingMinutes / 60) * 10) / 10,
       overtimeHours: Math.round((overtimeMinutes / 60) * 10) / 10,
       lateCount,
+      /** Finished lunch breaks over the 30-minute allowance this month. */
+      longBreaks,
       marked: attendance.length,
     },
     leaves: { rows: leaves, counts: leaveCounts, balances: leaveBalances },

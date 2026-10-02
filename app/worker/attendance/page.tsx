@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/db";
 import { Badge, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 import { ClockActions } from "@/components/worker/attendance/clock-actions";
+import { BreakSpan } from "@/components/attendance/break-span";
+import { attendanceDateKey } from "@/lib/attendance";
 
 // OWNER: Hemant | MODULE: Worker Attendance
 
@@ -14,18 +16,18 @@ const STATUS_TONE: Record<string, "neutral" | "success" | "warning" | "danger" |
   ON_LEAVE: "info",
 };
 
-function todayDate(): Date {
-  return new Date(new Date().toISOString().slice(0, 10));
-}
-
 export default async function WorkerAttendancePage() {
   const authUser = await getServerUser();
   if (!authUser?.workerId) redirect("/login");
   const workerId = authUser.workerId;
 
-  const today = todayDate();
+  // The salon's (IST) calendar day — the key every clock action writes. The UTC
+  // date used here before was still "yesterday" until 05:30 IST.
+  const today = attendanceDateKey();
+  const yesterday = new Date(today);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
 
-  const [records, todayRecord] = await Promise.all([
+  const [records, todayRecord, carriedBreak] = await Promise.all([
     prisma.attendance.findMany({
       where: { workerId },
       orderBy: { date: "desc" },
@@ -34,9 +36,18 @@ export default async function WorkerAttendancePage() {
     }),
     prisma.attendance.findUnique({
       where: { workerId_date: { workerId, date: today } },
-      select: { checkIn: true, checkOut: true },
+      select: { checkIn: true, checkOut: true, breakStart: true, breakEnd: true },
+    }),
+    // A lunch break started before midnight and not yet ended (End break closes
+    // it on the day it began — lib/attendance-api.ts applyClock).
+    prisma.attendance.findFirst({
+      where: { workerId, date: yesterday, breakStart: { not: null }, breakEnd: null, checkOut: null },
+      select: { breakStart: true },
     }),
   ]);
+
+  const openBreak = !todayRecord?.breakStart && carriedBreak?.breakStart ? carriedBreak.breakStart : null;
+  const breakStart = todayRecord?.breakStart ?? openBreak;
 
   const presentCount = records.filter((r) => r.status === "PRESENT").length;
   const absentCount = records.filter((r) => r.status === "ABSENT").length;
@@ -50,8 +61,10 @@ export default async function WorkerAttendancePage() {
           <p className="mt-0.5 text-sm text-gray-500">Last {records.length} records</p>
         </div>
         <ClockActions
-          checkedIn={Boolean(todayRecord?.checkIn)}
+          checkedIn={Boolean(todayRecord?.checkIn) || Boolean(openBreak)}
           checkedOut={Boolean(todayRecord?.checkOut)}
+          breakStart={breakStart ? breakStart.toISOString() : null}
+          breakEnd={todayRecord?.breakEnd ? todayRecord.breakEnd.toISOString() : null}
         />
       </div>
 
@@ -81,6 +94,7 @@ export default async function WorkerAttendancePage() {
               <TH>Branch</TH>
               <TH>Check In</TH>
               <TH>Check Out</TH>
+              <TH>Lunch break</TH>
               <TH>Working Hrs</TH>
               <TH>Status</TH>
             </tr>
@@ -88,7 +102,7 @@ export default async function WorkerAttendancePage() {
           <tbody>
             {records.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
                   No attendance records.
                 </td>
               </tr>
@@ -108,6 +122,9 @@ export default async function WorkerAttendancePage() {
                     {r.checkOut
                       ? new Date(r.checkOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })
                       : "—"}
+                  </TD>
+                  <TD className="text-xs">
+                    <BreakSpan breakStart={r.breakStart} breakEnd={r.breakEnd} />
                   </TD>
                   <TD className="text-gray-500">
                     {r.workingMinutes > 0 ? `${Math.floor(r.workingMinutes / 60)}h ${r.workingMinutes % 60}m` : "—"}

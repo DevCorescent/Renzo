@@ -20,6 +20,7 @@ import {
   type CatalogueItem,
 } from "@/components/operations/sale-terminal";
 import { WalkInConsole } from "@/components/operations/walk-in-console";
+import { pinnedServiceIds } from "@/lib/service-pins";
 import { HealthView } from "@/components/operations/health-view";
 import { QualificationManager } from "@/components/operations/qualification-manager";
 import {
@@ -186,7 +187,7 @@ export async function WalkInPage({
 }) {
   const { branchId } = await guard(allowedRoles, "canBookAppointment");
 
-  const [setting, services, workers] = await Promise.all([
+  const [setting, services, workers, pinnedIds] = await Promise.all([
     branchId
       ? prisma.branchSetting.findUnique({
           where: { branchId },
@@ -231,6 +232,8 @@ export async function WalkInPage({
         employeeCode: true,
       },
     }),
+    // This branch's Walk-in pins, managed on Branch Services.
+    pinnedServiceIds(branchId),
   ]);
 
   return (
@@ -254,6 +257,7 @@ export async function WalkInPage({
             `${w.firstName} ${w.lastName ?? ""}`.trim(),
           employeeCode: w.employeeCode,
         }))}
+        pinnedServiceIds={pinnedIds}
         taxPercent={setting?.taxPercent ?? 0}
         taxName={setting?.taxName ?? "Tax"}
         defaultPrintFormat={

@@ -34,6 +34,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Card } from "@/components/shared/ui";
+import { BreakSpan } from "@/components/attendance/break-span";
 import { cn } from "@/lib/utils";
 import {
   AttendanceEmpty,
@@ -370,8 +371,11 @@ export function AttendanceView({
                       <p className="font-mono text-sm text-gray-800 dark:text-(--sa-text)">
                         {formatTime(row.checkIn)} <span className={muted}>→</span> {formatTime(row.checkOut)}
                       </p>
-                      {row.breakMinutes > 0 && (
-                        <p className={cn("text-[11px]", muted)}>Break {formatMinutes(row.breakMinutes)}</p>
+                      {row.breakStart && (
+                        <p className="text-[11px]">
+                          <span className={muted}>Lunch </span>
+                          <BreakSpan breakStart={row.breakStart} breakEnd={row.breakEnd} />
+                        </p>
                       )}
                     </td>
 

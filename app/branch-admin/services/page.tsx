@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { API } from "@/lib/endpoints";
-import { Loader2, Plus, Pencil, Camera, X, Check, Info, Clock, Users, Search } from "lucide-react";
+import { Loader2, Plus, Pencil, Camera, X, Check, Info, Clock, Users, Search, Pin, PinOff } from "lucide-react";
 import { ImageUpload } from "@/components/shared/image-upload";
 
 /* ─── Types ────────────────────────────────────────────────────────────────── */
@@ -21,6 +21,8 @@ type BranchService = {
   gender: string;
   category: { id: string; name: string };
   branchPricing: { id: string; price: number; isActive: boolean } | null;
+  /** Pinned to this branch's Walk-in "Quick add". */
+  isPinned?: boolean;
 };
 
 /* ─── Toggle ────────────────────────────────────────────────────────────────── */
@@ -51,11 +53,13 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 function ServiceCard({
   svc,
   onSavePricing,
+  onTogglePin,
   onEdit,
   onAllocate,
 }: {
   svc: BranchService;
   onSavePricing: (id: string, price: number, isActive: boolean) => Promise<void>;
+  onTogglePin: (id: string, pinned: boolean) => Promise<void>;
   onEdit: (svc: BranchService) => void;
   onAllocate: (svc: BranchService) => void;
 }) {
@@ -66,6 +70,19 @@ function ServiceCard({
   const [saving, setSaving] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
+  const [pinBusy, setPinBusy] = React.useState(false);
+
+  // Saved straight away — pinning is separate from the price / offered save.
+  async function togglePin() {
+    setPinBusy(true); setErr(null);
+    try {
+      await onTogglePin(svc.id, !svc.isPinned);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not update the pin");
+    } finally {
+      setPinBusy(false);
+    }
+  }
 
   const originalPrice = svc.branchPricing?.price ?? svc.basePrice;
   const originalActive = svc.branchPricing?.isActive ?? false;
@@ -165,6 +182,21 @@ function ServiceCard({
               {saved ? "Saved!" : "Save Changes"}
             </button>
           )}
+          <button
+            type="button"
+            onClick={togglePin}
+            disabled={pinBusy}
+            aria-pressed={Boolean(svc.isPinned)}
+            title={svc.isPinned ? "Remove from Walk-in Quick add" : "Show first in Walk-in Quick add"}
+            className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border py-1.5 text-xs font-medium transition disabled:opacity-60 ${
+              svc.isPinned
+                ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                : "border-gray-200 text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            {pinBusy ? <Loader2 className="size-3 animate-spin" /> : svc.isPinned ? <PinOff className="size-3" /> : <Pin className="size-3" />}
+            {svc.isPinned ? "Pinned to Walk-in · Unpin" : "Pin to Walk-in"}
+          </button>
           {isActive && (
             <button
               onClick={() => onAllocate(svc)}
@@ -697,7 +729,7 @@ export default function BranchAdminServicesPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
-  const [filterActive, setFilterActive] = React.useState<"all" | "active" | "inactive">("all");
+  const [filterActive, setFilterActive] = React.useState<"all" | "active" | "inactive" | "pinned">("all");
   const [showCreate, setShowCreate] = React.useState(false);
   const [editSvc, setEditSvc] = React.useState<BranchService | null>(null);
   const [allocateSvc, setAllocateSvc] = React.useState<BranchService | null>(null);
@@ -739,6 +771,17 @@ export default function BranchAdminServicesPage() {
     );
   }
 
+  async function handleTogglePin(serviceId: string, pinned: boolean) {
+    const res = await fetch(API.admin.branchServicePins, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ serviceId, pinned }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(json?.message ?? "Could not update the pin");
+    setServices((prev) => prev.map((s) => (s.id === serviceId ? { ...s, isPinned: pinned } : s)));
+  }
+
   async function handleEditSave(id: string, image: string | null, description: string | null) {
     const res = await fetch(API.admin.service(id), {
       method: "PATCH",
@@ -756,11 +799,13 @@ export default function BranchAdminServicesPage() {
     const matchActive =
       filterActive === "all" ||
       (filterActive === "active" && (s.branchPricing?.isActive ?? false)) ||
-      (filterActive === "inactive" && !(s.branchPricing?.isActive ?? false));
+      (filterActive === "inactive" && !(s.branchPricing?.isActive ?? false)) ||
+      (filterActive === "pinned" && Boolean(s.isPinned));
     return matchSearch && matchActive;
   });
 
   const activeCount = services.filter((s) => s.branchPricing?.isActive).length;
+  const pinnedCount = services.filter((s) => s.isPinned).length;
 
   return (
     <div className="space-y-6">
@@ -769,7 +814,7 @@ export default function BranchAdminServicesPage() {
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Branch Services</h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            {activeCount} of {services.length} services enabled at this branch
+            {activeCount} of {services.length} services enabled at this branch · {pinnedCount} pinned to Walk-in
           </p>
         </div>
         <button
@@ -788,6 +833,7 @@ export default function BranchAdminServicesPage() {
           Set a <span className="font-semibold">branch-specific price</span> and hit <span className="font-semibold">Save Changes</span>.
           Click <span className="font-semibold">Edit</span> on any card to update the photo or description.
           Use <span className="font-semibold">Add Service</span> to create new services specific to your branch.
+          <span className="font-semibold"> Pin to Walk-in</span> puts a service first in the front desk&apos;s Walk-in Quick add; pin or unpin any time.
         </p>
       </div>
 
@@ -801,7 +847,7 @@ export default function BranchAdminServicesPage() {
           className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none sm:max-w-xs"
         />
         <div className="flex gap-1">
-          {(["all", "active", "inactive"] as const).map((f) => (
+          {(["all", "active", "inactive", "pinned"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilterActive(f)}
@@ -845,6 +891,7 @@ export default function BranchAdminServicesPage() {
               key={s.id}
               svc={s}
               onSavePricing={handleSavePricing}
+              onTogglePin={handleTogglePin}
               onEdit={setEditSvc}
               onAllocate={setAllocateSvc}
             />
