@@ -3,14 +3,15 @@
 // ============================================================================
 // MODULE : Attendance — section navigation
 //
-// Records / Calendar / Reports (and Shifts, where the role may author them).
+// Records / Lunch breaks / Calendar / Reports (and Shifts, where the role may
+// author them).
 // Takes a base path so the same component serves /super-admin/attendance and
 // /branch-admin/attendance without either hardcoding the other's URLs.
 // ============================================================================
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, BarChart3, Clock, Table2 } from "lucide-react";
+import { CalendarDays, BarChart3, Clock, Coffee, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Tab = { label: string; href: string; icon: React.ComponentType<{ className?: string }> };
@@ -28,6 +29,7 @@ export function AttendanceTabs({
 
   const tabs: Tab[] = [
     { label: "Records", href: basePath, icon: Table2 },
+    { label: "Lunch breaks", href: `${basePath}/breaks`, icon: Coffee },
     { label: "Calendar", href: `${basePath}/calendar`, icon: CalendarDays },
     { label: "Reports", href: `${basePath}/reports`, icon: BarChart3 },
     ...(shiftsPath ? [{ label: "Shifts", href: shiftsPath, icon: Clock }] : []),

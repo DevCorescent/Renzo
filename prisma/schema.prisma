@@ -387,6 +387,7 @@ model Branch {
   offers           Offer[]
   reviews          Review[]
   servicePricings  ServiceBranchPricing[]
+  servicePins      ServicePin[]
   purchaseOrders   PurchaseOrder[]
   stockTransfersFrom StockTransfer[] @relation("TransferFrom")
   stockTransfersTo   StockTransfer[] @relation("TransferTo")
@@ -561,6 +562,7 @@ model Service {
   subCategory     ServiceSubCategory? @relation(fields: [subCategoryId], references: [id])
   variants        ServiceVariant[]
   branchPricings  ServiceBranchPricing[]
+  pins            ServicePin[]
   workerServices  WorkerService[]
   packageServices PackageService[]
   serviceAddOns   ServiceAddOn[]
@@ -601,6 +603,24 @@ model ServiceBranchPricing {
 
   @@unique([serviceId, branchId])
   @@map("service_branch_pricings")
+}
+
+// A service pinned to the top of the front desk's Walk-in picker ("Quick add")
+// for one branch. Kept apart from ServiceBranchPricing so pinning never enables
+// or re-prices a service, and apart from Service.isPopular, which is the public
+// site's "Popular" badge.
+model ServicePin {
+  id        String   @id @default(cuid())
+  branchId  String
+  serviceId String
+  pinnedBy  String?  // userId; null for the migration's default pins
+  createdAt DateTime @default(now())
+
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, serviceId])
+  @@map("service_pins")
 }
 
 model AddOn {

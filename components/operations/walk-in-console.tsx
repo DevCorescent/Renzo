@@ -150,23 +150,13 @@ function matchesService(name: string, query: string): boolean {
 }
 
 // The desk's most-rung services, shown as one-tap buttons above the search so
-// they never have to be searched for. Matched by NAME — case, spaces and
-// punctuation ignored, so "Hair Cut" finds "Haircut" / "HAIR-CUT" — never by
-// database id, so the pins survive re-seeding and work in every branch. A pin
-// takes the service with exactly that name; where none exists, every service
-// whose name starts with it ("Beard" → "Beard Styling", "Beard Color").
-const PINNED_SERVICE_NAMES = ["Hair Cut", "Beard"];
-
-const normName = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-export function pinnedServices<T extends { id: string; name: string }>(services: T[]): T[] {
-  const pinned = new Map<string, T>();
-  for (const key of PINNED_SERVICE_NAMES.map(normName)) {
-    const exact = services.filter((s) => normName(s.name) === key);
-    const hits = exact.length > 0 ? exact : services.filter((s) => normName(s.name).startsWith(key));
-    for (const s of hits) pinned.set(s.id, s);
-  }
-  return [...pinned.values()];
+// they never have to be searched for. Which ones is the branch's choice: admins
+// pin and unpin them on Branch Services (lib/service-pins.ts), and the page
+// passes their ids in pin order. An id whose service is not in this list
+// (inactive since) is simply skipped.
+export function pinnedServices<T extends { id: string }>(services: T[], pinnedIds: readonly string[]): T[] {
+  const byId = new Map(services.map((s) => [s.id, s]));
+  return [...new Set(pinnedIds)].map((id) => byId.get(id)).filter((s): s is T => Boolean(s));
 }
 
 const EPSILON = 0.009;
@@ -488,6 +478,7 @@ function SessionGroup({
 
 export function WalkInConsole({
   services,
+  pinnedServiceIds = [],
   workers,
   taxPercent,
   taxName,
@@ -496,6 +487,8 @@ export function WalkInConsole({
   billingBasePath,
 }: {
   services: WalkInService[];
+  /** This branch's pinned services, in pin order — shown first as Quick add. */
+  pinnedServiceIds?: string[];
   workers: WalkInWorker[];
   taxPercent: number;
   taxName: string;
@@ -646,7 +639,7 @@ export function WalkInConsole({
   const grandTotal   = Math.round((taxable + taxValue) * 100) / 100;
   // Every service stays addable: adding one again books it for another person.
   const availableToAdd = services;
-  const pinned         = React.useMemo(() => pinnedServices(services), [services]);
+  const pinned         = React.useMemo(() => pinnedServices(services, pinnedServiceIds), [services, pinnedServiceIds]);
   // Pinned first while nothing is typed; a search ranks every service alike.
   const matchingToAdd  = (svcQuery.trim()
     ? availableToAdd
