@@ -100,6 +100,17 @@ function formatDate(iso: string): string {
       }).format(d);
 }
 
+function formatMonth(month: string): string {
+  const d = new Date(`${month}-01T00:00:00.000Z`);
+  return Number.isNaN(d.getTime())
+    ? month
+    : new Intl.DateTimeFormat("en-IN", {
+        timeZone: "UTC",
+        month: "long",
+        year: "numeric",
+      }).format(d);
+}
+
 export function ExpenseManager({
   rows,
   total,
@@ -150,6 +161,17 @@ export function ExpenseManager({
 
   // ── Search / filter ───────────────────────────────────────────────────────
   const [search, setSearch] = React.useState("");
+  const [monthFilter, setMonthFilter] = React.useState(today.slice(0, 7));
+  const availableMonths = React.useMemo(
+    () =>
+      Array.from(
+        new Set([today.slice(0, 7), ...rows.map((row) => row.expenseDate.slice(0, 7))]),
+      )
+        .filter(Boolean)
+        .sort()
+        .reverse(),
+    [rows, today],
+  );
 
   function resetForm() {
     setEditingId(null);
@@ -274,8 +296,10 @@ export function ExpenseManager({
   const needle = search.trim().toLowerCase();
   const tokens = needle.split(/\s+/).filter(Boolean);
   const visibleRows = React.useMemo(() => {
-    if (tokens.length === 0) return rows;
     return rows.filter((r) => {
+      if (monthFilter && r.expenseDate.slice(0, 7) !== monthFilter) return false;
+      if (tokens.length === 0) return true;
+
       const haystack = [
         formatDate(r.expenseDate),
         r.expenseDate.slice(0, 10),
@@ -301,13 +325,18 @@ export function ExpenseManager({
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, needle]);
+  }, [rows, needle, monthFilter]);
 
-  const isFiltering = tokens.length > 0;
+  const isFiltering = tokens.length > 0 || monthFilter !== "";
   const shownCount = isFiltering ? visibleRows.length : total;
   const shownTotal = isFiltering
     ? visibleRows.reduce((sum, r) => sum + Number(r.amount), 0)
     : filteredTotal;
+  const totalLabel = tokens.length > 0
+    ? `Total spent (${monthFilter ? `${formatMonth(monthFilter)} · filtered` : "filtered"})`
+    : monthFilter
+      ? `Total spent (${formatMonth(monthFilter)})`
+      : "Total spent (all time)";
 
   return (
     // The form sits beside the table only on very wide screens; below that it
@@ -573,7 +602,7 @@ export function ExpenseManager({
           </div>
           <div className="text-right">
             <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-(--sa-muted)">
-              {isFiltering ? "Total spent (filtered)" : "Total spent"}
+              {totalLabel}
             </p>
             <p className="text-lg font-semibold tabular-nums text-gray-900 dark:text-(--sa-text)">
               {formatMoney(shownTotal)}
@@ -581,34 +610,54 @@ export function ExpenseManager({
           </div>
         </CardHeader>
         <div className="border-b border-gray-100 px-4 py-3 dark:border-(--sa-border)">
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400"
-              aria-hidden="true"
-            />
-            <input
-              type="text"
-              inputMode="search"
-              aria-label="Search expenses"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") setSearch("");
-              }}
-              placeholder="Search by description, category, vendor, amount, date, UPI…"
-              className="h-9 w-full rounded border border-gray-200 bg-white pl-9 pr-9 text-sm text-gray-900 outline-none transition focus:border-gray-400 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text) dark:focus:border-white/30"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                aria-label="Clear search"
-                title="Clear search"
-                className="absolute right-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/5 dark:hover:text-(--sa-text)"
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400"
+                aria-hidden="true"
+              />
+              <input
+                type="text"
+                inputMode="search"
+                aria-label="Search expenses"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setSearch("");
+                }}
+                placeholder="Search by description, category, vendor, amount, date, UPI…"
+                className="h-9 w-full rounded border border-gray-200 bg-white pl-9 pr-9 text-sm text-gray-900 outline-none transition focus:border-gray-400 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text) dark:focus:border-white/30"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="Clear search"
+                  title="Clear search"
+                  className="absolute right-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/5 dark:hover:text-(--sa-text)"
+                >
+                  <X className="size-3.5" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <div className="w-full sm:w-52">
+              <label className="sr-only" htmlFor="expense-month-filter">
+                Filter expenses by month
+              </label>
+              <Select
+                id="expense-month-filter"
+                aria-label="Filter expenses by month"
+                value={monthFilter}
+                onChange={(e) => setMonthFilter(e.target.value)}
               >
-                <X className="size-3.5" aria-hidden="true" />
-              </button>
-            )}
+                <option value="">All time</option>
+                {availableMonths.map((month) => (
+                  <option key={month} value={month}>
+                    {formatMonth(month)}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
         </div>
         <Table>
@@ -632,7 +681,9 @@ export function ExpenseManager({
                 >
                   {needle
                     ? `No expenses match "${search}".`
-                    : "No expenses recorded yet."}
+                    : monthFilter
+                      ? `No expenses recorded in ${formatMonth(monthFilter)}.`
+                      : "No expenses recorded yet."}
                 </td>
               </tr>
             ) : (
