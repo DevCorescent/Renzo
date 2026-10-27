@@ -17,12 +17,26 @@
 // The Branch select is rendered only when the caller is global; the API ignores a
 // branch-scoped role's ?branchId anyway, so showing it to a branch admin would be
 // offering a filter that cannot do anything.
+//
+// With `period` (Records, Lunch breaks) a preset row is added — This month /
+// Last month / This week / Today and a ‹ month › stepper — and the date inputs
+// show the range in force. With no dates in the URL that is the CURRENT
+// CALENDAR MONTH, the same default the page applies (lib/attendance-periods.ts).
 // ============================================================================
 
 import * as React from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Search, X, RotateCw, SlidersHorizontal } from "lucide-react";
+import { Search, X, RotateCw, SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  ATTENDANCE_PERIODS,
+  defaultAttendanceRange,
+  matchPeriod,
+  presetRange,
+  rangeLabel,
+  shiftMonth,
+  type DateRange,
+} from "@/lib/attendance-periods";
 import {
   ATTENDANCE_STATUSES,
   statusLabel,
@@ -54,11 +68,17 @@ export function AttendanceToolbar({
   workers,
   shifts,
   showBranchFilter,
+  period,
+  breakOverToggle = false,
 }: {
   branches: BranchOption[];
   workers: WorkerOption[];
   shifts: ShiftOption[];
   showBranchFilter: boolean;
+  /** Presets + month stepper; `today` is the salon's (IST) "YYYY-MM-DD". */
+  period?: { today: string };
+  /** Lunch breaks view: an "Over 30 min only" toggle (?breakOver=true). */
+  breakOverToggle?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -105,6 +125,48 @@ export function AttendanceToolbar({
       else params.set(key, "true");
     });
 
+  // The range in force: explicit dates, ?date= (one day), or the default month.
+  const urlFrom = searchParams.get("from");
+  const urlTo = searchParams.get("to");
+  const urlDate = searchParams.get("date");
+  const effective: DateRange | null = period
+    ? urlDate
+      ? { from: urlDate, to: urlDate }
+      : urlFrom || urlTo
+        ? { from: urlFrom ?? urlTo!, to: urlTo ?? urlFrom! }
+        : defaultAttendanceRange(period.today)
+    : null;
+  const activePeriod = period
+    ? urlDate
+      ? matchPeriod(urlDate, urlDate, period.today)
+      : matchPeriod(urlFrom, urlTo, period.today)
+    : null;
+  const currentMonth = period ? defaultAttendanceRange(period.today) : null;
+
+  /** Apply a range; the default month is the bare URL, not explicit dates. */
+  const setRange = (range: DateRange) =>
+    commit((params) => {
+      params.delete("date");
+      if (currentMonth && range.from === currentMonth.from && range.to === currentMonth.to) {
+        params.delete("from");
+        params.delete("to");
+      } else {
+        params.set("from", range.from);
+        params.set("to", range.to);
+      }
+    });
+
+  /** Edit one end of the range; with a period in force the other end is kept. */
+  const setDate = (key: "from" | "to", value: string) =>
+    commit((params) => {
+      params.delete("date");
+      if (value) params.set(key, value);
+      else params.delete(key);
+      const other = key === "from" ? "to" : "from";
+      if (effective && value && !params.get(other)) params.set(other, effective[other]);
+    });
+
+  const breakOverOn = searchParams.get("breakOver") === "true";
   const lateOn = searchParams.get("late") === "true";
   const overtimeOn = searchParams.get("overtime") === "true";
   const hasAnything = [...searchParams.keys()].some((k) => k !== "page");
@@ -121,6 +183,67 @@ export function AttendanceToolbar({
         isPending && "opacity-60"
       )}
     >
+      {period && effective && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2 dark:border-(--sa-border)">
+          <div role="group" aria-label="Period" className="inline-flex flex-wrap overflow-hidden rounded border border-gray-200 dark:border-(--sa-border)">
+            {ATTENDANCE_PERIODS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={activePeriod === value}
+                onClick={() => setRange(presetRange(value, period.today))}
+                className={cn(
+                  "h-8 px-3 text-xs font-medium transition",
+                  activePeriod === value
+                    ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                    : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-transparent dark:text-(--sa-text-2) dark:hover:bg-white/5"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setRange(shiftMonth(effective.from, -1))}
+              aria-label="Previous month"
+              className={cn(ghostBtn, "h-8 px-2")}
+            >
+              <ChevronLeft className="size-4" aria-hidden="true" />
+            </button>
+            <span className="min-w-36 text-center text-sm font-medium text-gray-800 dark:text-(--sa-text)" aria-live="polite">
+              {rangeLabel(effective)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setRange(shiftMonth(effective.from, 1))}
+              disabled={Boolean(currentMonth && effective.from >= currentMonth.from)}
+              aria-label="Next month"
+              className={cn(ghostBtn, "h-8 px-2 disabled:cursor-not-allowed disabled:opacity-40")}
+            >
+              <ChevronRight className="size-4" aria-hidden="true" />
+            </button>
+          </div>
+          {breakOverToggle && (
+            <button
+              type="button"
+              aria-pressed={breakOverOn}
+              onClick={() => toggleParam("breakOver")}
+              className={cn(
+                toggleCls,
+                "h-8 lg:ml-auto",
+                breakOverOn
+                  ? "border-red-300 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-300"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text-2)"
+              )}
+            >
+              Over 30 min only
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
         <div className="relative col-span-2 lg:min-w-56 lg:flex-1">
           <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
@@ -188,16 +311,16 @@ export function AttendanceToolbar({
           <input
             type="date"
             aria-label="From date"
-            value={searchParams.get("from") ?? ""}
-            onChange={(e) => setParam("from", e.target.value)}
+            value={urlFrom ?? effective?.from ?? ""}
+            onChange={(e) => setDate("from", e.target.value)}
             className={cn(inputCls, "lg:w-38")}
           />
           <span className="shrink-0 text-xs text-gray-400 dark:text-(--sa-muted)">to</span>
           <input
             type="date"
             aria-label="To date"
-            value={searchParams.get("to") ?? ""}
-            onChange={(e) => setParam("to", e.target.value)}
+            value={urlTo ?? effective?.to ?? ""}
+            onChange={(e) => setDate("to", e.target.value)}
             className={cn(inputCls, "lg:w-38")}
           />
         </div>

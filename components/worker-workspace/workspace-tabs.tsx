@@ -25,6 +25,7 @@ import { Badge, StatCard, Card, CardHeader, CardTitle, Table, THead, TH, TR, TD 
 import { ProfileSection, Field, FieldGrid, formatDate } from "@/components/worker-profile/profile-ui";
 import { AssignServicesButton } from "@/components/worker-workspace/assign-services-dialog";
 import type { WorkerWorkspaceData } from "@/lib/worker-workspace";
+import { BreakSpan } from "@/components/attendance/break-span";
 
 const LEVELS = ["New", "Skilled", "Proficient", "Advanced", "Expert", "Master"];
 const money = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
@@ -140,11 +141,12 @@ export function AttendanceTab({ data }: { data: WorkerWorkspaceData }) {
         <StatCard label="Working hours" value={`${a.workingHours} h`} icon={Clock} />
         <StatCard label="Overtime" value={`${a.overtimeHours} h`} />
         <StatCard label="Late days" value={String(a.lateCount)} />
+        <StatCard label="Lunch over 30 min" value={String(a.longBreaks)} />
       </div>
       <Card>
         <CardHeader><CardTitle>This month</CardTitle></CardHeader>
         <Table>
-          <THead><tr><TH>Date</TH><TH>Status</TH><TH>Working</TH><TH>Late</TH></tr></THead>
+          <THead><tr><TH>Date</TH><TH>Status</TH><TH>Working</TH><TH>Late</TH><TH>Lunch break</TH></tr></THead>
           <tbody>
             {a.rows.map((r) => (
               <TR key={r.date.toISOString()}>
@@ -152,6 +154,7 @@ export function AttendanceTab({ data }: { data: WorkerWorkspaceData }) {
                 <TD><Badge tone={ATT_TONE[r.status] ?? "neutral"}>{r.status.replace(/_/g, " ")}</Badge></TD>
                 <TD className="text-xs text-gray-500 dark:text-(--sa-text-2)">{Math.round((r.workingMinutes / 60) * 10) / 10} h</TD>
                 <TD className="text-xs text-gray-500 dark:text-(--sa-text-2)">{r.lateMinutes > 0 ? `${r.lateMinutes} min` : "—"}</TD>
+                <TD className="whitespace-nowrap text-xs"><BreakSpan breakStart={r.breakStart} breakEnd={r.breakEnd} /></TD>
               </TR>
             ))}
           </tbody>

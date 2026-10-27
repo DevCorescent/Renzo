@@ -5,6 +5,7 @@ import prisma from "@/lib/db";
 
 // OWNER: Gauransh | MODULE: Branch Service Pricing
 // GET  /api/v1/admin/branch-services?branchId=X  — all services with branch pricing
+//                                                  (+ isPinned for the Walk-in pins)
 // POST /api/v1/admin/branch-services             — upsert branch pricing for one service
 
 export async function GET(req: NextRequest) {
@@ -39,12 +40,15 @@ export async function GET(req: NextRequest) {
           where: { branchId },
           select: { id: true, price: true, isActive: true },
         },
+        // Pinned to this branch's Walk-in "Quick add" (lib/service-pins.ts).
+        pins: { where: { branchId }, select: { id: true } },
       },
     });
 
-    const result = services.map((s) => ({
+    const result = services.map(({ pins, ...s }) => ({
       ...s,
       branchPricing: s.branchPricings[0] ?? null,
+      isPinned: pins.length > 0,
     }));
 
     return ok(result);

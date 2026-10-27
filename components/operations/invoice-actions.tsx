@@ -27,11 +27,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
+import { printInvoicePdf } from "@/components/operations/print-pdf";
 import {
-  ReceiptScaleControl,
-  thermalReceiptUrl,
-  useReceiptScale,
-} from "@/components/operations/receipt-scale";
+  downloadInvoicePdf,
+  fetchInvoicePdf,
+  openWhatsAppChat,
+  saveInvoicePdf,
+  whatsAppPdfFilename,
+} from "@/components/operations/whatsapp-invoice";
 
 const btnGhost =
   "inline-flex items-center gap-1.5 rounded border border-gray-200 px-2.5 py-1.5 text-xs text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-(--sa-border) dark:text-(--sa-text-2) dark:hover:bg-white/5";
@@ -45,15 +48,12 @@ type Panel = "none" | "email" | "whatsapp" | "reprint";
 /** Mirrors PrintFormat in lib/invoice-pdf.tsx (a server module this client file cannot import). */
 export type InvoicePrintFormat = "A4" | "THERMAL_80" | "THERMAL_58";
 
-const ROLL_MM: Partial<Record<InvoicePrintFormat, 58 | 80>> = { THERMAL_80: 80, THERMAL_58: 58 };
-
 export function InvoiceActions({
   invoiceId,
   invoiceNo,
   customerPhone,
   customerEmail,
   canReprint,
-  printFormat = "A4",
 }: {
   invoiceId: string;
   invoiceNo: string;
@@ -61,12 +61,13 @@ export function InvoiceActions({
   customerEmail: string | null;
   /** Reception may reprint; a worker viewing an invoice may not. */
   canReprint: boolean;
-  /** The branch's BranchSetting.printFormat — decides what Print sends to the printer. */
+  /**
+   * The branch's till paper. Kept for callers; Print now always sends the A4
+   * invoice (the till receipt is still on the walk-in screen's 80/58 mm buttons).
+   */
   printFormat?: InvoicePrintFormat;
 }) {
   const pdfUrl = `${API.reception.bill(invoiceId)}/pdf`;
-  const rollMm = ROLL_MM[printFormat];
-  const [receiptScale] = useReceiptScale();
 
   const [panel, setPanel] = React.useState<Panel>("none");
   const [busy, setBusy] = React.useState(false);
@@ -77,22 +78,34 @@ export function InvoiceActions({
   const [reason, setReason] = React.useState("");
   const [waLink, setWaLink] = React.useState<string | null>(null);
 
-  function openPdf(inline: boolean) {
-    window.open(`${pdfUrl}${inline ? "?inline=true" : ""}`, "_blank", "noopener,noreferrer");
+  function previewPdf() {
+    // Always the A4 invoice: without `format` the PDF follows the branch's till
+    // paper, so a 58/80 mm branch previewed the narrow receipt.
+    window.open(`${pdfUrl}?format=A4&inline=true`, "_blank", "noopener,noreferrer");
   }
 
   /**
-   * A thermal branch prints the receipt page, which sizes itself to the roll and
-   * opens the print dialog on its own — the browser's PDF viewer assumes A4 and
-   * made staff change the paper size and scale by hand every time. An A4 branch
-   * keeps printing the PDF, which already is an A4 page.
+   * Fetched and saved as a file rather than opened in a tab: a tab pointed at
+   * the endpoint showed raw JSON (or saved an unopenable file) whenever the
+   * server failed, and the operator was never told why.
    */
-  function print() {
-    if (rollMm) {
-      window.open(thermalReceiptUrl(invoiceId, rollMm, receiptScale), "_blank", "noopener,noreferrer");
-    } else {
-      openPdf(true);
+  async function downloadPdf() {
+    if (busy) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      await downloadInvoicePdf(invoiceId, invoiceNo);
+      setNote({ tone: "ok", text: `${whatsAppPdfFilename(invoiceNo)} downloaded.` });
+    } catch (e) {
+      setNote({ tone: "err", text: e instanceof Error ? e.message : "Could not download the invoice PDF." });
+    } finally {
+      setBusy(false);
     }
+  }
+
+  /** Print (and Reprint) send the same A4 invoice that Preview shows. */
+  function print() {
+    printInvoicePdf(invoiceId);
   }
 
   async function send(channel: "EMAIL" | "WHATSAPP") {
@@ -102,6 +115,18 @@ export function InvoiceActions({
     setWaLink(null);
 
     try {
+      // WhatsApp: fetch the PDF FIRST, so a failure stops before the chat opens.
+      let pdf: Blob | null = null;
+      if (channel === "WHATSAPP") {
+        try {
+          pdf = await fetchInvoicePdf(invoiceId);
+        } catch (e) {
+          setBusy(false);
+          setNote({ tone: "err", text: e instanceof Error ? e.message : "Could not download the invoice PDF." });
+          return;
+        }
+      }
+
       const res = await fetch(`${API.reception.bill(invoiceId)}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -123,19 +148,23 @@ export function InvoiceActions({
 
       if (channel === "WHATSAPP") {
         const url: string | undefined = json.data.handoffUrl ?? json.data.link;
-        if (url) {
+        if (url && pdf) {
+          saveInvoicePdf(pdf, invoiceNo);
           setWaLink(url);
           // Opened straight away so the operator does not need a second click;
           // the link stays on screen in case the pop-up was blocked.
-          window.open(url, "_blank", "noopener,noreferrer");
+          const opened = openWhatsAppChat(url);
+          // Nothing has reached the customer yet — the operator still attaches
+          // the PDF and presses send, so this is a warning, never "Sent".
+          setNote({
+            tone: "warn",
+            text: opened
+              ? `${whatsAppPdfFilename(invoiceNo)} downloaded and WhatsApp opened — attach the PDF in the chat, then press send.`
+              : `${whatsAppPdfFilename(invoiceNo)} downloaded, but the browser blocked WhatsApp — use the link below, attach the PDF, then press send.`,
+          });
+        } else {
+          setNote({ tone: "warn", text: json.message });
         }
-        // The server's own words. With no WhatsApp Business API configured it
-        // says so plainly rather than claiming the invoice was delivered —
-        // "Sent" would be a claim nobody on this side can stand behind.
-        setNote({
-          tone: json.data.providerTransmits ? "ok" : "warn",
-          text: json.message,
-        });
       } else {
         setNote({ tone: "ok", text: json.message });
         setPanel("none");
@@ -183,18 +212,17 @@ export function InvoiceActions({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={() => openPdf(true)} className={btnGhost}>
+        <button type="button" onClick={previewPdf} className={btnGhost}>
           <Eye className="size-3.5" aria-hidden="true" /> Preview
         </button>
         <span className="inline-flex flex-wrap items-center gap-2">
           <button type="button" onClick={print} className={btnGhost}>
-            <Printer className="size-3.5" aria-hidden="true" /> Print{rollMm ? ` (${rollMm}mm)` : ""}
+            <Printer className="size-3.5" aria-hidden="true" /> Print
           </button>
           {/* Receipt text size only applies to the thermal receipt, not the A4 PDF. */}
-          {rollMm && <ReceiptScaleControl />}
         </span>
-        <button type="button" onClick={() => openPdf(false)} className={btnGhost}>
-          <Download className="size-3.5" aria-hidden="true" /> Download PDF
+        <button type="button" onClick={() => void downloadPdf()} disabled={busy} className={btnGhost}>
+          {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Download className="size-3.5" aria-hidden="true" />} Download PDF
         </button>
         <button
           type="button"

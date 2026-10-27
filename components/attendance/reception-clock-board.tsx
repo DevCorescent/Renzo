@@ -23,6 +23,7 @@ import { LogIn, LogOut, Coffee, CoffeeIcon, Loader2, UserX, TriangleAlert } from
 import { Card, CardHeader, CardTitle, Table, THead, TH, TR, TD } from "@/components/shared/ui";
 import { cn } from "@/lib/utils";
 import { AttendanceEmpty, AttendanceStatusBadge } from "@/components/attendance/attendance-ui";
+import { BreakSpan } from "@/components/attendance/break-span";
 import {
   formatMinutes,
   formatTime,
@@ -201,7 +202,7 @@ export function ReceptionClockBoard({
                     {formatTime(record?.checkOut ?? null)}
                   </TD>
                   <TD className="whitespace-nowrap text-xs text-gray-500 dark:text-(--sa-text-2)">
-                    {record && record.breakMinutes > 0 ? formatMinutes(record.breakMinutes) : "—"}
+                    {record?.breakStart ? <BreakSpan breakStart={record.breakStart} breakEnd={record.breakEnd} /> : "—"}
                   </TD>
                   <TD className="whitespace-nowrap text-xs font-medium text-gray-800 dark:text-(--sa-text)">
                     {record ? formatMinutes(record.workingMinutes) : "—"}

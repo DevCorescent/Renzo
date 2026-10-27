@@ -437,7 +437,33 @@ async function applyClock(params: {
 }) {
   const { workerId, action, actor, markedBy, canOverrideLock, preferredBranchId } = params;
 
-  const date = attendanceDateKey();
+  let date = attendanceDateKey();
+  // A lunch break that runs past midnight is ended on the day it began: without
+  // this, "End break" looked only at today's (new) row, found nothing open, and
+  // the break could never be closed. Only for a live tap — an admin back-dating
+  // with `at` names the time against today, as before.
+  if (action === "BREAK_END" && !params.at) {
+    const todays = await prisma.attendance.findUnique({
+      where: { workerId_date: { workerId, date } },
+      select: { breakStart: true, breakEnd: true },
+    });
+    if (!(todays?.breakStart && !todays.breakEnd)) {
+      const yesterday = new Date(date);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      const open = await prisma.attendance.findFirst({
+        where: {
+          workerId,
+          date: { lt: date, gte: yesterday },
+          breakStart: { not: null },
+          breakEnd: null,
+          checkOut: null,
+        },
+        orderBy: { date: "desc" },
+        select: { date: true },
+      });
+      if (open) date = open.date;
+    }
+  }
   const stamp = params.at ? resolveTime(params.at, date) ?? new Date() : new Date();
 
   const branchId = await resolveWorkerBranchId(prisma, workerId, preferredBranchId);
@@ -482,12 +508,31 @@ async function applyClock(params: {
 
   const stamped = { markedBy };
 
-  const record = await prisma.attendance.upsert({
-    where: { workerId_date: { workerId, date } },
-    update: { ...times, ...fields, ...stamped },
-    create: { workerId, branchId, date, ...times, ...fields, ...stamped },
-    select: ATTENDANCE_SELECT,
-  });
+  // Written only if the times are still the ones this decision was made on, so
+  // two taps at once (or a tap racing an admin edit) cannot start a second
+  // break or overwrite one — the loser gets a 409 instead.
+  let record;
+  if (existing) {
+    const { count } = await prisma.attendance.updateMany({
+      where: {
+        id: existing.id,
+        checkIn: existing.checkIn,
+        checkOut: existing.checkOut,
+        breakStart: existing.breakStart,
+        breakEnd: existing.breakEnd,
+      },
+      data: { ...times, ...fields, ...stamped },
+    });
+    if (count === 0) return err("Attendance was updated at the same moment — refresh and try again", 409);
+    record = await prisma.attendance.findUniqueOrThrow({ where: { id: existing.id }, select: ATTENDANCE_SELECT });
+  } else {
+    record = await prisma.attendance.upsert({
+      where: { workerId_date: { workerId, date } },
+      update: { ...times, ...fields, ...stamped },
+      create: { workerId, branchId, date, ...times, ...fields, ...stamped },
+      select: ATTENDANCE_SELECT,
+    });
+  }
 
   await writeAudit(actor, {
     action: existing ? "UPDATE" : "CREATE",
@@ -556,12 +601,12 @@ function clockConflict(
     case "BREAK_START":
       if (!checkIn) return "Cannot start a break before checking in";
       if (checkOut) return "Cannot start a break after checking out";
-      if (breakStart && !breakEnd) return "A break is already in progress";
-      if (breakStart && breakEnd) return "Only one break per day is supported";
+      if (breakStart && !breakEnd) return "A lunch break is already in progress";
+      if (breakStart && breakEnd) return "Today's lunch break has already been taken — one break per day";
       return null;
     case "BREAK_END":
-      if (!breakStart) return "No break has been started";
-      if (breakEnd) return "The break has already ended";
+      if (!breakStart) return "No lunch break has been started";
+      if (breakEnd) return "The lunch break has already ended";
       return null;
   }
 }

@@ -648,6 +648,34 @@ export function formatMinutes(minutes: number): string {
   return `${h}h ${m}m`;
 }
 
+// ============================================================================
+// LUNCH BREAK — one a day, 30 minutes allowed
+// ============================================================================
+
+/** The daily lunch-break allowance. One break per worker per day (clockConflict). */
+export const BREAK_ALLOWANCE_MINUTES = 30;
+
+/**
+ * A break's length in whole minutes — the same rounding computeMetrics stores in
+ * Attendance.breakMinutes. While the break is still open it runs to `now`, so an
+ * unfinished break is judged live. Null when no break was taken.
+ */
+export function breakDurationMinutes(
+  breakStart: Date | string | null | undefined,
+  breakEnd: Date | string | null | undefined,
+  now: Date = new Date()
+): number | null {
+  if (!breakStart) return null;
+  const start = new Date(breakStart).getTime();
+  const end = breakEnd ? new Date(breakEnd).getTime() : now.getTime();
+  return Math.max(0, Math.round((end - start) / MINUTE_MS));
+}
+
+/** Minutes beyond the allowance — 0 when within it. Over means strictly more than 30. */
+export function breakOverMinutes(minutes: number | null | undefined): number {
+  return minutes != null && minutes > BREAK_ALLOWANCE_MINUTES ? minutes - BREAK_ALLOWANCE_MINUTES : 0;
+}
+
 /** 495 → 8.25. For numeric columns in spreadsheets, where "8h 15m" cannot be summed. */
 export function minutesToHours(minutes: number): number {
   return Math.round((minutes / 60) * 100) / 100;

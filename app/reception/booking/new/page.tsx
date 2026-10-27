@@ -44,6 +44,9 @@ export default function ReceptionNewBookingPage() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  // People per selected service — "2 haircuts" for two people on one booking.
+  const [people, setPeople] = useState<Record<string, number>>({});
+  const count = (id: string) => Math.max(1, people[id] ?? 1);
   const [workerId, setWorkerId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [startTime, setStartTime] = useState("");
@@ -109,8 +112,8 @@ export default function ReceptionNewBookingPage() {
     () => services.filter((s) => selectedServices.includes(s.id)),
     [services, selectedServices]
   );
-  const totalAmount = chosen.reduce((sum, s) => sum + servicePrice(s), 0);
-  const totalDuration = chosen.reduce((sum, s) => sum + s.duration, 0);
+  const totalAmount = chosen.reduce((sum, s) => sum + servicePrice(s) * count(s.id), 0);
+  const totalDuration = chosen.reduce((sum, s) => sum + s.duration * count(s.id), 0);
 
   // Group services by category for a tidier picker.
   const grouped = useMemo(() => {
@@ -139,6 +142,15 @@ export default function ReceptionNewBookingPage() {
           customerPhone,
           customerName,
           serviceIds: selectedServices,
+          // One line per person when a service is for more than one; the chosen
+          // stylist (or any) still applies to everyone, as before.
+          ...(selectedServices.some((id) => count(id) > 1)
+            ? {
+                serviceLines: selectedServices.flatMap((id) =>
+                  Array.from({ length: count(id) }, () => ({ serviceId: id, workerId: null })),
+                ),
+              }
+            : {}),
           workerId: workerId || undefined,
           appointmentDate: date,
           startTime,
@@ -221,8 +233,8 @@ export default function ReceptionNewBookingPage() {
                       {items.map((s) => {
                         const active = selectedServices.includes(s.id);
                         return (
+                          <div key={s.id} className="flex flex-col gap-1">
                           <button
-                            key={s.id}
                             type="button"
                             onClick={() => toggleService(s.id)}
                             className={`flex items-start justify-between rounded-lg border p-3 text-left text-sm transition ${
@@ -238,6 +250,29 @@ export default function ReceptionNewBookingPage() {
                             </div>
                             <p className="font-medium text-gray-700">{fmt(servicePrice(s))}</p>
                           </button>
+                          {active && (
+                            <div className="flex items-center justify-between rounded border border-gray-200 px-3 py-1 text-xs text-gray-500">
+                              People
+                              <span className="inline-flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  disabled={count(s.id) <= 1}
+                                  onClick={() => { setPeople((p) => ({ ...p, [s.id]: count(s.id) - 1 })); setStartTime(""); }}
+                                  aria-label={`Fewer people for ${s.name}`}
+                                  className="inline-flex size-6 items-center justify-center rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-30"
+                                >−</button>
+                                <span className="w-5 text-center font-semibold tabular-nums text-gray-900">{count(s.id)}</span>
+                                <button
+                                  type="button"
+                                  disabled={count(s.id) >= 10}
+                                  onClick={() => { setPeople((p) => ({ ...p, [s.id]: count(s.id) + 1 })); setStartTime(""); }}
+                                  aria-label={`More people for ${s.name}`}
+                                  className="inline-flex size-6 items-center justify-center rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-30"
+                                >+</button>
+                              </span>
+                            </div>
+                          )}
+                          </div>
                         );
                       })}
                     </div>
@@ -337,8 +372,8 @@ export default function ReceptionNewBookingPage() {
             ) : (
               chosen.map((s) => (
                 <div key={s.id} className="flex items-center justify-between text-sm">
-                  <span className="text-gray-700">{s.name}</span>
-                  <span className="text-gray-500">{fmt(servicePrice(s))}</span>
+                  <span className="text-gray-700">{s.name}{count(s.id) > 1 ? ` ×${count(s.id)}` : ""}</span>
+                  <span className="text-gray-500">{fmt(servicePrice(s) * count(s.id))}</span>
                 </div>
               ))
             )}

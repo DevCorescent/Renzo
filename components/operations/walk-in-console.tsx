@@ -35,10 +35,19 @@ import {
   Loader2, Search, UserPlus, CalendarPlus, Play, Check, Receipt,
   Wallet, Printer, MessageCircle, Mail, X, CircleCheck, CircleAlert,
   ArrowLeft, LayoutGrid, Clock, PlusCircle, Pencil, RefreshCw, Download, Share2,
-  Zap, ChevronDown, CalendarClock, ExternalLink,
+  Zap, ChevronDown, CalendarClock, ExternalLink, Pin, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/endpoints";
+import { printInvoicePdf } from "@/components/operations/print-pdf";
+import { DiscountInput, discountFrom, type DiscountMode } from "@/components/operations/discount-input";
+import {
+  downloadInvoicePdf,
+  fetchInvoicePdf,
+  openWhatsAppChat,
+  saveInvoicePdf,
+  whatsAppPdfFilename,
+} from "@/components/operations/whatsapp-invoice";
 import { Card } from "@/components/shared/ui";
 import { formatMoney, labelise } from "@/lib/operations";
 import {
@@ -75,12 +84,19 @@ type LiveSession = {
   workerName: string | null;
   serviceNames: string;
   serviceCount: number;
-  services?: { serviceId: string; workerId: string | null }[];
+  services?: { id?: string; serviceId: string; workerId: string | null }[];
   invoice: {
     id: string; invoiceNo: string;
     totalAmount: number; balanceDue: number; status: string;
   } | null;
 };
+
+/**
+ * A service that is not in the catalogue, typed in at the desk. Billed as the
+ * existing MISC invoice line (name × quantity @ amount); `workerId` credits the
+ * stylist on the Sheet once the billing route reads it.
+ */
+type CustomLine = { key: string; name: string; unitPrice: number; quantity: number; workerId: string };
 
 type DraftSession = {
   id: string;
@@ -89,10 +105,14 @@ type DraftSession = {
   serviceIds: string[];
   /** Staff per service. Older drafts only have `workerId` (applied to all). */
   rows?: { serviceId: string; workerId: string }[];
+  /** Custom services typed in at the desk (not in the catalogue). */
+  customLines?: CustomLine[];
   workerId: string;
   assistantId: string;
   notes: string;
   discount: string;
+  /** ₹ or % — older drafts have none and were always ₹. */
+  discountMode?: DiscountMode;
   chair: string;
   room: string;
   startTime: string;
@@ -127,6 +147,16 @@ function matchesService(name: string, query: string): boolean {
   const n = name.toLowerCase();
   const norm = (v: string) => v.replace(/[^a-z0-9]/gi, "").toLowerCase();
   return n.includes(q) || norm(n).includes(norm(q)) || q.split(/\s+/).every((w) => n.includes(w));
+}
+
+// The desk's most-rung services, shown as one-tap buttons above the search so
+// they never have to be searched for. Which ones is the branch's choice: admins
+// pin and unpin them on Branch Services (lib/service-pins.ts), and the page
+// passes their ids in pin order. An id whose service is not in this list
+// (inactive since) is simply skipped.
+export function pinnedServices<T extends { id: string }>(services: T[], pinnedIds: readonly string[]): T[] {
+  const byId = new Map(services.map((s) => [s.id, s]));
+  return [...new Set(pinnedIds)].map((id) => byId.get(id)).filter((s): s is T => Boolean(s));
 }
 
 const EPSILON = 0.009;
@@ -319,7 +349,9 @@ function SessionCard({
   const invoicePrintUrl = (inv: NonNullable<LiveSession["invoice"]>, fmt: PrintFormat) => {
     if (fmt === "THERMAL_80") return thermalReceiptUrl(inv.id, 80, receiptScale);
     if (fmt === "THERMAL_58") return thermalReceiptUrl(inv.id, 58, receiptScale);
-    return `${API.reception.bill(inv.id)}/pdf?inline=true`;
+    // A4 asked for explicitly — without it the PDF follows the branch's till
+    // paper, and a 58/80 mm branch got the narrow receipt instead of the invoice.
+    return `${API.reception.bill(inv.id)}/pdf?format=A4&inline=true`;
   };
 
   return (
@@ -393,7 +425,11 @@ function SessionCard({
           )}
           <button
             type="button"
-            onClick={() => window.open(invoicePrintUrl(session.invoice!, printSize ?? "A4"), "_blank", "noopener,noreferrer")}
+            onClick={() =>
+              (printSize ?? "A4") === "A4"
+                ? printInvoicePdf(session.invoice!.id)
+                : window.open(invoicePrintUrl(session.invoice!, printSize!), "_blank", "noopener,noreferrer")
+            }
             className={cn(btnGhost, "px-2.5")}
             aria-label="Print invoice"
             title={`Print (${PRINT_LABELS[printSize ?? "A4"]})`}
@@ -442,13 +478,17 @@ function SessionGroup({
 
 export function WalkInConsole({
   services,
+  pinnedServiceIds = [],
   workers,
   taxPercent,
   taxName,
-  defaultPrintFormat = "A4",
+  // Kept for callers; Print defaults to the A4 invoice (same as Preview) and the
+  // 80/58 mm till receipt stays one click away on the size buttons.
   billingBasePath,
 }: {
   services: WalkInService[];
+  /** This branch's pinned services, in pin order — shown first as Quick add. */
+  pinnedServiceIds?: string[];
   workers: WalkInWorker[];
   taxPercent: number;
   taxName: string;
@@ -464,7 +504,7 @@ export function WalkInConsole({
   const [busyLabel, setBusyLabel] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [note,  setNote]  = React.useState<string | null>(null);
-  const [printSize, setPrintSize] = React.useState<PrintFormat>(defaultPrintFormat);
+  const [printSize, setPrintSize] = React.useState<PrintFormat>("A4");
 
   // ── Sessions board state ──────────────────────────────────────────────────
   const [liveSessions,    setLiveSessions]    = React.useState<LiveSession[]>([]);
@@ -484,7 +524,11 @@ export function WalkInConsole({
 
   // ── Booking ───────────────────────────────────────────────────────────────
   // Each selected service carries its own assigned worker (empty = any available).
-  type ServiceRow = { serviceId: string; workerId: string };
+  // One row per PERSON: a service can repeat for a group (two haircuts, two
+  // stylists). `lineId` is the saved AppointmentService id, once booked.
+  type ServiceRow = { serviceId: string; workerId: string; lineId?: string };
+  /** Which saved line a row is — its id once booked, else the service. */
+  const staffKey = (r: ServiceRow) => r.lineId ?? r.serviceId;
   const [rows,        setRows]        = React.useState<ServiceRow[]>([]);
   const [svcQuery,    setSvcQuery]    = React.useState("");
   const [svcOpen,     setSvcOpen]     = React.useState(false);
@@ -495,7 +539,15 @@ export function WalkInConsole({
   const [apptDate,    setApptDate]    = React.useState(todayIst);
   const [startTime,   setStartTime]   = React.useState(nowIstTime);
   const [notes,    setNotes]    = React.useState("");
+  const [customLines, setCustomLines] = React.useState<CustomLine[]>([]);
+  const [customOpen, setCustomOpen] = React.useState(false);
+  const [customName, setCustomName] = React.useState("");
+  const [customPrice, setCustomPrice] = React.useState("");
+  const [customQty, setCustomQty] = React.useState("1");
+  const [customWorker, setCustomWorker] = React.useState("");
+  const [customError, setCustomError] = React.useState<string | null>(null);
   const [discount, setDiscount] = React.useState("");
+  const [discountMode, setDiscountMode] = React.useState<DiscountMode>("AMOUNT");
   const [showMore, setShowMore] = React.useState(false);
 
   const isFutureBooking = apptDate > todayIst();
@@ -570,20 +622,37 @@ export function WalkInConsole({
 
   const visibleHits  = term.trim().length >= 2 ? hits : [];
   const chosen       = rows.map((r) => services.find((s) => s.id === r.serviceId)).filter(Boolean) as WalkInService[];
-  const subtotal     = chosen.reduce((sum, s) => sum + s.price, 0);
+  const customTotal  = customLines.reduce((sum, c) => sum + c.unitPrice * c.quantity, 0);
+  const subtotal     = chosen.reduce((sum, s) => sum + s.price, 0) + customTotal;
+  // The same service added again shows once with its quantity: "Haircut ×2".
+  const chosenGrouped = Object.values(
+    chosen.reduce<Record<string, { s: WalkInService; qty: number }>>((acc, s) => {
+      acc[s.id] = { s, qty: (acc[s.id]?.qty ?? 0) + 1 };
+      return acc;
+    }, {}),
+  );
   const duration     = chosen.reduce((sum, s) => sum + s.duration, 0);
-  const discountVal  = Math.min(Number(discount) || 0, subtotal);
+  // ₹ or % of the subtotal — always sent to the server as a rupee amount.
+  const discountVal  = discountFrom(discount, discountMode, subtotal);
   const taxable      = Math.max(0, subtotal - discountVal);
   const taxValue     = Math.round(((taxable * taxPercent) / 100) * 100) / 100;
   const grandTotal   = Math.round((taxable + taxValue) * 100) / 100;
-  const availableToAdd = services.filter((s) => !rows.find((r) => r.serviceId === s.id));
-  const matchingToAdd  = availableToAdd.filter((s) => matchesService(s.name, svcQuery));
+  // Every service stays addable: adding one again books it for another person.
+  const availableToAdd = services;
+  const pinned         = React.useMemo(() => pinnedServices(services, pinnedServiceIds), [services, pinnedServiceIds]);
+  // Pinned first while nothing is typed; a search ranks every service alike.
+  const matchingToAdd  = (svcQuery.trim()
+    ? availableToAdd
+    : [...pinned, ...availableToAdd.filter((s) => !pinned.includes(s))]
+  ).filter((s) => matchesService(s.name, svcQuery));
+  const addService = (serviceId: string) =>
+    setRows((prev) => [...prev, { serviceId, workerId: "" }]);
   const moreOpen = showMore;
   const totalSplitAmount = splits.reduce((s, r) => s + (Number(r.amount) || 0), 0);
   const amountInvalid = splits.some(s => s.amount.trim() !== "" && !(Number(s.amount) >= 0));
   // Staff is not required to bill — but until it is set, nobody gets credit.
   const unassignedCount = rows.filter((r) => !r.workerId).length;
-  const staffDirty = Boolean(appointment) && rows.some((r) => (savedStaff[r.serviceId] ?? "") !== r.workerId);
+  const staffDirty = Boolean(appointment) && rows.some((r) => (savedStaff[staffKey(r)] ?? "") !== r.workerId);
   const detailsDirty = Boolean(appointment) && (
     chair !== savedDetails.chair || room !== savedDetails.room ||
     assistantId !== savedDetails.assistantId || notes !== savedDetails.notes
@@ -606,7 +675,8 @@ export function WalkInConsole({
     setTerm(""); setHits([]); setCustomer(null);
     setNewName(""); setNewPhone(""); setNewEmail("");
     setRows([]); setSvcQuery(""); setSvcOpen(false); setAssistantId("");
-    setChair(""); setRoom(""); setNotes(""); setDiscount(""); setShowMore(false);
+    setCustomLines([]); setCustomOpen(false); setCustomError(null);
+    setChair(""); setRoom(""); setNotes(""); setDiscount(""); setDiscountMode("AMOUNT"); setShowMore(false);
     setStartTime(nowIstTime());
     setApptDate(todayIst());
     setAppointment(null); setApptStatus(null); setInvoice(null); setSavedStaff({});
@@ -642,10 +712,12 @@ export function WalkInConsole({
       customer,
       serviceIds: rows.map((r) => r.serviceId),
       rows,
+      customLines,
       workerId: rows.find((r) => r.workerId)?.workerId ?? "",
       assistantId,
       notes,
       discount,
+      discountMode,
       chair,
       room,
       startTime,
@@ -660,10 +732,12 @@ export function WalkInConsole({
     setQuickMode(false);
     setCustomer(draft.customer);
     setRows(draft.rows ?? draft.serviceIds.map((sid) => ({ serviceId: sid, workerId: draft.workerId })));
+    setCustomLines(draft.customLines ?? []);
     setShowMore(Boolean(draft.chair || draft.room || draft.assistantId || draft.notes));
     setAssistantId(draft.assistantId);
     setNotes(draft.notes);
     setDiscount(draft.discount);
+    setDiscountMode(draft.discountMode ?? "AMOUNT");
     setChair(draft.chair);
     setRoom(draft.room);
     setStartTime(draft.startTime);
@@ -688,8 +762,9 @@ export function WalkInConsole({
     setAppointment({ id: session.id, appointmentNo: session.appointmentNo });
     setApptStatus(session.status);
     // Restore what was booked so the services table and bill preview are filled.
-    setRows((session.services ?? []).map((s) => ({ serviceId: s.serviceId, workerId: s.workerId ?? "" })));
-    setSavedStaff(Object.fromEntries((session.services ?? []).map((s) => [s.serviceId, s.workerId ?? ""])));
+    const resumed = (session.services ?? []).map((s) => ({ serviceId: s.serviceId, workerId: s.workerId ?? "", lineId: s.id }));
+    setRows(resumed);
+    setSavedStaff(Object.fromEntries(resumed.map((r) => [staffKey(r), r.workerId])));
     if (session.appointmentDate) setApptDate(session.appointmentDate);
     setStartTime(session.startTime);
     setChair(session.chairCabinNo ?? "");
@@ -715,9 +790,6 @@ export function WalkInConsole({
 
   /** `recordingVisit`: billing now — the visit is happening, not a future reservation. */
   async function createAppointment(recordingVisit = false) {
-    const serviceWorkers: Record<string, string> = {};
-    rows.forEach((r) => { if (r.workerId) serviceWorkers[r.serviceId] = r.workerId; });
-    const hasPerService = Object.keys(serviceWorkers).length > 0;
     // The appointment-level workerId is the first explicitly assigned worker.
     const primaryWorkerId = rows.find((r) => r.workerId)?.workerId ?? "";
 
@@ -725,8 +797,9 @@ export function WalkInConsole({
       customerPhone: customer!.phone,
       customerName:  `${customer!.firstName} ${customer!.lastName ?? ""}`.trim(),
       serviceIds:    rows.map((r) => r.serviceId),
+      // One line per person, so a repeated service keeps each person's stylist.
+      serviceLines:  rows.map((r) => ({ serviceId: r.serviceId, workerId: r.workerId || null })),
       ...(primaryWorkerId ? { workerId: primaryWorkerId } : {}),
-      ...(hasPerService   ? { serviceWorkers }            : {}),
       ...(assistantId     ? { assistantWorkerId: assistantId } : {}),
       ...(chair.trim()    ? { chairCabinNo: chair.trim() }   : {}),
       ...(room.trim()     ? { roomNo: room.trim() }           : {}),
@@ -738,7 +811,14 @@ export function WalkInConsole({
     const appt = { id: data.id as string, appointmentNo: data.appointmentNo as string };
     const status = (data.status as string | undefined) ?? "CONFIRMED";
     setAppointment(appt);
-    setSavedStaff(Object.fromEntries(rows.map((r) => [r.serviceId, r.workerId])));
+    // Adopt the saved lines, so each row now carries its own line id.
+    const saved: ServiceRow[] = Array.isArray(data.services)
+      ? (data.services as { id: string; serviceId: string; workerId: string | null }[]).map((s) => ({
+          serviceId: s.serviceId, workerId: s.workerId ?? "", lineId: s.id,
+        }))
+      : rows;
+    setRows(saved);
+    setSavedStaff(Object.fromEntries(saved.map((r) => [staffKey(r), r.workerId])));
     setSavedDetails({ chair, room, assistantId, notes });
     setApptStatus(status);
     return { appt, status };
@@ -770,8 +850,12 @@ export function WalkInConsole({
   async function persistRecord(apptId: string): Promise<boolean> {
     const assignments = staffDirty
       ? rows
-          .filter((r) => (savedStaff[r.serviceId] ?? "") !== r.workerId)
-          .map((r) => ({ serviceId: r.serviceId, workerId: r.workerId || null }))
+          .filter((r) => (savedStaff[staffKey(r)] ?? "") !== r.workerId)
+          .map((r) => ({
+            serviceId: r.serviceId,
+            workerId: r.workerId || null,
+            ...(r.lineId ? { appointmentServiceId: r.lineId } : {}),
+          }))
       : [];
     const details = detailsDirty
       ? { chairCabinNo: chair, roomNo: room, notes, assistantWorkerId: assistantId || null }
@@ -782,7 +866,7 @@ export function WalkInConsole({
       { ...(assignments.length ? { assignments } : {}), ...(details ? { details } : {}) },
       "PATCH"
     );
-    setSavedStaff(Object.fromEntries(rows.map((r) => [r.serviceId, r.workerId])));
+    setSavedStaff(Object.fromEntries(rows.map((r) => [staffKey(r), r.workerId])));
     setSavedDetails({ chair, room, assistantId, notes });
     return true;
   }
@@ -791,6 +875,18 @@ export function WalkInConsole({
     const data = await post(API.reception.billing, {
       appointmentId: apptId,
       ...(discountVal > 0 ? { discountAmount: discountVal } : {}),
+      // Custom services ride on the existing MISC extra line (name × qty @ amount).
+      ...(customLines.length
+        ? {
+            extraLines: customLines.map((c) => ({
+              kind: "MISC",
+              name: c.name,
+              unitPrice: c.unitPrice,
+              quantity: c.quantity,
+              ...(c.workerId ? { workerId: c.workerId } : {}),
+            })),
+          }
+        : {}),
     });
     const inv: InvoiceState = {
       id: data.id, invoiceNo: data.invoiceNo,
@@ -898,7 +994,7 @@ export function WalkInConsole({
     });
 
   function undoRecord() {
-    setRows((prev) => prev.map((r) => ({ ...r, workerId: savedStaff[r.serviceId] ?? "" })));
+    setRows((prev) => prev.map((r) => ({ ...r, workerId: savedStaff[staffKey(r)] ?? "" })));
     setChair(savedDetails.chair);
     setRoom(savedDetails.room);
     setAssistantId(savedDetails.assistantId);
@@ -923,10 +1019,17 @@ export function WalkInConsole({
 
   const send = (channel: "WHATSAPP" | "EMAIL") =>
     run(channel === "WHATSAPP" ? "WhatsApp" : "Email", async () => {
+      // WhatsApp: fetch the PDF FIRST, so a failure stops before the chat opens.
+      const pdf = channel === "WHATSAPP" ? await fetchInvoicePdf(invoice!.id) : null;
       const data = await post(`${API.reception.bill(invoice!.id)}/send`, { channel });
-      if (channel === "WHATSAPP" && data?.link) {
-        window.open(data.link, "_blank", "noopener,noreferrer");
-        setNote("WhatsApp opened with the invoice message.");
+      if (channel === "WHATSAPP" && data?.link && pdf) {
+        // wa.me carries text only, so the PDF is downloaded for the operator to attach.
+        const file = whatsAppPdfFilename(invoice!.invoiceNo);
+        saveInvoicePdf(pdf, invoice!.invoiceNo);
+        if (!openWhatsAppChat(data.link)) {
+          throw new Error(`${file} downloaded, but the browser blocked WhatsApp — allow pop-ups for this site and try again.`);
+        }
+        setNote(`${file} downloaded and WhatsApp opened — attach the PDF in the chat, then press send.`);
       } else {
         setNote("Invoice emailed with the PDF attached.");
       }
@@ -938,23 +1041,26 @@ export function WalkInConsole({
     const billId = invoice!.id;
     if (fmt === "THERMAL_80") return thermalReceiptUrl(billId, 80, receiptScale);
     if (fmt === "THERMAL_58") return thermalReceiptUrl(billId, 58, receiptScale);
-    return `${API.reception.bill(billId)}/pdf?inline=true`;
+    return `${API.reception.bill(billId)}/pdf?format=A4&inline=true`;
   };
 
   const openPdf = (fmt?: PrintFormat) =>
-    window.open(printUrl(fmt ?? printSize), "_blank", "noopener,noreferrer");
+    (fmt ?? printSize) === "A4"
+      ? printInvoicePdf(invoice!.id) // the same A4 invoice as Preview
+      : window.open(printUrl(fmt ?? printSize), "_blank", "noopener,noreferrer");
 
-  const downloadPdf = () => {
-    // A4 PDF download only (thermal is HTML, not a saveable PDF).
-    const a = document.createElement("a");
-    a.href = `${API.reception.bill(invoice!.id)}/pdf`;
-    a.download = "";
-    a.click();
-  };
+  // A4 PDF download only (thermal is HTML, not a saveable PDF). Fetched and
+  // saved from a Blob so a server failure shows as an error here instead of a
+  // silently broken download.
+  const downloadPdf = () =>
+    run("Download", async () => {
+      await downloadInvoicePdf(invoice!.id, invoice!.invoiceNo);
+      setNote(`${whatsAppPdfFilename(invoice!.invoiceNo)} downloaded.`);
+    });
 
   const [copied, setCopied] = React.useState(false);
   const copyLink = async () => {
-    const url = `${window.location.origin}${API.reception.bill(invoice!.id)}/pdf?inline=true`;
+    const url = `${window.location.origin}${API.reception.bill(invoice!.id)}/pdf?format=A4&inline=true`;
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -1371,11 +1477,25 @@ export function WalkInConsole({
                       {rows.map((row, i) => {
                         const svc = services.find((s) => s.id === row.serviceId);
                         if (!svc) return null;
+                        // The same service added again: "2 of 3".
+                        const people = rows.filter((r) => r.serviceId === row.serviceId).length;
+                        const person = rows.slice(0, i + 1).filter((r) => r.serviceId === row.serviceId).length;
                         return (
-                          <tr key={row.serviceId} className="transition hover:bg-gray-50 dark:hover:bg-white/[0.03]">
+                          <tr key={row.lineId ?? `${row.serviceId}-${i}`} className="transition hover:bg-gray-50 dark:hover:bg-white/[0.03]">
                             <td className="px-4 py-2.5">
                               <span className="block font-medium text-gray-900 dark:text-(--sa-text)">{svc.name}</span>
-                              <span className="block text-xs text-gray-400 dark:text-(--sa-muted)">{svc.duration} min</span>
+                              <span className="block text-xs text-gray-400 dark:text-(--sa-muted)">
+                                {svc.duration} min{people > 1 && ` · ${person} of ${people}`}
+                              </span>
+                              {!appointment && (
+                                <button
+                                  type="button"
+                                  onClick={() => setRows((prev) => [...prev.slice(0, i + 1), { serviceId: row.serviceId, workerId: "" }, ...prev.slice(i + 1)])}
+                                  className="mt-1 text-xs font-medium text-gray-500 underline-offset-2 transition hover:text-gray-900 hover:underline dark:text-(--sa-text-2) dark:hover:text-(--sa-text)"
+                                >
+                                  + Add again
+                                </button>
+                              )}
                             </td>
                             <td className="px-4 py-2.5">
                               <select
@@ -1419,6 +1539,95 @@ export function WalkInConsole({
                 </div>
               )}
 
+              {/* Custom services — anything not in the catalogue, until the bill is raised. */}
+              {!invoice && (
+                <div className="space-y-2">
+                  {customLines.length > 0 && (
+                    <ul className="divide-y divide-gray-100 rounded-md border border-gray-200 text-sm dark:divide-white/5 dark:border-(--sa-border)">
+                      {customLines.map((c) => (
+                        <li key={c.key} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-gray-900 dark:text-(--sa-text)">
+                              {c.name}{c.quantity > 1 ? ` ×${c.quantity}` : ""}
+                            </span>
+                            <span className="block text-xs text-gray-400 dark:text-(--sa-muted)">
+                              Custom · {formatMoney(c.unitPrice)} each
+                              {c.workerId ? ` · ${workers.find((w) => w.id === c.workerId)?.name ?? "Staff"}` : " · no stylist"}
+                            </span>
+                          </span>
+                          <span className="flex shrink-0 items-center gap-2">
+                            <span className="font-medium tabular-nums text-gray-900 dark:text-(--sa-text)">
+                              {formatMoney(c.unitPrice * c.quantity)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setCustomLines((prev) => prev.filter((x) => x.key !== c.key))}
+                              aria-label={`Remove ${c.name}`}
+                              className="inline-flex size-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                            >
+                              <X className="size-4" aria-hidden="true" />
+                            </button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {customOpen ? (
+                    <div className="space-y-2 rounded-md border border-dashed border-gray-300 p-3 dark:border-(--sa-border)">
+                      <div className="grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_5rem]">
+                        <input value={customName} onChange={(e) => setCustomName(e.target.value)} maxLength={80}
+                          placeholder="Service name, e.g. Head Massage" aria-label="Custom service name" className={inputCls} />
+                        <input type="number" min={0} step="0.01" value={customPrice} onChange={(e) => setCustomPrice(e.target.value)}
+                          placeholder="Amount ₹" aria-label="Custom service amount" className={inputCls} />
+                        <input type="number" min={1} max={99} step={1} value={customQty} onChange={(e) => setCustomQty(e.target.value)}
+                          placeholder="Qty" aria-label="Custom service quantity" className={inputCls} />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select value={customWorker} onChange={(e) => setCustomWorker(e.target.value)}
+                          aria-label="Stylist for the custom service" className={cn(inputCls, "h-9 w-auto min-w-44")}>
+                          <option value="">No stylist</option>
+                          {workers.map((w) => (
+                            <option key={w.id} value={w.id}>{w.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const name = customName.trim();
+                            const price = Number(customPrice);
+                            const qty = Math.trunc(Number(customQty));
+                            if (!name) return setCustomError("Enter the service name.");
+                            if (!Number.isFinite(price) || price <= 0) return setCustomError("Enter an amount above ₹0.");
+                            if (!Number.isFinite(qty) || qty < 1 || qty > 99) return setCustomError("Quantity must be 1–99.");
+                            setCustomLines((prev) => [
+                              ...prev,
+                              { key: `${Date.now()}-${prev.length}`, name, unitPrice: Math.round(price * 100) / 100, quantity: qty, workerId: customWorker },
+                            ]);
+                            setCustomName(""); setCustomPrice(""); setCustomQty("1"); setCustomWorker("");
+                            setCustomError(null); setCustomOpen(false);
+                          }}
+                          className={cn(btnPrimary, "h-9 px-3 text-xs")}
+                        >
+                          <Check className="size-3.5" aria-hidden="true" /> Add
+                        </button>
+                        <button type="button" onClick={() => { setCustomOpen(false); setCustomError(null); }} className={btnGhost}>
+                          Cancel
+                        </button>
+                      </div>
+                      {customError && <p className="text-xs text-red-600 dark:text-red-400">{customError}</p>}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setCustomOpen(true)}
+                      className="text-xs font-medium text-gray-500 underline-offset-2 transition hover:text-gray-900 hover:underline dark:text-(--sa-text-2) dark:hover:text-(--sa-text)"
+                    >
+                      + Custom service
+                    </button>
+                  )}
+                </div>
+              )}
+
               {appointment && (
                 <>
                   {staffHint && !recordDirty && (
@@ -1452,6 +1661,28 @@ export function WalkInConsole({
 
               {!appointment && (
                 <>
+                  {/* Pinned services — one tap, no search */}
+                  {pinned.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Pinned services">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-(--sa-muted)">
+                        <Pin className="size-3.5" aria-hidden="true" /> Quick add
+                      </span>
+                      {pinned.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => addService(s.id)}
+                          aria-label={`Add ${s.name}, ${formatMoney(s.price)}`}
+                          className={btnGhost}
+                        >
+                          <Plus className="size-3.5" aria-hidden="true" />
+                          {s.name}
+                          <span className="text-gray-500 dark:text-(--sa-muted)">{formatMoney(s.price)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Searchable service picker */}
                   <div className="relative">
                     <div className="relative">
@@ -1477,13 +1708,18 @@ export function WalkInConsole({
                               type="button"
                               onMouseDown={(e) => e.preventDefault()}
                               onClick={() => {
-                                setRows((prev) => [...prev, { serviceId: s.id, workerId: "" }]);
+                                addService(s.id);
                                 setSvcQuery("");
                                 setSvcOpen(false);
                               }}
                               className="flex w-full items-center justify-between gap-4 px-4 py-2.5 text-left text-sm transition hover:bg-gray-100 dark:hover:bg-(--sa-hover)"
                             >
-                              <span className="text-gray-900 dark:text-(--sa-text)">{s.name}</span>
+                              <span className="inline-flex items-center gap-1.5 text-gray-900 dark:text-(--sa-text)">
+                                {!svcQuery.trim() && pinned.includes(s) && (
+                                  <Pin className="size-3 text-gray-400" aria-label="Pinned" />
+                                )}
+                                {s.name}
+                              </span>
                               <span className="shrink-0 text-xs text-gray-500 dark:text-(--sa-muted)">
                                 {s.duration} min · <span className="font-medium text-gray-700 dark:text-(--sa-text-2)">{formatMoney(s.price)}</span>
                               </span>
@@ -1522,11 +1758,11 @@ export function WalkInConsole({
                       <input id="wi-time" type="time" value={startTime}
                         onChange={(e) => setStartTime(e.target.value)} className={inputCls} />
                     </div>
-                    <div>
-                      <label className={labelCls} htmlFor="wi-disc">Discount (₹)</label>
-                      <input id="wi-disc" type="number" min={0} value={discount}
-                        onChange={(e) => setDiscount(e.target.value)} placeholder="0" className={inputCls} />
-                    </div>
+                    <DiscountInput
+                      id="wi-disc" raw={discount} mode={discountMode}
+                      onRaw={setDiscount} onMode={setDiscountMode} subtotal={subtotal}
+                      inputClassName={inputCls} labelClassName={labelCls}
+                    />
                   </div>
 
                   {detailsBlock}
@@ -1668,10 +1904,12 @@ export function WalkInConsole({
                     </p>
                   )}
 
-                  <div className="max-w-48">
-                    <label className={labelCls} htmlFor="wi-disc2">Discount (₹)</label>
-                    <input id="wi-disc2" type="number" min={0} value={discount}
-                      onChange={(e) => setDiscount(e.target.value)} placeholder="0" className={inputCls} />
+                  <div className="max-w-60">
+                    <DiscountInput
+                      id="wi-disc2" raw={discount} mode={discountMode}
+                      onRaw={setDiscount} onMode={setDiscountMode} subtotal={subtotal}
+                      inputClassName={inputCls} labelClassName={labelCls}
+                    />
                   </div>
 
                   <div className="flex flex-col gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:justify-end dark:border-(--sa-border)">
@@ -1889,22 +2127,26 @@ export function WalkInConsole({
               </p>
             ) : (
               <dl className="space-y-2 text-sm">
-                {chosen.map((s) => (
+                {chosenGrouped.map(({ s, qty }) => (
                   <div key={s.id} className="flex justify-between gap-3">
-                    <dt className="text-gray-600 dark:text-(--sa-text-2)">{s.name}</dt>
-                    <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">{formatMoney(s.price)}</dd>
+                    <dt className="text-gray-600 dark:text-(--sa-text-2)">{s.name}{qty > 1 ? ` ×${qty}` : ""}</dt>
+                    <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">{formatMoney(s.price * qty)}</dd>
+                  </div>
+                ))}
+                {customLines.map((c) => (
+                  <div key={c.key} className="flex justify-between gap-3">
+                    <dt className="text-gray-600 dark:text-(--sa-text-2)">{c.name}{c.quantity > 1 ? ` ×${c.quantity}` : ""}</dt>
+                    <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">{formatMoney(c.unitPrice * c.quantity)}</dd>
                   </div>
                 ))}
                 <div className="flex justify-between border-t border-gray-100 pt-2 dark:border-(--sa-border)">
                   <dt className="text-gray-500 dark:text-(--sa-text-2)">Subtotal</dt>
                   <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">{formatMoney(subtotal)}</dd>
                 </div>
-                {discountVal > 0 && (
-                  <div className="flex justify-between">
-                    <dt className="text-gray-500 dark:text-(--sa-text-2)">Discount</dt>
-                    <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">− {formatMoney(discountVal)}</dd>
-                  </div>
-                )}
+                <div className="flex justify-between">
+                  <dt className="text-gray-500 dark:text-(--sa-text-2)">Discount</dt>
+                  <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">{discountVal > 0 ? `− ${formatMoney(discountVal)}` : formatMoney(0)}</dd>
+                </div>
                 <div className="flex justify-between">
                   <dt className="text-gray-500 dark:text-(--sa-text-2)">{taxName} ({taxPercent}%)</dt>
                   <dd className="tabular-nums text-gray-900 dark:text-(--sa-text)">{formatMoney(taxValue)}</dd>

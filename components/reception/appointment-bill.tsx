@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { Search, Plus, X, FileText, Loader2 } from "lucide-react";
 import { API } from "@/lib/endpoints";
 import { cn } from "@/lib/utils";
+import { DiscountInput, discountFrom, type DiscountMode } from "@/components/operations/discount-input";
 
 export type CatalogueItem = {
   id: string;
@@ -56,6 +57,8 @@ export function AppointmentBill({
   const [miscOpen, setMiscOpen] = React.useState(false);
   const [miscName, setMiscName] = React.useState("");
   const [miscPrice, setMiscPrice] = React.useState("");
+  const [discount, setDiscount] = React.useState("");
+  const [discountMode, setDiscountMode] = React.useState<DiscountMode>("AMOUNT");
 
   const needle = query.trim().toLowerCase();
   const results = React.useMemo(() => {
@@ -66,6 +69,8 @@ export function AppointmentBill({
   const extrasTotal = extras.reduce((s, e) => s + e.price * e.qty, 0);
   const miscTotal = misc.reduce((s, m) => s + m.price, 0);
   const previewTotal = bookedTotal + extrasTotal + miscTotal;
+  // ₹ or % of the subtotal; the server takes the rupee amount and adds GST on the rest.
+  const discountValue = discountFrom(discount, discountMode, previewTotal);
 
   function addItem(item: CatalogueItem) {
     setExtras((prev) => {
@@ -104,7 +109,12 @@ export function AppointmentBill({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ appointmentId, ...(extraLines.length ? { extraLines } : {}) }),
+        body: JSON.stringify({
+          appointmentId,
+          ...(extraLines.length ? { extraLines } : {}),
+          // Sent only when entered, so a discount agreed at booking still applies.
+          ...(discount.trim() !== "" ? { discountAmount: discountValue } : {}),
+        }),
       });
       const j = await res.json().catch(() => null);
       if (!res.ok) throw new Error(j?.message ?? "Could not generate invoice");
@@ -225,10 +235,29 @@ export function AppointmentBill({
         </button>
       )}
 
+      {/* Discount — ₹ or %, taken off before GST */}
+      <DiscountInput
+        id={`bill-discount-${appointmentId}`} raw={discount} mode={discountMode}
+        onRaw={setDiscount} onMode={setDiscountMode} subtotal={previewTotal}
+        inputClassName={inputCls}
+      />
+
       {/* Total + actions */}
-      <div className="flex items-center justify-between border-t border-gray-200 pt-2 dark:border-(--sa-border)">
-        <span className="text-xs text-gray-500 dark:text-(--sa-text-2)">Subtotal (pre-tax)</span>
-        <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-(--sa-text)">{money(previewTotal)}</span>
+      <div className="space-y-0.5 border-t border-gray-200 pt-2 dark:border-(--sa-border)">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-500 dark:text-(--sa-text-2)">Subtotal</span>
+          <span className="text-sm tabular-nums text-gray-900 dark:text-(--sa-text)">{money(previewTotal)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-500 dark:text-(--sa-text-2)">Discount</span>
+          <span className="text-sm tabular-nums text-gray-900 dark:text-(--sa-text)">
+            {discountValue > 0 ? `− ${money(discountValue)}` : money(0)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-500 dark:text-(--sa-text-2)">Taxable (GST added on the invoice)</span>
+          <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-(--sa-text)">{money(previewTotal - discountValue)}</span>
+        </div>
       </div>
 
       {error && <p className="text-[11px] text-red-500">{error}</p>}

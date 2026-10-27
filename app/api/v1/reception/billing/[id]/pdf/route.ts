@@ -17,6 +17,14 @@ import {
 // built by the SAME function, so the two can never drift into different documents.
 // `?inline=true` renders it in the browser's viewer instead of downloading —
 // that is the Preview and Print path, which needs no second endpoint.
+//
+// Node runtime and a 60 s ceiling, as on the reports PDF route: a cold start
+// loads @react-pdf's layout engine and fonts before rendering, which can outrun
+// a serverless platform's short default limit — the request then dies with a
+// timeout and the download never arrives.
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { user, error } = await requireAuth(
     req,
@@ -53,7 +61,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     );
     const inline = url.searchParams.get("inline") === "true";
 
-    return new NextResponse(buffer.buffer as ArrayBuffer, {
+    // Exactly the PDF's bytes. `buffer.buffer` is the whole memory block the
+    // Buffer sits in: where Node shares one block between small buffers, that
+    // sent other data alongside (or instead of) the PDF and the browser could
+    // not open it. `new Uint8Array(buffer)` copies just these bytes.
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
@@ -61,6 +73,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           invoice.invoiceNo
         )}"`,
         "Content-Length": String(buffer.length),
+        // A customer's invoice: never cached by a CDN or shared proxy, and never
+        // re-sniffed as anything but a PDF.
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   } catch (e) {

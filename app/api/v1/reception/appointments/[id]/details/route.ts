@@ -15,7 +15,9 @@
 // check: this records work that happened, it does not reserve a future slot.
 //
 // BODY (both optional, at least one):
-//   assignments: [{ serviceId, workerId }]        (workerId null = unassign)
+//   assignments: [{ serviceId, workerId, appointmentServiceId? }]  (workerId null = unassign)
+//                appointmentServiceId picks ONE line when a service repeats for
+//                a group (two haircuts, two stylists); without it, the first line.
 //   details:     { chairCabinNo?, roomNo?, notes?, assistantWorkerId? }   (null/"" clears)
 //
 // ACCESS : RECEPTIONIST, BRANCH_ADMIN (own branch) · SUPER_ADMIN, OWNER (any)
@@ -32,7 +34,7 @@ import { updateSheet, type SheetEntry } from "@/lib/appointment-work";
 
 const LOCKED: AppointmentStatus[] = [AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW];
 
-type Assignment = { serviceId: string; workerId: string | null };
+type Assignment = { serviceId: string; workerId: string | null; appointmentServiceId?: string };
 
 /** undefined = leave alone; null = clear; string = set (trimmed, capped). */
 function textField(value: unknown, max: number): string | null | undefined {
@@ -66,10 +68,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       for (const a of body.assignments as unknown[]) {
         const serviceId = (a as { serviceId?: unknown })?.serviceId;
         const workerId = (a as { workerId?: unknown })?.workerId;
+        const lineId = (a as { appointmentServiceId?: unknown })?.appointmentServiceId;
         if (typeof serviceId !== "string" || !(workerId === null || typeof workerId === "string")) {
           return err("Validation failed", 422, { assignments: ["Each entry needs a service and a staff member (or null)"] });
         }
-        assignments.push({ serviceId, workerId: workerId?.trim() || null });
+        assignments.push({
+          serviceId,
+          workerId: workerId?.trim() || null,
+          ...(typeof lineId === "string" && lineId ? { appointmentServiceId: lineId } : {}),
+        });
       }
     }
 
@@ -114,8 +121,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     // ── Validate staff ───────────────────────────────────────────────────────
-    const byService = new Map(appointment.services.map((s) => [s.serviceId, s]));
-    if (assignments.some((a) => !byService.has(a.serviceId))) {
+    // The line an assignment targets: the named one when the desk says which
+    // person (a repeated service), else the service's first line — as before.
+    const lineFor = (a: Assignment) =>
+      a.appointmentServiceId
+        ? appointment.services.find((s) => s.id === a.appointmentServiceId && s.serviceId === a.serviceId)
+        : appointment.services.find((s) => s.serviceId === a.serviceId);
+    if (assignments.some((a) => !lineFor(a))) {
       return err("Validation failed", 422, { assignments: ["A service is not part of this appointment"] });
     }
 
@@ -134,13 +146,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    const changed = assignments.filter((a) => byService.get(a.serviceId)!.workerId !== a.workerId);
+    const changed = assignments.filter((a) => lineFor(a)!.workerId !== a.workerId);
 
     // Lead stylist on the appointment row: keep the current one if they still do
     // at least one service, otherwise the first person assigned. Worker screens
     // and reports key on this field, so it must not be left empty or stale.
     const finalWorkers = appointment.services.map((s) => {
-      const a = assignments.find((x) => x.serviceId === s.serviceId);
+      const a = assignments.find((x) => lineFor(x)!.id === s.id);
       return a ? a.workerId : s.workerId; // an explicit null clears the line
     });
     // Only re-derived when staff actually changed — a notes-only edit must never
@@ -175,7 +187,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await prisma.$transaction(async (tx) => {
       for (const a of changed) {
         await tx.appointmentService.update({
-          where: { id: byService.get(a.serviceId)!.id },
+          where: { id: lineFor(a)!.id },
           data: { workerId: a.workerId },
         });
       }
@@ -190,7 +202,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         const remove: SheetEntry[] = [];
         const add: SheetEntry[] = [];
         for (const a of changed) {
-          const line = byService.get(a.serviceId)!;
+          const line = lineFor(a)!;
           const entry = { serviceName: line.service.name, price: Number(line.price ?? 0) };
           if (line.workerId) remove.push({ workerId: line.workerId, ...entry });
           if (a.workerId) add.push({ workerId: a.workerId, ...entry });
@@ -212,7 +224,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         roomNo: appointment.roomNo,
         notes: appointment.notes,
         assistantWorkerId: appointment.assistantWorkerId,
-        services: changed.map((a) => ({ serviceId: a.serviceId, workerId: byService.get(a.serviceId)!.workerId })),
+        services: changed.map((a) => ({ serviceId: a.serviceId, workerId: lineFor(a)!.workerId })),
       })),
       newValue: JSON.parse(JSON.stringify({ ...apptData, services: changed })),
     });

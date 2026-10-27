@@ -1,7 +1,8 @@
 // ============================================================================
 // MODULE : Attendance — shared page compositions (Server Components)
 //
-// Super Admin and Branch Admin get the SAME three screens. The only differences
+// Super Admin and Branch Admin get the SAME screens (records, lunch breaks,
+// calendar, reports). The only differences
 // are the base path, whether the branch filter is offered, and which capabilities
 // the role carries — all of which are props.
 //
@@ -21,7 +22,8 @@ import prisma from "@/lib/db";
 import { apiGet, type Paginated, type WorkerListItem } from "@/lib/api-server";
 import { API } from "@/lib/endpoints";
 import { PageHeader } from "@/components/shared/ui";
-import { capabilitiesFor, type AttendanceCapability } from "@/lib/attendance";
+import { attendanceDateKey, capabilitiesFor, formatDateKey, type AttendanceCapability } from "@/lib/attendance";
+import { defaultAttendanceRange } from "@/lib/attendance-periods";
 import type { UserType } from "@/types/api";
 import { AttendanceTabs } from "@/components/attendance/attendance-tabs";
 import { AttendanceToolbar } from "@/components/attendance/attendance-toolbar";
@@ -29,6 +31,7 @@ import { AttendanceStatsCards } from "@/components/attendance/attendance-stats-c
 import { AttendanceView } from "@/components/attendance/attendance-view";
 import { AttendanceCalendarGrid } from "@/components/attendance/attendance-calendar";
 import { AttendanceReportView } from "@/components/attendance/attendance-report-view";
+import { BreakHistoryView } from "@/components/attendance/break-history-view";
 import { AttendanceError, friendlyError } from "@/components/attendance/attendance-ui";
 import {
   EMPTY_SUMMARY,
@@ -87,7 +90,7 @@ export function buildSurface(options: {
 /** Whitelisted before they reach the API — junk params never leave the page. */
 const PASSTHROUGH = [
   "search", "branchId", "workerId", "shiftId", "status", "entryType",
-  "from", "to", "date", "late", "overtime",
+  "from", "to", "date", "late", "overtime", "hasBreak", "breakOver",
   "sortBy", "sortOrder", "page", "limit",
 ] as const;
 
@@ -99,6 +102,26 @@ function toQuery(raw: RawSearchParams, extra: readonly string[] = []): URLSearch
     if (single?.trim()) params.set(key, single.trim());
   }
   return params;
+}
+
+/** The salon's (IST) calendar day as "YYYY-MM-DD". */
+function salonToday(): string {
+  return formatDateKey(attendanceDateKey());
+}
+
+/**
+ * The list's range: whatever the URL names, else the CURRENT CALENDAR MONTH
+ * (1st–last of this month in IST) — never an unbounded "all time", and never a
+ * rolling 30 days. Applied to the list query only: the summary cards read
+ * `from` as their single day, and keep showing today.
+ */
+function withDefaultRange(query: URLSearchParams): URLSearchParams {
+  if (query.has("from") || query.has("to") || query.has("date")) return query;
+  const range = defaultAttendanceRange(salonToday());
+  const next = new URLSearchParams(query);
+  next.set("from", range.from);
+  next.set("to", range.to);
+  return next;
 }
 
 const ENDPOINTS = {
@@ -173,9 +196,10 @@ export async function AttendanceRecordsPage({
   searchParams: RawSearchParams;
 }) {
   const query = toQuery(searchParams);
+  const listQuery = withDefaultRange(query);
 
   const [listResult, summaryResult, options] = await Promise.all([
-    apiGet<Paginated<AttendanceRow>>(`${API.admin.attendance}?${query.toString()}`),
+    apiGet<Paginated<AttendanceRow>>(`${API.admin.attendance}?${listQuery.toString()}`),
     apiGet<AttendanceSummary>(`${API.admin.attendanceSummary}?${query.toString()}`),
     loadFilterOptions(surface.isGlobal),
   ]);
@@ -195,6 +219,7 @@ export async function AttendanceRecordsPage({
         workers={options.workers}
         shifts={options.shifts}
         showBranchFilter={surface.isGlobal}
+        period={{ today: salonToday() }}
       />
 
       {!listResult.ok ? (
@@ -210,6 +235,75 @@ export async function AttendanceRecordsPage({
           capabilities={surface.capabilities}
           endpoints={{ ...ENDPOINTS, mark: surface.markEndpoint }}
           showBranch={surface.isGlobal}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// LUNCH BREAKS
+// ============================================================================
+
+/**
+ * Who went on lunch, when they came back, and whether it ran past 30 minutes.
+ * The attendance list API narrowed to days with a break (?hasBreak=true), so
+ * branch scoping, filters and paging are exactly the records page's.
+ */
+export async function AttendanceBreaksPage({
+  surface,
+  searchParams,
+}: {
+  surface: AttendanceSurface;
+  searchParams: RawSearchParams;
+}) {
+  const query = withDefaultRange(toQuery(searchParams));
+  query.set("hasBreak", "true");
+  if (!query.has("sortBy")) query.set("sortBy", "date");
+
+  // The over-limit count for the whole range: same filters, one row.
+  const overQuery = new URLSearchParams(query);
+  overQuery.set("breakOver", "true");
+  overQuery.set("limit", "1");
+  overQuery.delete("page");
+
+  const [listResult, overResult, options] = await Promise.all([
+    apiGet<Paginated<AttendanceRow>>(`${API.admin.attendance}?${query.toString()}`),
+    apiGet<Paginated<AttendanceRow>>(`${API.admin.attendance}?${overQuery.toString()}`),
+    loadFilterOptions(surface.isGlobal),
+  ]);
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow={surface.eyebrow}
+        title="Lunch breaks"
+        subtitle="When each worker went for lunch and came back. One break a day, 30 minutes allowed — longer breaks are shown in red."
+      />
+
+      <AttendanceTabs basePath={surface.basePath} shiftsPath={surface.shiftsPath} />
+
+      <AttendanceToolbar
+        branches={options.branches}
+        workers={options.workers}
+        shifts={options.shifts}
+        showBranchFilter={surface.isGlobal}
+        period={{ today: salonToday() }}
+        breakOverToggle
+      />
+
+      {!listResult.ok ? (
+        <AttendanceError message={friendlyError(listResult.status, listResult.message)} />
+      ) : (
+        <BreakHistoryView
+          rows={listResult.data.items}
+          total={listResult.data.total}
+          overTotal={overResult.ok ? overResult.data.total : null}
+          page={listResult.data.page}
+          limit={listResult.data.limit}
+          totalPages={listResult.data.totalPages}
+          showBranch={surface.isGlobal}
+          exportEndpoint={ENDPOINTS.export}
         />
       )}
     </div>

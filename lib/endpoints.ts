@@ -200,6 +200,7 @@ export const API = {
 
     // Admin — Branch service pricing (Gauransh)
     branchServices:   `${BASE}/admin/branch-services`,
+    branchServicePins: `${BASE}/admin/branch-services/pins`,
 
     // Admin — Homepage CMS (Gauransh) — SUPER_ADMIN only
     cmsHomepage:        `${BASE}/admin/cms/homepage`,

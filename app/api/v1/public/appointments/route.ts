@@ -5,7 +5,10 @@
 // METHOD
 //   POST — Book an appointment from the public website with NO account and NO
 //          sign-in. { branchId, serviceIds, workerId?, appointmentDate,
-//          startTime, customerName, customerPhone, customerEmail?, notes? }
+//          startTime, customerName, customerPhone, customerEmail?, notes?,
+//          serviceLines? }
+//          serviceLines — one { serviceId, workerId? } per PERSON, so a group
+//          can book the same service more than once, each with a stylist.
 //
 // THE BUG THIS FIXES
 // ------------------
@@ -61,6 +64,15 @@ const GuestBookingSchema = z.object({
     .nullable()
     .optional(),
   notes: z.string().trim().max(500).nullable().optional(),
+  serviceLines: z
+    .array(
+      z.object({
+        serviceId: z.string().trim().min(1),
+        workerId: z.string().trim().min(1).nullable().optional(),
+      })
+    )
+    .max(20, "At most 20 people in one booking")
+    .optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -100,6 +112,7 @@ export async function POST(req: NextRequest) {
         appointmentDate: input.appointmentDate,
         startTime: input.startTime,
         notes: input.notes ?? null,
+        serviceLines: input.serviceLines,
       },
       {
         source: "ONLINE",

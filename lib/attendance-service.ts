@@ -16,6 +16,7 @@ import prisma from "@/lib/db";
 import { branchWhere, type BranchScope } from "@/lib/branch-scope";
 import {
   ATTENDANCE_STATUSES,
+  BREAK_ALLOWANCE_MINUTES,
   anchorShift,
   attendanceDateKey,
   computeMetrics,
@@ -573,6 +574,10 @@ export type AttendanceFilters = {
   status: AttendanceStatus | null;
   lateOnly: boolean;
   overtimeOnly: boolean;
+  /** `?hasBreak=true` — only days with a lunch break (the Breaks history). */
+  breakOnly: boolean;
+  /** `?breakOver=true` — only breaks longer than the 30-minute allowance. */
+  breakOverOnly: boolean;
   entryType: EntryType;
   search: string | null;
   sortBy: string;
@@ -615,6 +620,8 @@ export function parseAttendanceFilters(url: URL): AttendanceFilters {
     status: isStatus(statusRaw) ? statusRaw : null,
     lateOnly: params.get("late") === "true",
     overtimeOnly: params.get("overtime") === "true",
+    breakOnly: params.get("hasBreak") === "true",
+    breakOverOnly: params.get("breakOver") === "true",
     entryType: isEntryType(entryTypeRaw) ? entryTypeRaw : "all",
     search: params.get("search")?.trim() || null,
     sortBy: SORTABLE.has(sortByRaw) ? sortByRaw : "date",
@@ -630,10 +637,25 @@ export function parseAttendanceFilters(url: URL): AttendanceFilters {
  */
 export function buildAttendanceWhere(
   filters: AttendanceFilters,
-  scope: BranchScope
+  scope: BranchScope,
+  now: Date = new Date()
 ): Prisma.AttendanceWhereInput {
   return {
     ...branchWhere(scope),
+    ...(filters.breakOnly ? { breakStart: { not: null } } : {}),
+    // Over the allowance: a finished break longer than 30 minutes, or one still
+    // open that began more than 30 minutes ago.
+    ...(filters.breakOverOnly
+      ? {
+          OR: [
+            { breakEnd: { not: null }, breakMinutes: { gt: BREAK_ALLOWANCE_MINUTES } },
+            {
+              breakEnd: null,
+              breakStart: { not: null, lt: new Date(now.getTime() - BREAK_ALLOWANCE_MINUTES * 60_000) },
+            },
+          ],
+        }
+      : {}),
     ...(filters.workerId ? { workerId: filters.workerId } : {}),
     ...(filters.shiftId ? { shiftId: filters.shiftId } : {}),
     ...(filters.status ? { status: filters.status } : {}),

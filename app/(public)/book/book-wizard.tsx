@@ -213,6 +213,20 @@ function serviceMatchesGender(service: ApiService, filter: GenderFilter) {
 /** How far ahead the salon accepts bookings, in days from today. */
 const MAX_ADVANCE_DAYS = 90;
 
+/**
+ * How many people are having each selected service — "2 haircuts" for two
+ * people on one booking. Absent means 1, so a normal booking is unchanged.
+ */
+type People = Record<string, number>;
+const MAX_PEOPLE = 10;
+const qty = (people: People | undefined, id: string) => Math.max(1, people?.[id] ?? 1);
+const totalOf = (services: PreloadedService[], people?: People) =>
+  services.reduce((sum, s) => sum + s.price * qty(people, s.id), 0);
+const minutesOf = (services: PreloadedService[], people?: People) =>
+  services.reduce((sum, s) => sum + s.duration * qty(people, s.id), 0);
+/** "Haircut ×2" when more than one person is having it. */
+const withQty = (name: string, n: number) => (n > 1 ? `${name} ×${n}` : name);
+
 /* ── top booking bar: shows selections made so far ──────────────────────────── */
 
 function BookingBar({
@@ -227,9 +241,11 @@ function BookingBar({
   onChangeWorker,
   onChangeSlot,
   className,
+  people,
 }: {
   branch: PreloadedBranch | null;
   services: PreloadedService[];
+  people?: People;
   worker: ApiWorker | null;
   workerChosen: boolean;
   date: string;
@@ -240,7 +256,7 @@ function BookingBar({
   onChangeSlot: () => void;
   className?: string;
 }) {
-  const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
+  const totalPrice = totalOf(services, people);
   if (!branch && services.length === 0) return null;
 
   // Chips truncate instead of growing: a long branch name used to set the
@@ -262,7 +278,7 @@ function BookingBar({
         <button onClick={onChangeService} className={chipCls}>
           <Scissors className="size-3.5 shrink-0 text-stone-400" />
           <span className={labelCls}>
-            {services.length === 1 ? services[0].name : `${services.length} services`}
+            {services.length === 1 ? withQty(services[0].name, qty(people, services[0].id)) : `${services.length} services`}
           </span>
           <span className="shrink-0 text-xs font-semibold text-stone-100">
             ₹{totalPrice.toLocaleString("en-IN")}
@@ -387,20 +403,22 @@ function BookingProgressPanel({
   current,
   branch,
   services,
+  people,
 }: {
   current: Step;
   branch: PreloadedBranch | null;
   services: PreloadedService[];
+  people?: People;
 }) {
   const idx = STEPS.findIndex((s) => s.key === current);
-  const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
+  const totalPrice = totalOf(services, people);
   const details: Record<Step, string> = {
     branch: branch?.name ?? STEP_HINTS.branch,
     service:
       services.length === 0
         ? STEP_HINTS.service
         : services.length === 1
-          ? `${services[0].name} ₹${services[0].price.toLocaleString("en-IN")}`
+          ? `${withQty(services[0].name, qty(people, services[0].id))} ₹${totalPrice.toLocaleString("en-IN")}`
           : `${services.length} services ₹${totalPrice.toLocaleString("en-IN")}`,
     worker: STEP_HINTS.worker,
     slot: STEP_HINTS.slot,
@@ -580,11 +598,16 @@ function ServiceStep({
   selected,
   onToggle,
   onContinue,
+  people,
+  onPeople,
 }: {
   branchId: string;
   selected: PreloadedService[];
   onToggle: (s: PreloadedService) => void;
   onContinue: () => void;
+  people: People;
+  /** Set how many people are having a selected service. */
+  onPeople: (serviceId: string, count: number) => void;
 }) {
   const selectedIds = new Set(selected.map((s) => s.id));
   // Result is tagged with the request it answers, so "loading" is derived from
@@ -777,9 +800,10 @@ function ServiceStep({
                 {items.map((s) => {
                   const price = s.branchPricings?.[0]?.price ?? s.basePrice;
                   const isSelected = selectedIds.has(s.id);
+                  const count = qty(people, s.id);
                   return (
+                    <div key={s.id} className="flex flex-col gap-1.5">
                     <button
-                      key={s.id}
                       type="button"
                       onClick={() => onToggle({ ...s, price })}
                       className={`group relative flex h-full flex-col overflow-hidden rounded-3xl border text-left shadow-sm transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_20px_60px_-36px_rgba(255,255,255,0.2)] ${
@@ -825,6 +849,38 @@ function ServiceStep({
                         </div>
                       </div>
                     </button>
+                    {/* Booking for more than one person? e.g. two haircuts. */}
+                    {isSelected && (
+                      <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/10 bg-stone-900 px-3 py-1.5">
+                        <span className="text-xs text-stone-400">
+                          People <span className="text-stone-500">· ₹{(price * count).toLocaleString("en-IN")}</span>
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => onPeople(s.id, count - 1)}
+                            disabled={count <= 1}
+                            aria-label={`Fewer people for ${s.name}`}
+                            className="inline-flex size-7 items-center justify-center rounded-full border border-white/15 text-stone-200 transition hover:bg-white/10 disabled:opacity-30"
+                          >
+                            −
+                          </button>
+                          <span className="w-6 text-center text-sm font-semibold tabular-nums text-stone-100" aria-live="polite">
+                            {count}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => onPeople(s.id, count + 1)}
+                            disabled={count >= MAX_PEOPLE}
+                            aria-label={`More people for ${s.name}`}
+                            className="inline-flex size-7 items-center justify-center rounded-full border border-white/15 text-stone-200 transition hover:bg-white/10 disabled:opacity-30"
+                          >
+                            +
+                          </button>
+                        </span>
+                      </div>
+                    )}
+                    </div>
                   );
                 })}
               </div>
@@ -1264,17 +1320,23 @@ function WorkerStep({
 function SlotStep({
   branch,
   services,
+  people,
   worker,
   onSelect,
 }: {
   branch: PreloadedBranch;
   services: PreloadedService[];
+  people?: People;
   worker: ApiWorker | null;
   onSelect: (date: string, slot: string) => void;
 }) {
-  const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
-  const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
-  const serviceIdKey = services.map((s) => s.id).join(",");
+  const totalDuration = minutesOf(services, people);
+  const totalPrice = totalOf(services, people);
+  // Extra people for a service make the slot longer, as the booking will be.
+  const extraKey = services
+    .flatMap((s) => Array<string>(qty(people, s.id) - 1).fill(s.id))
+    .join(",");
+  const serviceIdKey = services.map((s) => s.id).join(",") + (extraKey ? `+${extraKey}` : "");
   const [selectedDate, setSelectedDate] = React.useState(() => today());
   const [result, setResult] = React.useState<{
     key: string;
@@ -1294,11 +1356,13 @@ function SlotStep({
     //
     // With a workerId the API returns ONLY that stylist's free slots, so one
     // stylist's bookings never remove slots from another's schedule.
+    const [ids, extras] = serviceIdKey.split("+");
     const q = new URLSearchParams({
       branchId: branch.id,
-      serviceIds: serviceIdKey,
+      serviceIds: ids,
       date: selectedDate,
     });
+    if (extras) q.set("extraServiceIds", extras);
     if (worker) q.set("workerId", worker.id);
     const reqKey = `${branch.id}|${serviceIdKey}|${worker?.id ?? ""}|${selectedDate}`;
 
@@ -1477,7 +1541,7 @@ function SlotStep({
             </p>
             {services.map((s) => (
               <p key={s.id} className="mt-1 font-semibold break-words text-stone-100">
-                {s.name}
+                {withQty(s.name, qty(people, s.id))}
               </p>
             ))}
             <p className="text-xs text-stone-500">{totalDuration} min total</p>
@@ -1504,11 +1568,113 @@ function SlotStep({
   );
 }
 
+/* ── group booking: a stylist per person ────────────────────────────────────── */
+
+/**
+ * Shown on the confirm step when a service is booked for more than one person.
+ * Person 1 of every service is the stylist chosen in the stylist step; each
+ * extra person can keep that stylist, take any available one, or name another
+ * stylist who offers the service. `choices[serviceId][i]` is person i + 2:
+ * "same" | "any" | a worker id.
+ */
+function GroupStylists({
+  branchId,
+  services,
+  people,
+  lead,
+  choices,
+  onChoose,
+}: {
+  branchId: string;
+  services: PreloadedService[];
+  people: People;
+  lead: ApiWorker | null;
+  choices: Record<string, string[]>;
+  onChoose: (serviceId: string, personIndex: number, value: string) => void;
+}) {
+  const group = services.filter((s) => qty(people, s.id) > 1);
+  const groupKey = group.map((s) => s.id).join(",");
+  const [staff, setStaff] = React.useState<Record<string, ApiWorker[]>>({});
+
+  // Stylists who offer each repeated service at this branch.
+  React.useEffect(() => {
+    let cancelled = false;
+    const ids = groupKey.split(",").filter(Boolean);
+    Promise.all(
+      ids.map((id) =>
+        fetch(`${API.public.workers}?${new URLSearchParams({ branchId, serviceIds: id, limit: "50" })}`)
+          .then((r) => r.json())
+          .then((j) => [id, (j.data?.items ?? []) as ApiWorker[]] as const)
+          .catch(() => [id, [] as ApiWorker[]] as const),
+      ),
+    ).then((entries) => {
+      if (!cancelled) setStaff(Object.fromEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [branchId, groupKey]);
+
+  if (group.length === 0) return null;
+  const leadName = lead ? workerName(lead) : null;
+
+  return (
+    <div className="mb-5 rounded-3xl border border-white/10 bg-stone-900 p-4 sm:p-5">
+      <p className="flex items-center gap-2 text-sm font-semibold text-stone-100">
+        <Users className="size-4 text-stone-400" aria-hidden /> Who does what
+      </p>
+      <p className="mt-0.5 text-xs text-stone-500">
+        Each person can have their own stylist, or the same one for everyone.
+      </p>
+      <div className="mt-4 space-y-4">
+        {group.map((svc) => (
+          <div key={svc.id}>
+            <p className="text-xs font-semibold uppercase tracking-widest text-stone-500">
+              {svc.name} · {qty(people, svc.id)} people
+            </p>
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-stone-400">Person 1</span>
+                <span className="text-right text-stone-200">{leadName ?? "Any available stylist"}</span>
+              </div>
+              {Array.from({ length: qty(people, svc.id) - 1 }, (_, i) => {
+                const value = choices[svc.id]?.[i] ?? "same";
+                return (
+                  <label key={i} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="shrink-0 text-stone-400">Person {i + 2}</span>
+                    <select
+                      value={value}
+                      onChange={(e) => onChoose(svc.id, i, e.target.value)}
+                      className="h-9 min-w-0 max-w-[65%] rounded-xl border border-white/10 bg-stone-950 px-2 text-sm text-stone-100 outline-none focus:border-stone-400/40"
+                    >
+                      <option value="same">{leadName ? `Same stylist (${leadName})` : "Any available stylist"}</option>
+                      {leadName && <option value="any">Any available stylist</option>}
+                      {(staff[svc.id] ?? [])
+                        .filter((w) => w.id !== lead?.id)
+                        .map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {workerName(w)}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── step 4: confirm ────────────────────────────────────────────────────────── */
 
 function ConfirmStep({
   branch,
   services,
+  people,
+  groupPanel,
   worker,
   date,
   slot,
@@ -1521,6 +1687,9 @@ function ConfirmStep({
 }: {
   branch: PreloadedBranch;
   services: PreloadedService[];
+  people?: People;
+  /** "Who does what" — a stylist per person, shown when a service repeats. */
+  groupPanel?: React.ReactNode;
   worker: ApiWorker | null;
   date: string;
   slot: string;
@@ -1534,8 +1703,8 @@ function ConfirmStep({
       "Confirm" button before the form it depends on. */
   inlinePanel?: React.ReactNode;
 }) {
-  const totalDuration = services.reduce((sum, s) => sum + s.duration, 0);
-  const totalPrice = services.reduce((sum, s) => sum + s.price, 0);
+  const totalDuration = minutesOf(services, people);
+  const totalPrice = totalOf(services, people);
   const end = endTime(slot, totalDuration);
   const priceStr = `₹${totalPrice.toLocaleString("en-IN")}`;
   const initials = worker
@@ -1592,14 +1761,16 @@ function ConfirmStep({
         {/* Detail grid with icons */}
         <div className="grid grid-cols-1 gap-px bg-white/5 sm:grid-cols-2">
           <DetailCell icon={Scissors} label={services.length === 1 ? "Service" : "Services"}>
-            {services.length === 1 ? (
+            {services.length === 1 && qty(people, services[0].id) === 1 ? (
               <span>{services[0].name}</span>
             ) : (
               <ul className="space-y-1">
                 {services.map((s) => (
                   <li key={s.id} className="flex items-center justify-between gap-3">
-                    <span>{s.name}</span>
-                    <span className="text-xs font-normal text-stone-400">₹{s.price.toLocaleString("en-IN")}</span>
+                    <span>{withQty(s.name, qty(people, s.id))}</span>
+                    <span className="text-xs font-normal text-stone-400">
+                      ₹{(s.price * qty(people, s.id)).toLocaleString("en-IN")}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -1652,6 +1823,8 @@ function ConfirmStep({
           </p>
         </div>
       </div>
+
+      {groupPanel}
 
       {/* Trust strip */}
       <div className="mb-5 grid grid-cols-3 gap-2">
@@ -2010,6 +2183,9 @@ export function BookWizard({
   // tracks whether the customer has actually made the choice yet.
   const [worker, setWorker] = React.useState<ApiWorker | null>(null);
   const [workerChosen, setWorkerChosen] = React.useState(false);
+  // People per service ("2 haircuts") and, for each extra person, their stylist.
+  const [people, setPeople] = React.useState<People>({});
+  const [extraStylists, setExtraStylists] = React.useState<Record<string, string[]>>({});
   const [date, setDate] = React.useState("");
   const [slot, setSlot] = React.useState("");
   const [notes, setNotes] = React.useState("");
@@ -2103,6 +2279,21 @@ export function BookWizard({
       return;
     }
 
+    // One line per PERSON when any service is for more than one person; a normal
+    // booking sends exactly what it always did.
+    const isGroup = services.some((s) => qty(people, s.id) > 1);
+    const serviceLines = isGroup
+      ? services.flatMap((s) =>
+          Array.from({ length: qty(people, s.id) }, (_, i) => {
+            const choice = i === 0 ? "same" : (extraStylists[s.id]?.[i - 1] ?? "same");
+            return {
+              serviceId: s.id,
+              workerId: choice === "same" ? (worker?.id ?? null) : choice === "any" ? null : choice,
+            };
+          }),
+        )
+      : null;
+
     setConfirmLoading(true);
     setConfirmError(null);
     try {
@@ -2114,6 +2305,7 @@ export function BookWizard({
           // Omitted entirely when the customer picked "any stylist".
           ...(worker ? { workerId: worker.id } : {}),
           serviceIds: services.map((s) => s.id),
+          ...(serviceLines ? { serviceLines } : {}),
           appointmentDate: date,
           startTime: slot,
           customerName: custName.trim(),
@@ -2257,6 +2449,7 @@ export function BookWizard({
     <BookingBar
       branch={branch}
       services={services}
+      people={people}
       worker={worker}
       workerChosen={workerChosen}
       date={date}
@@ -2265,6 +2458,8 @@ export function BookWizard({
       onChangeBranch={() => {
         setBranch(null);
         setServices([]);
+        setPeople({});
+        setExtraStylists({});
         resetWorker();
         setDate("");
         setSlot("");
@@ -2316,6 +2511,8 @@ export function BookWizard({
             onSelect={(b) => {
               setBranch(b);
               setServices([]);
+              setPeople({});
+              setExtraStylists({});
               resetWorker();
               setDate("");
               setSlot("");
@@ -2336,6 +2533,8 @@ export function BookWizard({
                   onClick={() => {
                     setBranch(null);
                     setServices([]);
+                    setPeople({});
+                    setExtraStylists({});
                     resetWorker();
                     setDate("");
                     setSlot("");
@@ -2349,11 +2548,20 @@ export function BookWizard({
               <ServiceStep
                 branchId={branch.id}
                 selected={services}
+                people={people}
+                onPeople={(id, n) =>
+                  setPeople((prev) => ({ ...prev, [id]: Math.min(MAX_PEOPLE, Math.max(1, n)) }))
+                }
                 onToggle={(s) => {
-                  const next = services.some((p) => p.id === s.id)
+                  const removing = services.some((p) => p.id === s.id);
+                  const next = removing
                     ? services.filter((p) => p.id !== s.id)
                     : [...services, s];
                   setServices(next);
+                  if (removing) {
+                    setPeople(({ [s.id]: _gone, ...rest }) => rest);
+                    setExtraStylists(({ [s.id]: _gone, ...rest }) => rest);
+                  }
                   if (next.length === 0) {
                     resetWorker();
                     setDate("");
@@ -2373,6 +2581,7 @@ export function BookWizard({
                 current={step}
                 branch={branch}
                 services={services}
+                people={people}
               />
             </div>
           </div>
@@ -2419,6 +2628,7 @@ export function BookWizard({
             <SlotStep
               branch={branch}
               services={services}
+              people={people}
               worker={worker}
               onSelect={(d, s) => {
                 setDate(d);
@@ -2471,7 +2681,14 @@ export function BookWizard({
               <div className="flex justify-between gap-4">
                 <dt className="shrink-0 text-white/50">Services</dt>
                 <dd className="min-w-0 text-right break-words text-white">
-                  {booked.services.map((s) => s.name).join(", ")}
+                  {Object.entries(
+                    booked.services.reduce<Record<string, number>>((acc, s) => {
+                      acc[s.name] = (acc[s.name] ?? 0) + 1;
+                      return acc;
+                    }, {}),
+                  )
+                    .map(([name, n]) => withQty(name, n))
+                    .join(", ")}
                 </dd>
               </div>
               <div className="flex justify-between gap-4 border-t border-white/10 pt-2">
@@ -2520,6 +2737,23 @@ export function BookWizard({
               <ConfirmStep
                 branch={branch}
                 services={services}
+                people={people}
+                groupPanel={
+                  <GroupStylists
+                    branchId={branch.id}
+                    services={services}
+                    people={people}
+                    lead={worker}
+                    choices={extraStylists}
+                    onChoose={(serviceId, i, value) =>
+                      setExtraStylists((prev) => {
+                        const list = [...(prev[serviceId] ?? [])];
+                        list[i] = value;
+                        return { ...prev, [serviceId]: list };
+                      })
+                    }
+                  />
+                }
                 worker={worker}
                 date={date}
                 slot={slot}

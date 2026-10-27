@@ -40,6 +40,7 @@ import {
   type InvoiceLine,
 } from "@/lib/billing-service";
 import { applyStockMovement, InsufficientStockError } from "@/lib/stock";
+import { groupServiceLines } from "@/lib/appointment-lines";
 
 const MODULE = "BILLING";
 const ROLES = ["RECEPTIONIST", "BRANCH_ADMIN", "SUPER_ADMIN", "OWNER"] as const;
@@ -79,7 +80,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST — Body: { appointmentId, discountAmount?, tipAmount?, roundOff?, notes? }
+// POST — Body: { appointmentId, discountAmount?, tipAmount?, roundOff?, notes?, extraLines? }
+//   extraLines MISC may carry an optional workerId: the stylist who did that
+//   custom service, credited on the Sheet (it is not stored on the invoice).
 export async function POST(req: NextRequest) {
   const { user, error } = await requireAuth(req, ...ROLES);
   if (error) return error;
@@ -122,16 +125,11 @@ export async function POST(req: NextRequest) {
     const blocked = appointmentBillableReason(appointment.status, Boolean(appointment.invoice));
     if (blocked) return err(blocked, 409);
 
-    // One line per booked service / add-on / package.
+    // One line per booked service + price (the same service for several people
+    // is ONE line with that quantity — lib/appointment-lines.ts; the per-person
+    // rows and their stylists are untouched), and per add-on / package.
     const lines: InvoiceLine[] = [
-      ...appointment.services.map((s) => ({
-        type: "SERVICE",
-        refId: s.serviceId,
-        name: s.service.name,
-        quantity: 1,
-        unitPrice: s.price,
-        total: s.price,
-      })),
+      ...groupServiceLines(appointment.services),
       ...appointment.addOns.map((a) => ({
         type: "ADDON",
         refId: a.addOnId,
@@ -190,10 +188,12 @@ export async function POST(req: NextRequest) {
 
     // Products added here must have their stock taken when the invoice commits.
     const productMovements: { productId: string; quantity: number; name: string }[] = [];
+    // Custom (MISC) services with a stylist — credited on the Sheet after billing.
+    const customStaff: { workerId: string; name: string; total: number }[] = [];
 
     for (const [i, raw] of extraLinesRaw.entries()) {
       if (!raw || typeof raw !== "object") continue;
-      const l = raw as { kind?: unknown; id?: unknown; name?: unknown; quantity?: unknown; unitPrice?: unknown };
+      const l = raw as { kind?: unknown; id?: unknown; name?: unknown; quantity?: unknown; unitPrice?: unknown; workerId?: unknown };
       const qty = Number.isFinite(Number(l.quantity))
         ? Math.max(1, Math.min(999, Math.trunc(Number(l.quantity))))
         : 1;
@@ -207,6 +207,10 @@ export async function POST(req: NextRequest) {
           });
         }
         lines.push({ type: "MISC", refId: null, name, quantity: qty, unitPrice: round2(price), total: round2(price * qty) });
+        const workerId = typeof l.workerId === "string" ? l.workerId.trim() : "";
+        if (workerId) {
+          customStaff.push({ workerId, name: qty > 1 ? `${name} ×${qty}` : name, total: round2(price * qty) });
+        }
       } else if (l.kind === "SERVICE") {
         const svc = typeof l.id === "string" ? extraServiceMap.get(l.id) : undefined;
         if (!svc) {
@@ -234,6 +238,23 @@ export async function POST(req: NextRequest) {
     }
 
     if (lines.length === 0) return err("Appointment has no billable services", 422);
+
+    // A stylist named on a custom service must be real and active at this branch.
+    const customWorkerIds = [...new Set(customStaff.map((c) => c.workerId))];
+    if (customWorkerIds.length > 0) {
+      const valid = await prisma.workerProfile.count({
+        where: {
+          id: { in: customWorkerIds },
+          isActive: true,
+          branches: { some: { branchId: appointment.branchId, isActive: true } },
+        },
+      });
+      if (valid !== customWorkerIds.length) {
+        return err("Validation failed", 422, {
+          extraLines: ["Choose a stylist who works at this branch for the custom service"],
+        });
+      }
+    }
 
     const totals = computeInvoiceTotals({
       lines,
@@ -330,6 +351,14 @@ export async function POST(req: NextRequest) {
         entry.names.push(svc.service.name);
         entry.rawTotal += Number(svc.price ?? 0);
         workerMap.set(svc.workerId, entry);
+      }
+      // Custom services go under the stylist named for them, same format and the
+      // same discount treatment. They were never on the Sheet, so nothing to remove.
+      for (const c of customStaff) {
+        const entry = workerMap.get(c.workerId) ?? { names: [], rawTotal: 0 };
+        entry.names.push(c.name);
+        entry.rawTotal += c.total;
+        workerMap.set(c.workerId, entry);
       }
       if (workerMap.size > 0) {
         const subtotalBase = totals.subtotal > 0 ? totals.subtotal : 1;

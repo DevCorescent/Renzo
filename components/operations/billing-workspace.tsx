@@ -44,12 +44,24 @@ function matches(haystack: string, needle: string) {
   return haystack.toLowerCase().includes(needle);
 }
 
+/** The server-side invoice history window this page shows. */
+export type BillingHistory = {
+  q: string;
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+  /** Invoices matching the filters, across every page. */
+  total: number;
+};
+
 export function BillingWorkspace({
   invoices,
   unbilled,
   basePath,
   showBranch,
   catalogue,
+  history,
 }: {
   invoices: BillingInvoiceRow[];
   unbilled: BillingUnbilledRow[];
@@ -57,9 +69,25 @@ export function BillingWorkspace({
   showBranch: boolean;
   /** Active services and products the desk can add ad-hoc to an appointment bill. */
   catalogue: CatalogueItem[];
+  history: BillingHistory;
 }) {
-  const [query, setQuery] = React.useState("");
+  const [query, setQuery] = React.useState(history.q);
   const needle = query.trim().toLowerCase();
+  const filtering = Boolean(history.q || history.from || history.to);
+
+  /** Same filters, another page. */
+  const pageHref = (page: number) => {
+    const params = new URLSearchParams();
+    if (history.q) params.set("q", history.q);
+    if (history.from) params.set("from", history.from);
+    if (history.to) params.set("to", history.to);
+    if (page > 1) params.set("page", String(page));
+    const qs = params.toString();
+    return qs ? `${basePath}?${qs}` : basePath;
+  };
+  const firstShown = history.total === 0 ? 0 : (history.page - 1) * history.pageSize + 1;
+  const lastShown = Math.min(history.total, history.page * history.pageSize);
+  const hasOlder = lastShown < history.total;
 
   const filteredUnbilled = React.useMemo(() => {
     if (!needle) return unbilled;
@@ -71,7 +99,11 @@ export function BillingWorkspace({
     );
   }, [unbilled, needle]);
 
+  // Once a search is submitted the server has already filtered these rows; only
+  // an unsubmitted edit narrows them further.
+  const invoiceNeedle = query.trim() === history.q ? "" : needle;
   const filteredInvoices = React.useMemo(() => {
+    const needle = invoiceNeedle;
     if (!needle) return invoices;
     return invoices.filter((row) =>
       matches(
@@ -81,7 +113,7 @@ export function BillingWorkspace({
         needle,
       ),
     );
-  }, [invoices, needle]);
+  }, [invoices, invoiceNeedle]);
 
   return (
     <div className="space-y-6">
@@ -89,9 +121,13 @@ export function BillingWorkspace({
         <div>
           <h1 className="text-xl font-semibold text-gray-900 dark:text-(--sa-text)">Manual Billing</h1>
           <p className="mt-0.5 text-sm text-gray-500 dark:text-(--sa-text-2)">
-            {invoices.length} recent invoice{invoices.length === 1 ? "" : "s"}
+            {history.total} invoice{history.total === 1 ? "" : "s"}
+            {filtering ? " matching" : ""}
           </p>
         </div>
+        {/* Enter / Search looks through ALL invoices on the server; typing alone
+            narrows the rows already on screen, as before. */}
+        <form method="get" action={basePath} className="flex w-full flex-wrap items-end gap-2 sm:max-w-2xl sm:justify-end">
         <label className="relative w-full sm:max-w-sm">
           <span className="sr-only">Search invoices and customers</span>
           <Search
@@ -100,6 +136,7 @@ export function BillingWorkspace({
           />
           <input
             type="text"
+            name="q"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search customer, invoice, phone or service…"
@@ -116,6 +153,26 @@ export function BillingWorkspace({
             </button>
           )}
         </label>
+        <label className="text-xs text-gray-500 dark:text-(--sa-text-2)">
+          From
+          <input type="date" name="from" defaultValue={history.from} className={dateCls} />
+        </label>
+        <label className="text-xs text-gray-500 dark:text-(--sa-text-2)">
+          To
+          <input type="date" name="to" defaultValue={history.to} className={dateCls} />
+        </label>
+        <button
+          type="submit"
+          className="h-10 rounded-lg bg-gray-900 px-4 text-sm font-medium text-white transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-white/90"
+        >
+          Search
+        </button>
+        {filtering && (
+          <Link href={basePath} className="h-10 content-center px-2 text-sm text-gray-500 underline-offset-2 hover:underline">
+            Clear
+          </Link>
+        )}
+        </form>
       </div>
 
       {needle && (
@@ -204,7 +261,7 @@ export function BillingWorkspace({
                   colSpan={showBranch ? 8 : 7}
                   className="px-4 py-8 text-center text-sm text-gray-400"
                 >
-                  {needle ? "No matching invoices." : "No invoices yet."}
+                  {needle || filtering ? "No matching invoices." : "No invoices yet."}
                 </td>
               </tr>
             ) : (
@@ -245,7 +302,31 @@ export function BillingWorkspace({
             )}
           </tbody>
         </Table>
+        {history.total > 0 && (
+          <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 text-xs text-gray-500 dark:border-white/5 dark:text-(--sa-text-2)">
+            <span>
+              Showing {firstShown}–{lastShown} of {history.total}
+            </span>
+            <div className="flex gap-2">
+              {history.page > 1 && (
+                <Link href={pageHref(history.page - 1)} className={pagerCls}>
+                  ← Newer
+                </Link>
+              )}
+              {hasOlder && (
+                <Link href={pageHref(history.page + 1)} className={pagerCls}>
+                  Older →
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );
 }
+
+const dateCls =
+  "mt-1 block h-10 rounded-lg border border-gray-200 bg-white px-2 text-sm text-gray-900 outline-none focus:border-gray-400 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text)";
+const pagerCls =
+  "rounded-md border border-gray-200 px-3 py-1.5 font-medium text-gray-700 transition hover:bg-gray-50 dark:border-(--sa-border) dark:text-(--sa-text) dark:hover:bg-white/5";
