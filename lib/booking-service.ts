@@ -148,7 +148,9 @@ export async function createBooking(
   const serviceIds = [
     ...new Set((serviceLines ? serviceLines.map((l) => l.serviceId) : input.serviceIds ?? []).filter(Boolean)),
   ];
-  if (serviceIds.length === 0) {
+  // Online bookings always need a catalogue service. The desk can skip services
+  // when all items are custom lines billed directly on the invoice (MISC extras).
+  if (serviceIds.length === 0 && !isDeskBooking) {
     return fail("At least one service is required", 422, { serviceIds: ["Choose a service"] });
   }
 
@@ -279,6 +281,9 @@ export async function createBooking(
     };
   });
 
+  // Custom-only desk bookings have no services — default to 30 min so the slot
+  // is non-zero and shows meaningfully on the board.
+  if (totalDuration === 0) totalDuration = 30;
   const endTime = addMinutes(start, totalDuration);
 
   // ── Worker (optional) ────────────────────────────────────────────────────

@@ -1768,7 +1768,7 @@ export function WalkInConsole({
                   {detailsBlock}
 
                   {/* Quick bill: take the payment in the same click */}
-                  {quickMode && rows.length > 0 && (
+                  {quickMode && (rows.length > 0 || customLines.length > 0) && (
                     <div className={cn(panelMuted, "p-4")}>
                       <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-(--sa-text)">
                         <Wallet className="size-4" aria-hidden="true" /> Payment
@@ -1830,7 +1830,7 @@ export function WalkInConsole({
                     </p>
                   )}
 
-                  {rows.length > 0 && staffHint && (
+                  {(rows.length > 0 || customLines.length > 0) && staffHint && (
                     <p className="flex items-start gap-2 text-xs text-amber-700 dark:text-amber-300">
                       <CircleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                       {staffHint}
@@ -1841,10 +1841,10 @@ export function WalkInConsole({
                   <div className="flex flex-col-reverse gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-end dark:border-(--sa-border)">
                     {quickMode ? (
                       <>
-                        <button type="button" onClick={() => generateBill(false)} disabled={busy || rows.length === 0} className={btnSecondary}>
+                        <button type="button" onClick={() => generateBill(false)} disabled={busy || (rows.length === 0 && customLines.length === 0)} className={btnSecondary}>
                           <Receipt className="size-4" aria-hidden="true" /> Bill now, collect later
                         </button>
-                        <button type="button" onClick={() => generateBill(true)} disabled={busy || rows.length === 0 || amountInvalid} className={btnPrimary}>
+                        <button type="button" onClick={() => generateBill(true)} disabled={busy || (rows.length === 0 && customLines.length === 0) || amountInvalid} className={btnPrimary}>
                           {busy ? spinner : <Zap className="size-4" aria-hidden="true" />}
                           {busy && busyLabel ? "Working…" : `Generate bill & collect ${payLabel}`}
                         </button>
@@ -1854,14 +1854,14 @@ export function WalkInConsole({
                         <button
                           type="button"
                           onClick={() => generateBill(false)}
-                          disabled={busy || rows.length === 0}
+                          disabled={busy || (rows.length === 0 && customLines.length === 0)}
                           className={btnSecondary}
                           title="Book, mark served and raise the invoice in one step"
                         >
                           <Receipt className="size-4" aria-hidden="true" />
                           {isFutureBooking ? "Book & bill in advance" : "Generate bill now"}
                         </button>
-                        <button type="button" onClick={book} disabled={busy || rows.length === 0 || !apptDate} className={btnPrimary}>
+                        <button type="button" onClick={book} disabled={busy || (rows.length === 0 && customLines.length === 0) || !apptDate} className={btnPrimary}>
                           {busy ? spinner : <CalendarPlus className="size-4" aria-hidden="true" />}
                           {isFutureBooking ? `Book for ${formatApptDate(apptDate)}` : "Confirm booking"}
                         </button>
