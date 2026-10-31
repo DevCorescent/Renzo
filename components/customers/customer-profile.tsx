@@ -45,6 +45,8 @@ type AppointmentSummary = {
   status: string;
   totalAmount: number;
   branch: { name: string } | null;
+  services: { service: { name: string } }[];
+  invoice: { id: string; invoiceNo: string } | null;
 };
 
 type CustomerDetail = CustomerRow & { appointments: AppointmentSummary[] };
@@ -173,36 +175,43 @@ export async function CustomerProfile({
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Recent appointments</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Visit history</CardTitle>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-(--sa-muted)">Last {c.appointments.length} visits</p>
+        </CardHeader>
         <Table>
           <THead>
             <tr>
               <TH>Number</TH>
               <TH>Date</TH>
-              <TH>Time</TH>
+              <TH>Services</TH>
               <TH>Branch</TH>
               <TH>Status</TH>
               <TH>Amount</TH>
+              <TH>Invoice</TH>
             </tr>
           </THead>
           <tbody>
             {c.appointments.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400 dark:text-(--sa-muted)">
-                  No appointments yet.
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400 dark:text-(--sa-muted)">
+                  No visits yet.
                 </td>
               </tr>
             ) : (
               c.appointments.map((a) => (
                 <TR key={a.id}>
-                  <TD className="font-mono text-xs text-gray-600 dark:text-(--sa-text-2)">
+                  <TD className="whitespace-nowrap font-mono text-xs text-gray-600 dark:text-(--sa-text-2)">
                     {a.appointmentNo}
                   </TD>
                   <TD className="whitespace-nowrap text-xs text-gray-600 dark:text-(--sa-text-2)">
-                    {formatDate(a.appointmentDate)}
+                    <div>{formatDate(a.appointmentDate)}</div>
+                    <div className="text-gray-400">{a.startTime}</div>
                   </TD>
-                  <TD className="whitespace-nowrap font-mono text-xs text-gray-600 dark:text-(--sa-text-2)">
-                    {a.startTime}
+                  <TD className="max-w-52 text-xs text-gray-600 dark:text-(--sa-text-2)">
+                    {a.services.length > 0
+                      ? a.services.map((s) => s.service.name).join(", ")
+                      : <span className="text-gray-400">—</span>}
                   </TD>
                   <TD className="whitespace-nowrap text-xs text-gray-500 dark:text-(--sa-text-2)">
                     {a.branch?.name ?? "—"}
@@ -212,6 +221,18 @@ export async function CustomerProfile({
                   </TD>
                   <TD className="whitespace-nowrap text-xs font-medium text-gray-800 dark:text-(--sa-text)">
                     {formatCurrency(a.totalAmount)}
+                  </TD>
+                  <TD className="whitespace-nowrap text-xs">
+                    {a.invoice ? (
+                      <Link
+                        href={`${backPath.replace("/customers", "/billing")}/${a.invoice.id}`}
+                        className="font-mono text-gray-500 underline hover:text-gray-800 dark:text-(--sa-text-2) dark:hover:text-(--sa-text)"
+                      >
+                        #{a.invoice.invoiceNo}
+                      </Link>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </TD>
                 </TR>
               ))

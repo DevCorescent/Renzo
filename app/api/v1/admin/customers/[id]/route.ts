@@ -98,7 +98,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         ...CUSTOMER_SELECT,
         appointments: {
           orderBy: { appointmentDate: "desc" },
-          take: 10,
+          take: 20,
           select: {
             id: true,
             appointmentNo: true,
@@ -107,6 +107,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             status: true,
             totalAmount: true,
             branch: { select: { name: true } },
+            services: { select: { service: { select: { name: true } } } },
+            invoice: { select: { id: true, invoiceNo: true } },
           },
         },
       },

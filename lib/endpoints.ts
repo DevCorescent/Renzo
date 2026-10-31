@@ -184,6 +184,7 @@ export const API = {
     membershipPlan:   (id: string) => `${BASE}/admin/memberships/plans/${id}`,
     membershipAnalytics: `${BASE}/admin/memberships/analytics`,
     membershipPlanCustomers: (id: string) => `${BASE}/admin/memberships/plans/${id}/customers`,
+    membershipCustomers: `${BASE}/admin/memberships/customers`,
 
     // Admin — Marketing (Shalmon)
     coupons:          `${BASE}/admin/coupons`,

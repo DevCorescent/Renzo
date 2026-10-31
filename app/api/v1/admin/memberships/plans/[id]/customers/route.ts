@@ -12,6 +12,7 @@
 import { NextRequest } from "next/server";
 import { err, paginated, parsePagination } from "@/lib/response";
 import { requireAuth } from "@/lib/auth-guard";
+import { requireBranchScope } from "@/lib/branch-scope";
 import prisma from "@/lib/db";
 import type { MembershipStatus, Prisma } from "@prisma/client";
 
@@ -19,8 +20,18 @@ const STATUSES: MembershipStatus[] = ["ACTIVE", "EXPIRED", "FROZEN", "CANCELLED"
 
 // GET /api/v1/admin/memberships/plans/[id]/customers?search&status&page&limit
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await requireAuth(req, "SUPER_ADMIN", "OWNER");
+  const { user, error } = await requireAuth(req, "SUPER_ADMIN", "OWNER", "BRANCH_ADMIN");
   if (error) return error;
+
+  // BRANCH_ADMIN is branch-scoped; the plan must belong to their branch (or be global).
+  let branchScopeFilter: Prisma.CustomerMembershipWhereInput = {};
+  if (user.userType === "BRANCH_ADMIN") {
+    const { scope, error: scopeErr } = requireBranchScope(user);
+    if (scopeErr) return scopeErr;
+    if (scope && !scope.isGlobal && scope.branchId) {
+      branchScopeFilter = { customer: { branchId: scope.branchId } };
+    }
+  }
 
   try {
     const { id } = await params;
@@ -32,6 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // so it can only narrow within the plan, never widen.
     const where: Prisma.CustomerMembershipWhereInput = {
       planId: id,
+      ...branchScopeFilter,
       ...(status && STATUSES.includes(status as MembershipStatus) ? { status: status as MembershipStatus } : {}),
       ...(search
         ? {

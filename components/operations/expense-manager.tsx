@@ -162,6 +162,7 @@ export function ExpenseManager({
   // ── Search / filter ───────────────────────────────────────────────────────
   const [search, setSearch] = React.useState("");
   const [monthFilter, setMonthFilter] = React.useState(today.slice(0, 7));
+  const [catFilter, setCatFilter] = React.useState("");
   const availableMonths = React.useMemo(
     () =>
       Array.from(
@@ -298,6 +299,7 @@ export function ExpenseManager({
   const visibleRows = React.useMemo(() => {
     return rows.filter((r) => {
       if (monthFilter && r.expenseDate.slice(0, 7) !== monthFilter) return false;
+      if (catFilter && r.category !== catFilter) return false;
       if (tokens.length === 0) return true;
 
       const haystack = [
@@ -325,18 +327,42 @@ export function ExpenseManager({
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, needle, monthFilter]);
+  }, [rows, needle, monthFilter, catFilter]);
 
-  const isFiltering = tokens.length > 0 || monthFilter !== "";
+  const isFiltering = tokens.length > 0 || monthFilter !== "" || catFilter !== "";
   const shownCount = isFiltering ? visibleRows.length : total;
   const shownTotal = isFiltering
     ? visibleRows.reduce((sum, r) => sum + Number(r.amount), 0)
     : filteredTotal;
-  const totalLabel = tokens.length > 0
-    ? `Total spent (${monthFilter ? `${formatMonth(monthFilter)} · filtered` : "filtered"})`
-    : monthFilter
-      ? `Total spent (${formatMonth(monthFilter)})`
-      : "Total spent (all time)";
+  const totalLabel = catFilter
+    ? `Total (${expenseCategoryLabel(catFilter, null)}${monthFilter ? ` · ${formatMonth(monthFilter)}` : ""})`
+    : tokens.length > 0
+      ? `Total spent (${monthFilter ? `${formatMonth(monthFilter)} · filtered` : "filtered"})`
+      : monthFilter
+        ? `Total spent (${formatMonth(monthFilter)})`
+        : "Total spent (all time)";
+
+  // Category-wise breakdown for current filter scope (month + search, ignoring catFilter)
+  const categoryBreakdown = React.useMemo(() => {
+    const scope = rows.filter((r) => {
+      if (monthFilter && r.expenseDate.slice(0, 7) !== monthFilter) return false;
+      if (tokens.length > 0) {
+        const haystack = [
+          r.expenseDate.slice(0, 10),
+          expenseCategoryLabel(r.category, r.customCategory),
+          r.description, r.vendor, r.referenceNo, r.branch?.name, labelise(r.paidVia),
+        ].filter(Boolean).join(" ").toLowerCase();
+        if (!tokens.every((t) => haystack.includes(t))) return false;
+      }
+      return true;
+    });
+    const map = new Map<string, number>();
+    for (const r of scope) map.set(r.category, (map.get(r.category) ?? 0) + Number(r.amount));
+    return [...map.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, amt]) => ({ cat, amt }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, monthFilter, needle]);
 
   return (
     // The form sits beside the table only on very wide screens; below that it
@@ -640,7 +666,7 @@ export function ExpenseManager({
                 </button>
               )}
             </div>
-            <div className="w-full sm:w-52">
+            <div className="w-full sm:w-44">
               <label className="sr-only" htmlFor="expense-month-filter">
                 Filter expenses by month
               </label>
@@ -658,7 +684,43 @@ export function ExpenseManager({
                 ))}
               </Select>
             </div>
+            <div className="w-full sm:w-44">
+              <label className="sr-only" htmlFor="expense-cat-filter">
+                Filter by category
+              </label>
+              <Select
+                id="expense-cat-filter"
+                aria-label="Filter by category"
+                value={catFilter}
+                onChange={(e) => setCatFilter(e.target.value)}
+              >
+                <option value="">All categories</option>
+                {EXPENSE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{labelise(c)}</option>
+                ))}
+              </Select>
+            </div>
           </div>
+          {categoryBreakdown.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {categoryBreakdown.map(({ cat, amt }) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCatFilter(catFilter === cat ? "" : cat)}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs transition",
+                    catFilter === cat
+                      ? "border-gray-800 bg-gray-900 text-white dark:border-white/30 dark:bg-white dark:text-gray-900"
+                      : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100 dark:border-(--sa-border) dark:bg-(--sa-surface) dark:text-(--sa-text-2) dark:hover:bg-white/5",
+                  )}
+                >
+                  <span>{expenseCategoryLabel(cat, null)}</span>
+                  <span className="font-semibold tabular-nums">{formatMoney(amt)}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <Table>
           <THead>
@@ -681,9 +743,11 @@ export function ExpenseManager({
                 >
                   {needle
                     ? `No expenses match "${search}".`
-                    : monthFilter
-                      ? `No expenses recorded in ${formatMonth(monthFilter)}.`
-                      : "No expenses recorded yet."}
+                    : catFilter
+                      ? `No ${expenseCategoryLabel(catFilter, null)} expenses${monthFilter ? ` in ${formatMonth(monthFilter)}` : ""}.`
+                      : monthFilter
+                        ? `No expenses recorded in ${formatMonth(monthFilter)}.`
+                        : "No expenses recorded yet."}
                 </td>
               </tr>
             ) : (
