@@ -6,6 +6,7 @@ import { CancelBookingButton } from "@/components/appointments/cancel-booking-bu
 import { EditAppointmentButton } from "@/components/appointments/edit-appointment-button";
 import { ConfirmAppointmentButton } from "@/components/appointments/confirm-appointment-button";
 import { AssignWorkerSelect } from "@/components/reception/assign-worker-select";
+import { SendReminderButton } from "@/components/appointments/send-reminder-button";
 
 // OWNER: Hemant | MODULE: Branch Admin Appointments
 
@@ -136,6 +137,15 @@ export default async function BranchAdminAppointmentsPage({
                         workerId={a.worker?.id}
                         mode="admin"
                       />
+                      {a.customer.phone && (
+                        <SendReminderButton
+                          phone={a.customer.phone}
+                          customerName={`${a.customer.firstName} ${a.customer.lastName ?? ""}`.trim()}
+                          appointmentDate={a.appointmentDate}
+                          startTime={a.startTime}
+                          services={a.services.map((s) => s.service.name).join(", ")}
+                        />
+                      )}
                       <CancelBookingButton appointmentId={a.id} status={a.status} />
                     </span>
                   </TD>

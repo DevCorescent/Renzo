@@ -1,4 +1,5 @@
 import { redirect, notFound } from "next/navigation";
+import Link from "next/link";
 import prisma from "@/lib/db";
 import { getServerUser } from "@/lib/server-session";
 import { denyIfOutOfScope, requireBranchScope } from "@/lib/branch-scope";
@@ -148,12 +149,24 @@ export async function BillingDetailPage({
         <CardBody>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-xs text-gray-500">Customer</p>
-              <p className="font-medium text-gray-900 dark:text-(--sa-text)">
-                {customer ? `${customer.firstName} ${customer.lastName ?? ""}`.trim() : "—"}
-              </p>
-              <p className="text-xs text-gray-400">{customer?.phone ?? "No phone"}</p>
-              {customer?.email && <p className="text-xs text-gray-400">{customer.email}</p>}
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs text-gray-500">Customer</p>
+                  <p className="font-medium text-gray-900 dark:text-(--sa-text)">
+                    {customer ? `${customer.firstName} ${customer.lastName ?? ""}`.trim() : "—"}
+                  </p>
+                  <p className="text-xs text-gray-400">{customer?.phone ?? "No phone"}</p>
+                  {customer?.email && <p className="text-xs text-gray-400">{customer.email}</p>}
+                </div>
+                {invoice.customerId && customerBasePath && (
+                  <Link
+                    href={`${customerBasePath}/${invoice.customerId}`}
+                    className="mt-0.5 inline-flex shrink-0 items-center rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-500 transition hover:border-gray-400 hover:text-gray-800 dark:border-(--sa-border) dark:text-(--sa-text-2) dark:hover:text-(--sa-text)"
+                  >
+                    Edit customer
+                  </Link>
+                )}
+              </div>
             </div>
             {invoice.appointment ? (
               <div>

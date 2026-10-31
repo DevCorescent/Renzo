@@ -96,6 +96,12 @@ export function InvoiceEditPanel({
     Object.fromEntries(serviceItems.map((i) => [i.id, { qty: String(i.quantity), price: String(i.unitPrice) }]))
   );
   const [tip, setTip] = React.useState(String(currentTip));
+  const [tipWorker, setTipWorker] = React.useState(() => {
+    const tipItem = items.find((i) => i.type === "TIP");
+    if (!tipItem) return "";
+    const m = tipItem.name.match(/^Tip\s*[—\-]\s*(.+)$/i);
+    return m ? m[1].trim() : "";
+  });
   // The server's answer for one edit, tagged with that edit so a reply for an
   // older set of inputs is never shown against newer ones.
   const [previewResult, setPreviewResult] = React.useState<
@@ -167,6 +173,7 @@ export function InvoiceEditPanel({
         discountAmount: discountFrom(discount, discountMode, newSubtotal),
         tipAmount: round2(t),
         ...(changed.length ? { items: changed } : {}),
+        ...(tipWorker.trim() ? { tipWorkerName: tipWorker.trim() } : {}),
       },
     };
   }
@@ -458,17 +465,31 @@ export function InvoiceEditPanel({
                     />
                     <p className="mt-1 text-[11px] text-gray-400 dark:text-(--sa-muted)">Taken off the subtotal before GST.</p>
                   </div>
-                  <div>
-                    <label htmlFor="edit-tip" className="mb-1 block text-xs font-medium text-gray-600 dark:text-(--sa-text-2)">
-                      Tip (₹)
-                    </label>
-                    <input
-                      id="edit-tip" type="number" min={0} step="0.01" inputMode="decimal"
-                      value={tip}
-                      onChange={(e) => { setTip(e.target.value); setRefundDue(null); }}
-                      className={inputCls}
-                    />
-                    <p className="mt-1 text-[11px] text-gray-400 dark:text-(--sa-muted)">Added after GST; never discounted.</p>
+                  <div className="space-y-2">
+                    <div>
+                      <label htmlFor="edit-tip" className="mb-1 block text-xs font-medium text-gray-600 dark:text-(--sa-text-2)">
+                        Tip (₹)
+                      </label>
+                      <input
+                        id="edit-tip" type="number" min={0} step="0.01" inputMode="decimal"
+                        value={tip}
+                        onChange={(e) => { setTip(e.target.value); setRefundDue(null); }}
+                        className={inputCls}
+                      />
+                      <p className="mt-1 text-[11px] text-gray-400 dark:text-(--sa-muted)">Added after GST; never discounted.</p>
+                    </div>
+                    <div>
+                      <label htmlFor="edit-tip-worker" className="mb-1 block text-xs font-medium text-gray-600 dark:text-(--sa-text-2)">
+                        Tip for (staff name)
+                      </label>
+                      <input
+                        id="edit-tip-worker" type="text" placeholder="e.g. Rahul"
+                        value={tipWorker}
+                        onChange={(e) => setTipWorker(e.target.value)}
+                        className={inputCls}
+                      />
+                      <p className="mt-1 text-[11px] text-gray-400 dark:text-(--sa-muted)">Which staff member receives this tip.</p>
+                    </div>
                   </div>
                 </div>
               )}

@@ -342,6 +342,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (hasTip && (!Number.isFinite(newTip) || newTip < 0)) {
       return err("Validation failed", 422, { tipAmount: ["Tip must be a non-negative number"] });
     }
+    // tipWorkerName: optional staff name stored in the TIP item's name field.
+    const tipWorkerName =
+      editBody && typeof editBody.tipWorkerName === "string" && editBody.tipWorkerName.trim()
+        ? editBody.tipWorkerName.trim()
+        : null;
+    const tipName = tipWorkerName ? `Tip — ${tipWorkerName}` : "Tip";
 
     const lineEdits = new Map<string, { quantity: number; unitPrice: number }>();
     if (editBody && "items" in editBody) {
@@ -386,6 +392,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       // The lines as they will be: edited quantity / price, and the tip as one
       // TIP line (dropped at ₹0). Untouched lines keep their stored values.
       const tipRow = invoice.items.find((i) => i.type === "TIP");
+      const resolvedTipName = tipName || (tipRow?.name ?? "Tip");
       const nextItems = [
         ...invoice.items
           .filter((i) => i.type !== "TIP")
@@ -396,7 +403,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
               : i;
           }),
         ...(round2(newTip) > 0
-          ? [{ ...(tipRow ?? { id: "", type: "TIP", name: "Tip", quantity: 1 }), unitPrice: round2(newTip), total: round2(newTip) }]
+          ? [{ ...(tipRow ?? { id: "", type: "TIP", name: resolvedTipName, quantity: 1 }), name: resolvedTipName, unitPrice: round2(newTip), total: round2(newTip) }]
           : []),
       ];
 
@@ -515,17 +522,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           }
         }
 
-        if (tipChanged) {
+        if (tipChanged || (tipRow && tipName && tipRow.name !== tipName)) {
           if (round2(newTip) <= 0) {
             await tx.invoiceItem.deleteMany({ where: { invoiceId: id, type: "TIP" } });
           } else if (tipRow) {
             await tx.invoiceItem.update({
               where: { id: tipRow.id },
-              data: { unitPrice: round2(newTip), total: round2(newTip), quantity: 1 },
+              data: { name: resolvedTipName, unitPrice: round2(newTip), total: round2(newTip), quantity: 1 },
             });
           } else {
             await tx.invoiceItem.create({
-              data: { invoiceId: id, type: "TIP", name: "Tip", quantity: 1, unitPrice: round2(newTip), total: round2(newTip) },
+              data: { invoiceId: id, type: "TIP", name: resolvedTipName, quantity: 1, unitPrice: round2(newTip), total: round2(newTip) },
             });
           }
         }
