@@ -149,7 +149,9 @@ export async function createCustomer(params: {
 }): Promise<CreateCustomerResult> {
   const { input, createdByUserId, branchId, isManualEntry } = params;
 
-  const duplicate = await findDuplicateByPhone(prisma, input.phone);
+  const phone = input.phone ?? null;
+
+  const duplicate = phone ? await findDuplicateByPhone(prisma, phone) : null;
   if (duplicate && !input.allowDuplicate) {
     return {
       ok: false,
@@ -161,10 +163,12 @@ export async function createCustomer(params: {
 
   // The phone may belong to a STAFF account, which is a hard stop rather than a
   // duplicate — we must never attach a customer profile to an employee's login.
-  const phoneOwner = await prisma.user.findFirst({
-    where: { phone: input.phone },
-    select: { id: true, userType: true, customerProfile: { select: { id: true } } },
-  });
+  const phoneOwner = phone
+    ? await prisma.user.findFirst({
+        where: { phone },
+        select: { id: true, userType: true, customerProfile: { select: { id: true } } },
+      })
+    : null;
   if (phoneOwner && phoneOwner.userType !== "CUSTOMER") {
     return {
       ok: false,
@@ -186,7 +190,7 @@ export async function createCustomer(params: {
     data: {
       firstName: input.firstName,
       lastName: input.lastName ?? null,
-      phone: input.phone,
+      phone: phone,
       alternatePhone: input.alternatePhone ?? null,
       email: input.email ?? null,
       gender: input.gender ?? null,
@@ -207,7 +211,7 @@ export async function createCustomer(params: {
           // Walk-ins are unverified by design: no email confirmation, no password.
           userType: "CUSTOMER",
           isVerified: false,
-          ...(phoneIsFree ? { phone: input.phone } : {}),
+          ...(phoneIsFree && phone ? { phone } : {}),
           ...(input.email && phoneIsFree ? { email: input.email } : {}),
         },
       },

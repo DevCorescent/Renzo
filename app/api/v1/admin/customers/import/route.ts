@@ -187,17 +187,19 @@ export async function POST(req: NextRequest) {
         return;
       }
 
-      const key = phoneKey(parsed.data.phone);
-      const firstSeen = seenInFile.get(key);
-      if (firstSeen !== undefined) {
-        errors.push({
-          row: line,
-          field: "phone",
-          message: `Duplicate of row ${firstSeen} in this file`,
-        });
-        return;
+      if (parsed.data.phone) {
+        const key = phoneKey(parsed.data.phone);
+        const firstSeen = seenInFile.get(key);
+        if (firstSeen !== undefined) {
+          errors.push({
+            row: line,
+            field: "phone",
+            message: `Duplicate of row ${firstSeen} in this file`,
+          });
+          return;
+        }
+        seenInFile.set(key, line);
       }
-      seenInFile.set(key, line);
 
       prepared.push({ line, input: raw });
     });
