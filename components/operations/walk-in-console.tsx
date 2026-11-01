@@ -930,7 +930,7 @@ export function WalkInConsole({
       const data = await post(API.reception.customers, {
         firstName: newName.trim().split(/\s+/)[0],
         lastName:  newName.trim().split(/\s+/).slice(1).join(" ") || null,
-        phone:     newPhone.trim(),
+        phone:     newPhone.trim() || null,
         email:     newEmail.trim() || null,
         entrySource:  "WALK_IN",
         customerType: "WALK_IN",
