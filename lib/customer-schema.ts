@@ -120,14 +120,14 @@ const DateOnly = z
 /**
  * A manually entered customer.
  *
- * Only NAME and PHONE are required. That is the whole design: the front desk must
- * be able to create a bookable customer in seconds while someone waits, and every
- * other field is something the salon can fill in later from the profile page.
+ * Only NAME is required. Phone is strongly recommended but optional — some
+ * walk-in customers decline to share their number, and blocking the desk on
+ * a missing field creates more problems than a nameless record.
  */
 export const CustomerCreateSchema = z.object({
   firstName: z.string().trim().min(1, "Customer name is required").max(60),
   lastName: OptionalText(60),
-  phone: PhoneField,
+  phone: PhoneField.nullable().optional(),
   alternatePhone: PhoneField.nullable().optional(),
   email: z.string().trim().toLowerCase().email("Enter a valid email").nullable().optional(),
   gender: z.enum(CUSTOMER_GENDERS).nullable().optional(),

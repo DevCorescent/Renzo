@@ -207,6 +207,7 @@ export async function POST(req: NextRequest) {
         branchId,
         customerName: isNonEmptyString(body.customerName) ? (body.customerName as string) : "",
         customerPhone: isNonEmptyString(body.customerPhone) ? (body.customerPhone as string) : "",
+        customerId: isNonEmptyString(body.customerId) ? (body.customerId as string) : null,
         serviceIds: Array.isArray(body.serviceIds) ? (body.serviceIds as string[]) : [],
         workerId: isNonEmptyString(body.workerId) ? (body.workerId as string) : null,
         appointmentDate: isNonEmptyString(body.appointmentDate)

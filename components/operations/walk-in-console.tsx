@@ -794,7 +794,8 @@ export function WalkInConsole({
     const primaryWorkerId = rows.find((r) => r.workerId)?.workerId ?? "";
 
     const data = await post(API.reception.appointments, {
-      customerPhone: customer!.phone,
+      customerId:    customer!.id,
+      customerPhone: customer!.phone ?? "",
       customerName:  `${customer!.firstName} ${customer!.lastName ?? ""}`.trim(),
       serviceIds:    rows.map((r) => r.serviceId),
       // One line per person, so a repeated service keeps each person's stylist.
@@ -1400,14 +1401,14 @@ export function WalkInConsole({
                   </p>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <input value={newName}  onChange={(e) => setNewName(e.target.value)}  placeholder="Full name" aria-label="Full name" className={inputCls} />
-                    <input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="Mobile" aria-label="Mobile" inputMode="tel" className={inputCls} />
+                    <input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="Mobile (optional)" aria-label="Mobile" inputMode="tel" className={inputCls} />
                     <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Email (optional)" aria-label="Email" type="email" className={inputCls} />
                   </div>
                   <div className="mt-3 flex justify-end">
                     <button
                       type="button"
                       onClick={createCustomer}
-                      disabled={busy || !newName.trim() || !newPhone.trim()}
+                      disabled={busy || !newName.trim()}
                       className={btnPrimary}
                     >
                       {busy ? spinner : <UserPlus className="size-4" aria-hidden="true" />}

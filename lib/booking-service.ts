@@ -42,6 +42,8 @@ export function appointmentNo(): string {
 export type BookingInput = {
   branchId: string;
   customerPhone: string;
+  /** Direct customer id — when provided by the desk, skips phone-based lookup. */
+  customerId?: string | null;
   customerName: string;
   customerEmail?: string | null;
   serviceIds: string[];
@@ -127,7 +129,12 @@ export async function createBooking(
 ): Promise<BookingSuccess | BookingFailure> {
   // ── Shape ────────────────────────────────────────────────────────────────
   const phone = input.customerPhone?.trim() ?? "";
-  if (!phone) return fail("Customer phone is required", 422, { customerPhone: ["Required"] });
+  const directCustomerId = input.customerId?.trim() || null;
+  // Phone is required for online bookings. The desk passes customerId directly
+  // (customer already created by walk-in flow), so phone can be absent there.
+  if (!phone && !directCustomerId) {
+    return fail("Customer phone is required", 422, { customerPhone: ["Required"] });
+  }
 
   const name = input.customerName?.trim() ?? "";
   if (!name) return fail("Customer name is required", 422, { customerName: ["Required"] });
@@ -449,7 +456,10 @@ export async function createBooking(
   }
 
   // ── Customer ─────────────────────────────────────────────────────────────
-  const resolved = await resolveCustomerForBooking({
+  // Desk walk-in: customer already exists, use their id directly.
+  const resolved = directCustomerId
+    ? { ok: true as const, customerId: directCustomerId }
+    : await resolveCustomerForBooking({
     db: prisma,
     phone,
     name,
