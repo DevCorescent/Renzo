@@ -6,13 +6,20 @@ declare global {
 }
 
 function createPrismaClient() {
-  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
+  const adapter = new PrismaNeon(
+    { connectionString: process.env.DATABASE_URL! },
+    {
+      // Neon WebSocket reconnects log spurious "non-101" errors that are
+      // handled internally — silence them so the console stays meaningful.
+      onPoolError: () => {},
+      onConnectionError: () => {},
+    },
+  );
   return new PrismaClient({
     adapter,
-    log:
-      process.env.NODE_ENV === "production"
-        ? ["error"]
-        : ["query", "error", "warn"],
+    // Omit "error" from dev logs: Neon WS reconnect noise is captured by the
+    // callbacks above; real query failures still throw as exceptions.
+    log: process.env.NODE_ENV === "production" ? ["error"] : ["warn"],
   });
 }
 
